@@ -1,0 +1,75 @@
+/* eslint-disable prettier/prettier */
+export const Permission = {
+  ROLE: {
+    CREATE: 'ROLE_CREATE',
+    WRITE: 'ROLE_UPDATE',
+    READ: 'ROLE_READ',
+    DELETE: 'ROLE_DELETE',
+    ALL: 'ROLE_LIST',
+  },
+  USER: {
+    CREATE: 'USER_CREATE',
+    WRITE: 'USER_UPDATE',
+    READ: 'USER_READ',
+    DELETE: 'USER_DELETE',
+    ALL: 'USER_LIST',
+  },
+  RULE: {
+    CREATE: 'RULE_CREATE',
+    WRITE: 'RULE_UPDATE',
+    READ: 'RULE_READ',
+    DELETE: 'RULE_DELETE',
+    ALL: 'RULE_LIST',
+  },
+  STORE: {
+    CREATE: 'RESTAURANT_CREATE',
+    WRITE: 'RESTAURANT_UPDATE',
+    READ: 'RESTAURANT_READ',
+    DELETE: 'RESTAURANT_DELETE',
+    ALL: 'RESTAURANT_LIST',
+  },
+  CATEGORY: {
+    CREATE: 'CATEGORY_CREATE',
+    WRITE: 'CATEGORY_UPDATE',
+    READ: 'CATEGORY_READ',
+    DELETE: 'CATEGORY_DELETE',
+    ALL: 'CATEGORY_LIST',
+  },
+  ORDER: {
+    CREATE: 'ORDER_CREATE',
+    WRITE: 'ORDER_UPDATE',
+    READ: 'ORDER_READ',
+    DELETE: 'ORDER_DELETE',
+    ALL: 'ORDER_LIST',
+  },
+  SHIPPER: {
+    CREATE: 'SHIPPER_CREATE',
+    WRITE: 'SHIPPER_UPDATE',
+    READ: 'SHIPPER_READ',
+    DELETE: 'SHIPPER_DELETE',
+    ALL: 'SHIPPER_LIST',
+  },
+  DASHBOARD: {
+    CREATE: 'DASHBOARD_CREATE',
+    WRITE: 'DASHBOARD_UPDATE',
+    READ: 'DASHBOARD_READ',
+    DELETE: 'DASHBOARD_DELETE',
+    ALL: 'DASHBOARD_LIST',
+  },
+  PROMOTION: {
+    CREATE: 'PROMOTION_CREATE',
+    WRITE: 'PROMOTION_UPDATE',
+    READ: 'PROMOTION_READ',
+    DELETE: 'PROMOTION_DELETE',
+    ALL: 'PROMOTION_LIST',
+  },
+  FOOD: {
+    CREATE: 'FOOD_CREATE',
+    WRITE: 'FOOD_UPDATE',
+    READ: 'FOOD_READ',
+    DELETE: 'FOOD_DELETE',
+    ALL: 'FOOD_LIST',
+  }
+} as const;
+
+export type PermissionType = (typeof Permission)[keyof typeof Permission];
