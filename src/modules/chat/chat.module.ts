@@ -3,7 +3,6 @@ import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { FoodService } from '../food/food.service';
-import { OrderService } from '../order/order.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Food } from 'src/entities/food.entity';
 import { Order } from 'src/entities/order.entity';
@@ -32,15 +31,41 @@ import { Topping } from 'src/entities/topping.entity';
 import { MapboxService } from 'src/services/mapbox.service';
 import { QueueModule } from 'src/queue/queue.module';
 
-
 @Module({
-  imports: [TypeOrmModule.forFeature([Food, Topping,
-    SystemConstraint, Order, Restaurant, Category, Review, OrderDetail, User, Address, Promotion, Checkout, PendingShipperAssignment, Notification, ShippingDetail]),
-  OrderModule,
-  QueueModule,
-], 
+  imports: [
+    TypeOrmModule.forFeature([
+      Food,
+      Topping,
+      SystemConstraint,
+      Order,
+      Restaurant,
+      Category,
+      Review,
+      OrderDetail,
+      User,
+      Address,
+      Promotion,
+      Checkout,
+      PendingShipperAssignment,
+      Notification,
+      ShippingDetail,
+    ]),
+    OrderModule,
+    QueueModule,
+  ],
   controllers: [ChatController],
-  providers: [ChatService, SystemConstraintsService,
-    JwtModule, FoodService, OrderService, GoogleCloudStorageService, PromotionService, JwtService, AddressService, RestaurantService, GeocodingService, MapboxService],
+  providers: [
+    ChatService,
+    SystemConstraintsService,
+    JwtModule,
+    FoodService,
+    GoogleCloudStorageService,
+    PromotionService,
+    JwtService,
+    AddressService,
+    RestaurantService,
+    GeocodingService,
+    MapboxService,
+  ],
 })
 export class ChatModule {}
