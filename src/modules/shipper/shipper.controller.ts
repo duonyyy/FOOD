@@ -1,7 +1,15 @@
-import { Controller, Post, Body, UseGuards, Req, Param, Get, Query, BadRequestException } from '@nestjs/common';
-import { AuthGuard } from 'src/auth/auth.guard';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { ShipperService } from './shipper.service';
-import { log } from 'console';
 
 @Controller('shippers')
 export class ShipperController {
@@ -12,7 +20,7 @@ export class ShipperController {
   async acceptOrder(
     @Body('orderId') orderId: string,
     @Body('responseTimeSeconds') responseTimeSeconds: number,
-    @Req() req
+    @Req() req,
   ) {
     if (responseTimeSeconds === undefined) {
       responseTimeSeconds = 0; // Default to 0 if not provided
@@ -24,8 +32,7 @@ export class ShipperController {
 
   @Post('get-order')
   @UseGuards(AuthGuard)
-  async getOrder(@Body('orderId') orderId: string, @Req() req
-  ) {
+  async getOrder(@Body('orderId') orderId: string, @Req() req) {
     const userId = req.user?.userId || req.user?.uid || req.user?.id;
     if (!orderId) {
       throw new BadRequestException('Order ID is required');
@@ -52,7 +59,7 @@ export class ShipperController {
   async rejectOrder(
     @Body('orderId') orderId: string,
     @Body('responseTimeSeconds') responseTimeSeconds: number,
-    @Req() req
+    @Req() req,
   ) {
     if (responseTimeSeconds === undefined) {
       responseTimeSeconds = 0; // Default to 0 if not provided
@@ -71,7 +78,6 @@ export class ShipperController {
 
   // Keep the original endpoint for backward compatibility
 
-
   @UseGuards(AuthGuard)
   @Get('order-history')
   async getHistory(@Req() req) {
@@ -86,7 +92,6 @@ export class ShipperController {
     return this.shipperService.getDriverProfile(userId);
   }
 
-
   @Get('income-report')
   @UseGuards(AuthGuard)
   async getIncomeReport(
@@ -94,66 +99,65 @@ export class ShipperController {
     @Query('range') range: 'today' | 'week' | 'month',
     @Query('month') month?: string,
     @Query('year') year?: string,
-) {
+  ) {
     const shipperId = req.user.id || req.user.uid;
     return this.shipperService.getIncomeReport(shipperId, range, month, year);
   }
-  
+
   @Post('update-location')
   @UseGuards(AuthGuard)
   async updateLocation(
     @Body('latitude') latitude: number,
     @Body('longitude') longitude: number,
-    @Req() req
+    @Req() req,
   ) {
     const shipperId = req.user.uid || req.user.id;
     //log(`Updating location for shipper ${shipperId}: ${latitude}, ${longitude}`);
     return this.shipperService.updateLocation(shipperId, latitude, longitude);
   }
 
-@Get('dashboard')
-@UseGuards(AuthGuard)
-async getDashboard(@Req() req) {
-  const shipperId = req.user.id || req.user.uid;
-  return this.shipperService.getShipperDashboard(shipperId);
-}
+  @Get('dashboard')
+  @UseGuards(AuthGuard)
+  async getDashboard(@Req() req) {
+    const shipperId = req.user.id || req.user.uid;
+    return this.shipperService.getShipperDashboard(shipperId);
+  }
 
-@Get('performance')
-@UseGuards(AuthGuard)
-async getPerformanceStats(@Req() req) {
-  const shipperId = req.user.id || req.user.uid;
-  return this.shipperService.getShipperStats(shipperId);
-}
+  @Get('performance')
+  @UseGuards(AuthGuard)
+  async getPerformanceStats(@Req() req) {
+    const shipperId = req.user.id || req.user.uid;
+    return this.shipperService.getShipperStats(shipperId);
+  }
 
-@Get('earnings-breakdown')
-@UseGuards(AuthGuard)
-async getEarningsBreakdown(@Req() req) {
-  const shipperId = req.user.id || req.user.uid;
-  const shipper = await this.shipperService.getShipperDashboard(shipperId);
-  return shipper.earnings;
-}
+  @Get('earnings-breakdown')
+  @UseGuards(AuthGuard)
+  async getEarningsBreakdown(@Req() req) {
+    const shipperId = req.user.id || req.user.uid;
+    const shipper = await this.shipperService.getShipperDashboard(shipperId);
+    return shipper.earnings;
+  }
 
-@Get('achievements')
-@UseGuards(AuthGuard)
-async getAchievements(@Req() req) {
-  const shipperId = req.user.id || req.user.uid;
-  const dashboard = await this.shipperService.getShipperDashboard(shipperId);
-  return {
-    achievements: dashboard.achievements,
-    performanceRanking: dashboard.performanceRanking,
-    nextMilestones: dashboard.nextMilestones
-  };
-}
+  @Get('achievements')
+  @UseGuards(AuthGuard)
+  async getAchievements(@Req() req) {
+    const shipperId = req.user.id || req.user.uid;
+    const dashboard = await this.shipperService.getShipperDashboard(shipperId);
+    return {
+      achievements: dashboard.achievements,
+      performanceRanking: dashboard.performanceRanking,
+      nextMilestones: dashboard.nextMilestones,
+    };
+  }
 
   // @Get('order-history')
   // @UseGuards(AuthGuard)  // Bảo vệ API bằng AuthGuard
   // async getOrderHistory(
-  //   @Req() req, 
+  //   @Req() req,
   //   @Query('page') page: number = 1,
   //   @Query('pageSize') pageSize: number = 10
   // ) {
   //   const shipperId = req.user.uid || req.user.id;
   //   return this.shipperService.getOrderHistoryForShipper(shipperId, page, pageSize);
   // }
-
 }

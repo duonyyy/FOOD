@@ -10,12 +10,7 @@ import { Restaurant } from './restaurant.entity';
 import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
 import { Conversation } from './conversation.entity';
 import { Message } from './message.entity';
-
-enum AuthProvider {
-    EMAIL = 'email',
-    GOOGLE = 'google',
-    FACEBOOK = 'facebook',
-}
+import { AuthProvider } from 'src/auth/enums/auth-provider.enum';
 
 // Đăng ký enum cho GraphQL
 registerEnumType(AuthProvider, {

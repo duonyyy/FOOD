@@ -1,7 +1,7 @@
-import { Controller, Get, Query, UseGuards, DefaultValuePipe } from '@nestjs/common';
+import { Controller, DefaultValuePipe, Get, Query, UseGuards } from '@nestjs/common';
 
-import { RolesGuard } from 'src/common/guard/role.guard';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
+import { Permissions } from 'src/auth/decorators/permissions.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Permission } from 'src/constants/permission.enum';
 import { DashboardService } from './dashboard.service';
 
@@ -19,21 +19,21 @@ export class DashboardController {
   @Get('chart-data')
   async getChartData(
     @Query('period', new DefaultValuePipe('year')) period: 'year' | 'month' | 'week',
-    @Query('metric', new DefaultValuePipe('overview')) metric: 'overview' | 'orders' | 'revenue'
+    @Query('metric', new DefaultValuePipe('overview')) metric: 'overview' | 'orders' | 'revenue',
   ) {
     return await this.dashboardService.getChartData(period, metric);
   }
 
   @Get('shipper-stats')
   async getShipperStats(
-    @Query('period', new DefaultValuePipe('year')) period: 'year' | 'month' | 'week'
+    @Query('period', new DefaultValuePipe('year')) period: 'year' | 'month' | 'week',
   ) {
     return await this.dashboardService.getShipperStats(period);
   }
 
   @Get('order-completion-stats')
   async getOrderCompletionStats(
-    @Query('period', new DefaultValuePipe('year')) period: 'year' | 'month' | 'week'
+    @Query('period', new DefaultValuePipe('year')) period: 'year' | 'month' | 'week',
   ) {
     return await this.dashboardService.getOrderCompletionStats(period);
   }

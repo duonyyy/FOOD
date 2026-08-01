@@ -1,4 +1,4 @@
-import { ObjectType, Field, Float, ID } from '@nestjs/graphql';
+import { Field, Float, ID, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
 export class ShipperLocation {

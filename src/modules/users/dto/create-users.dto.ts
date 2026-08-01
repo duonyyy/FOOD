@@ -1,8 +1,15 @@
-/* eslint-disable prettier/prettier */
-import { IsString, IsNotEmpty, IsOptional, IsEmail, IsUUID, IsDate, IsEnum, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
-import { DefaultRole } from '../../../entities/role.entity';
-import { AuthProvider } from 'src/auth/auth.service';
+import {
+  IsBoolean,
+  IsDate,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import { AuthProvider } from 'src/auth/enums/auth-provider.enum';
 
 export class CreateUserDto {
   @IsString()

@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, Query, Redirect, BadRequestException, Logger } from '@nestjs/common';
-import { MomoPaymentGateway } from './gateways/momo-payment.gateway';
+import { MomoPaymentGateway } from 'src/infra/payment-gateways/momo-payment.gateway';
 import { ConfigService } from '@nestjs/config';
-import { VnpayPaymentGateway } from './gateways/vnpay-payment.gateway';
+import { VnpayPaymentGateway } from 'src/infra/payment-gateways/vnpay-payment.gateway';
 
 // Define interfaces for our dummy data
 interface DummyOrder {

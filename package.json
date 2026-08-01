@@ -6,27 +6,29 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build --webpack",
+    "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "node --max-old-space-size=384 --optimize-for-size dist/main.js",
     "start:dev": "nest start --watch --max-old-space-size=384",
     "start:prod": "node --max-old-space-size=384 --optimize-for-size dist/main.js",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "lint:modules": "eslint \"src/modules/**/*.ts\"",
+    "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
-    "migration:generate": "npm run typeorm -- migration:generate -d src/config/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate -d src/config/typeorm.data-source.ts",
     "migration:create": "npm run typeorm -- migration:create",
-    "migration:run": "npm run typeorm -- migration:run -d src/config/data-source.ts",
-    "migration:revert": "npm run typeorm -- migration:revert -d src/config/data-source.ts",
-    "migration:show": "npm run typeorm -- migration:show -d src/config/data-source.ts"
+    "migration:run": "npm run typeorm -- migration:run -d src/config/typeorm.data-source.ts",
+    "migration:revert": "npm run typeorm -- migration:revert -d src/config/typeorm.data-source.ts",
+    "migration:show": "npm run typeorm -- migration:show -d src/config/typeorm.data-source.ts"
   },
   "dependencies": {
     "@apollo/server": "^4.12.1",
-    "@google-cloud/storage": "^7.15.2",
     "@mapbox/mapbox-sdk": "^0.16.1",
     "@nestjs/apollo": "^13.1.0",
     "@nestjs/bullmq": "^11.0.4",
@@ -58,14 +60,15 @@
     "graphql-type-json": "^0.3.2",
     "graphql-ws": "^6.0.5",
     "ioredis": "^5.10.1",
+    "minio": "^8.0.7",
     "moment": "^2.30.1",
     "nanoid": "^5.1.5",
+    "nestjs-minio": "^2.8.0",
     "nodemailer": "^7.0.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "pg": "^8.13.3",
-    "pg-boss": "^10.3.2",
     "prettier-plugin-organize-imports": "^4.1.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -85,6 +88,7 @@
     "@types/express": "^5.0.1",
     "@types/express-session": "^1.18.1",
     "@types/jest": "^29.5.14",
+    "@types/minio": "^7.1.0",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.10.7",
     "@types/passport-local": "^1.0.38",
@@ -114,6 +118,9 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

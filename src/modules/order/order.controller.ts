@@ -1,15 +1,26 @@
-import { Controller, Post, Get, Put, Delete, Param, Body, UseGuards, Query, DefaultValuePipe, ParseIntPipe, Logger, BadRequestException, ForbiddenException, Req } from '@nestjs/common';
-import { OrderService } from './order.service';
-import { CreateOrderDto } from './dto/create-order.dto';
-
-import { PaymentDto } from './dto/payment.dto';
-
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { PaymentService } from 'src/payment/payment.service';
 import { pubSub } from 'src/pubsub'; // THÊM IMPORT NÀY
-
 import { RestaurantService } from '../restaurant/restaurant.service';
-import { AuthGuard } from 'src/auth/auth.guard';
-import { PendingAssignmentService } from 'src/queue/pending-assignment.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { PaymentDto } from './dto/payment.dto';
+import { OrderService } from './order.service';
 
 @Controller('orders')
 export class OrderController {
@@ -20,7 +31,7 @@ export class OrderController {
     private readonly paymentService: PaymentService,
     private readonly restaurantService: RestaurantService,
     private readonly pendingAssignmentService: PendingAssignmentService, // Inject the new service
-  ) { }
+  ) {}
 
   @Post()
   async createOrder(@Body() body: any) {
@@ -29,14 +40,14 @@ export class OrderController {
     // Map orderDetails if present
     const orderDetails = Array.isArray(body.orderDetails)
       ? body.orderDetails.map((detail: any) => ({
-        foodId: detail.foodId,
-        quantity: detail.quantity,
-        price: detail.price,
-        note: detail.note || '',
-        selectedToppings: detail.selectedToppings || [],
-        discountPercent: detail.discountPercent ?? 0,
-        deliveryType: detail.deliveryType || 'asap', // Default to 'delivery' if not provided
-      }))
+          foodId: detail.foodId,
+          quantity: detail.quantity,
+          price: detail.price,
+          note: detail.note || '',
+          selectedToppings: detail.selectedToppings || [],
+          discountPercent: detail.discountPercent ?? 0,
+          deliveryType: detail.deliveryType || 'asap', // Default to 'delivery' if not provided
+        }))
       : [];
 
     // 🔥 CHECK: If custom address is provided, create a temporary address record
@@ -81,15 +92,16 @@ export class OrderController {
         paymentUrl = checkout.paymentUrl;
         checkoutId = checkout.id;
 
-
-        this.logger.log(`Checkout created for order ${order.id}: paymentUrl=${paymentUrl}, checkoutId=${checkoutId}`);
+        this.logger.log(
+          `Checkout created for order ${order.id}: paymentUrl=${paymentUrl}, checkoutId=${checkoutId}`,
+        );
       }
 
       if (body.paymentMethod === 'cod') {
         // THÊM PUBLISH EVENT KHI STATUS CHUYỂN THÀNH PENDING
         const updatedOrder = await this.orderService.getOrderById(order.id);
         await pubSub.publish('orderCreated', {
-          orderCreated: updatedOrder
+          orderCreated: updatedOrder,
         });
         this.logger.log(`Order ${order.id} will be paid on delivery (COD)`);
         paymentUrl = process.env.FRONTEND_URL + `/order/${order.id}`;
@@ -108,15 +120,18 @@ export class OrderController {
         checkoutId,
         temporaryAddress: isTemporaryAddress, // Indicate if a temporary address was used
       };
-
     } catch (error) {
       // If order creation fails and we created a temporary address, clean it up
       if (isTemporaryAddress && addressId) {
         try {
           await this.orderService.deleteTemporaryAddress(addressId);
-          this.logger.log(`🗑️ Cleaned up temporary address ${addressId} after order creation failure`);
+          this.logger.log(
+            `🗑️ Cleaned up temporary address ${addressId} after order creation failure`,
+          );
         } catch (cleanupError) {
-          this.logger.error(`❌ Failed to clean up temporary address ${addressId}: ${cleanupError.message}`);
+          this.logger.error(
+            `❌ Failed to clean up temporary address ${addressId}: ${cleanupError.message}`,
+          );
         }
       }
       throw error;
@@ -129,7 +144,7 @@ export class OrderController {
     @Req() req,
     @Query('page') page: number = 1,
     @Query('pageSize') pageSize: number = 10,
-    @Query('status') status?: string
+    @Query('status') status?: string,
   ) {
     const userId = req.user.uid || req.user.id;
     return this.orderService.getOrdersByUser(userId, page, pageSize, status);
@@ -140,15 +155,23 @@ export class OrderController {
     return this.orderService.getAllOrders();
   }
   @Post('calculate')
-  async calculateOrder(@Body() body: {
-    addressId: string,
-    restaurantId: string,
-    items: { foodId: string, quantity: number }[],
-    promotionCode?: string // Add promotion code to calculation
-  }) {
+  async calculateOrder(
+    @Body()
+    body: {
+      addressId: string;
+      restaurantId: string;
+      items: { foodId: string; quantity: number }[];
+      promotionCode?: string; // Add promotion code to calculation
+    },
+  ) {
     this.logger.log(`Calculating order: ${JSON.stringify(body)}`);
 
-    if (!body.addressId || !body.restaurantId || !Array.isArray(body.items) || body.items.length === 0) {
+    if (
+      !body.addressId ||
+      !body.restaurantId ||
+      !Array.isArray(body.items) ||
+      body.items.length === 0
+    ) {
       return { error: 'Missing addressId, restaurantId, or items' };
     }
 
@@ -157,7 +180,7 @@ export class OrderController {
       addressId: body.addressId,
       restaurantId: body.restaurantId,
       items: body.items,
-      promotionCode: body.promotionCode
+      promotionCode: body.promotionCode,
     });
   }
 
@@ -177,7 +200,7 @@ export class OrderController {
       restaurantId: string;
       items: { foodId: string; quantity: number }[];
       promotionCode?: string;
-    }
+    },
   ) {
     this.logger.log(`Calculating order with custom address: ${JSON.stringify(body)}`);
 
@@ -195,7 +218,7 @@ export class OrderController {
       body.address,
       body.restaurantId,
       body.items,
-      body.promotionCode
+      body.promotionCode,
     );
   }
 
@@ -205,7 +228,7 @@ export class OrderController {
     @Req() req,
     @Query('page') page: number = 1,
     @Query('pageSize') pageSize: number = 10,
-    @Query('status') status?: string
+    @Query('status') status?: string,
   ) {
     this.logger.log(`Getting orders for restaurant owned by user: ${req.user.uid || req.user.id}`);
     const userId = req.user.uid || req.user.id;
@@ -236,11 +259,7 @@ export class OrderController {
 
   @Put(':id/status')
   @UseGuards(AuthGuard)
-  async updateOrderStatus(
-    @Param('id') id: string,
-    @Body('status') status: string,
-    @Req() req
-  ) {
+  async updateOrderStatus(@Param('id') id: string, @Body('status') status: string, @Req() req) {
     // Get authenticated user
     const userId = req.user.uid || req.user.id;
 
@@ -259,9 +278,17 @@ export class OrderController {
     }
 
     // Only allow specific status transitions
-    const allowedStatuses = ['confirmed', 'delivering', 'shipper_received', 'completed', 'canceled'];
+    const allowedStatuses = [
+      'confirmed',
+      'delivering',
+      'shipper_received',
+      'completed',
+      'canceled',
+    ];
     if (!allowedStatuses.includes(status)) {
-      throw new BadRequestException(`Invalid status. Allowed values: ${allowedStatuses.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid status. Allowed values: ${allowedStatuses.join(', ')}`,
+      );
     }
 
     // Update order status
@@ -269,7 +296,7 @@ export class OrderController {
 
     // PUBLISH EVENT TO NOTIFY USER ABOUT STATUS CHANGE
     await pubSub.publish('orderStatusUpdated', {
-      orderStatusUpdated: updatedOrder
+      orderStatusUpdated: updatedOrder,
     });
 
     // ADD ORDER TO PENDING ASSIGNMENTS WHEN STATUS CHANGES TO 'confirmed'
@@ -283,7 +310,9 @@ export class OrderController {
           this.logger.error(`Failed to add order ${id} to pending assignments: ${error.message}`);
         }
       } else {
-        this.logger.log(`Order ${id} already assigned to shipper, not adding to pending assignments`);
+        this.logger.log(
+          `Order ${id} already assigned to shipper, not adding to pending assignments`,
+        );
       }
     }
 
@@ -293,11 +322,15 @@ export class OrderController {
         await this.pendingAssignmentService.removePendingAssignment(id);
         this.logger.log(`Removed order ${id} from pending assignments due to status change`);
       } catch (error) {
-        this.logger.error(`Failed to remove order ${id} from pending assignments: ${error.message}`);
+        this.logger.error(
+          `Failed to remove order ${id} from pending assignments: ${error.message}`,
+        );
       }
     }
 
-    this.logger.log(`Order ${id} status updated to ${status} by restaurant owner ${userId}. User ${updatedOrder.user.id} notified.`);
+    this.logger.log(
+      `Order ${id} status updated to ${status} by restaurant owner ${userId}. User ${updatedOrder.user.id} notified.`,
+    );
 
     return updatedOrder;
   }
@@ -308,26 +341,31 @@ export class OrderController {
   }
 
   @Post(':id/payment')
-  processPayment(
-    @Param('id') id: string,
-    @Body() paymentData: PaymentDto
-  ) {
+  processPayment(@Param('id') id: string, @Body() paymentData: PaymentDto) {
     return this.orderService.processPayment(id, paymentData);
   }
 
   @Post('validate-promotion')
-  async validatePromotion(@Body() body: {
-    promotionCode: string,
-    addressId: string,
-    restaurantId: string,
-    items: { foodId: string, quantity: number }[]
-  }) {
+  async validatePromotion(
+    @Body()
+    body: {
+      promotionCode: string;
+      addressId: string;
+      restaurantId: string;
+      items: { foodId: string; quantity: number }[];
+    },
+  ) {
     this.logger.log(`Validating promotion: ${body.promotionCode}`);
 
-    if (!body.promotionCode || !body.addressId || !body.restaurantId || !Array.isArray(body.items)) {
+    if (
+      !body.promotionCode ||
+      !body.addressId ||
+      !body.restaurantId ||
+      !Array.isArray(body.items)
+    ) {
       return {
         valid: false,
-        error: 'Missing required fields: promotionCode, addressId, restaurantId, or items'
+        error: 'Missing required fields: promotionCode, addressId, restaurantId, or items',
       };
     }
 
@@ -335,7 +373,7 @@ export class OrderController {
       body.promotionCode,
       body.addressId,
       body.restaurantId,
-      body.items
+      body.items,
     );
   }
 }

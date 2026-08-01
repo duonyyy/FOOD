@@ -1,0 +1,47 @@
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+  Logger
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { extractBearerToken } from '../utils/auth-token.util';
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+  private readonly logger = new Logger(AuthGuard.name);
+
+  constructor(
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) { }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const token = extractBearerToken(request.headers.authorization);
+
+    try {
+      //this.logger.log('Verifying token...');
+      const jwtSecret = this.configService.get<string>('JWT_SECRET');
+      if (!jwtSecret) {
+        throw new Error('JWT_SECRET is not configured');
+      }
+
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: jwtSecret,
+      });
+      //this.logger.log('Token verified successfully:', payload);
+
+      // Attach the payload to the request object
+      request.user = payload;
+      request.user.id = payload.sub; 
+      request.user.uid = payload.sub; 
+      return true;
+    } catch (error) {
+      this.logger.error(`Token verification failed: ${error.message}`);
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+}

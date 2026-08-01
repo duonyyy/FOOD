@@ -1,9 +1,9 @@
 import { Controller, Post, Body, Param, Get, UseGuards, Req, BadRequestException, Redirect, Query, Logger } from '@nestjs/common';
 import { PaymentService } from './payment.service';
-import { AuthGuard } from '../auth/auth.guard';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { CheckoutStatus } from '../entities/checkout.entity';
 import { ConfigService } from '@nestjs/config';
-import { VnpayPaymentGateway } from './gateways/vnpay-payment.gateway';
+import { VnpayPaymentGateway } from 'src/infra/payment-gateways/vnpay-payment.gateway';
 
 @Controller('payment')
 export class PaymentController {

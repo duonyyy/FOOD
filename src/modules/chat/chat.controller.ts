@@ -1,27 +1,21 @@
-import { Controller, Post, Body, HttpException, HttpStatus, UseGuards, Req, Get } from '@nestjs/common';
+import { Body, Controller, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { ChatService } from './chat.service';
-import { AuthGuard } from 'src/auth/auth.guard';
-import { FoodService } from '../food/food.service';
+import { ChatRequestDto } from './dto/chat-request.dto';
+import { ChatReply } from './types/chat.types';
 
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService, private readonly foodService: FoodService,) {}
+  constructor(private readonly chatService: ChatService) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  async handleChat(
-    @Body('userMessage') userMessage: string,
-    @Body('metadata') metadata: any,
-    @Req() req
-  ): Promise<{
-    reply: string;
-    suggestions?: any[];
-    action?: string;
-    metadata?: any;
-  }> {
+  async handleChat(@Body() body: ChatRequestDto, @Req() req): Promise<ChatReply> {
     const userId = req.user?.id;
-    if (!userId) throw new Error('User ID not found in token');
-    return await this.chatService.generateReply(userMessage, userId, metadata);
-  }
+    if (!userId) {
+      throw new UnauthorizedException('User ID not found in token');
+    }
 
+    return this.chatService.generateReply(body.userMessage, userId, body.metadata);
+  }
 }

@@ -9,7 +9,7 @@ async function bootstrap(): Promise<void> {
   const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
-    'https://fooddie-fe.onrender.com'
+    'https://foodee-fe.onrender.com'
   ];
 
   // Add additional origins from environment variable if provided
@@ -56,8 +56,8 @@ async function bootstrap(): Promise<void> {
   // Only setup Swagger in development
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
-      .setTitle('FOODDIE API')
-      .setDescription('The FOODDIE API description')
+      .setTitle('FOODEE API')
+      .setDescription('The FOODEE API description')
       .setVersion('1.0')
       .build();
     const document = SwaggerModule.createDocument(app, config);

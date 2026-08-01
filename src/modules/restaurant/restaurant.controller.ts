@@ -1,22 +1,36 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query, BadRequestException, DefaultValuePipe, ParseIntPipe, ParseFloatPipe, Req, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Delete,
+  Get,
+  Logger,
+  Param,
+  ParseFloatPipe,
+  ParseIntPipe,
+  Post,
+  Put,
+  Query,
+  Req,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { RestaurantService } from './restaurant.service';
+import { Permissions } from 'src/auth/decorators/permissions.decorator';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Permission } from 'src/constants/permission.enum';
+import { Restaurant } from 'src/entities/restaurant.entity';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
-import { Restaurant } from 'src/entities/restaurant.entity';
-import { RolesGuard } from 'src/common/guard/role.guard';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Permission } from 'src/constants/permission.enum';
-import { AuthGuard } from 'src/auth/auth.guard';
-import { plainToInstance } from 'class-transformer';
-import { validateOrReject } from 'class-validator';
-import { Logger } from '@nestjs/common';
-import { estimateDeliveryTime } from 'src/common/utils/helper';
+import { RestaurantService } from './restaurant.service';
 
 @Controller('restaurants')
 export class RestaurantController {
   private readonly logger = new Logger(RestaurantController.name);
-  constructor(private readonly restaurantService: RestaurantService) { }
+  constructor(private readonly restaurantService: RestaurantService) {}
 
   // 1. Fixed, exact paths first (no path parameters)
   @Post()
@@ -43,9 +57,16 @@ export class RestaurantController {
     @Query('name') name?: string,
     @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769,
     @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
-    @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5
+    @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5,
   ) {
-    return await this.restaurantService.searchRestaurants({ page, pageSize, name, lat, lng, radius });
+    return await this.restaurantService.searchRestaurants({
+      page,
+      pageSize,
+      name,
+      lat,
+      lng,
+      radius,
+    });
   }
 
   @Post('request')
@@ -55,15 +76,16 @@ export class RestaurantController {
       { name: 'avatar', maxCount: 1 },
       { name: 'backgroundImage', maxCount: 1 },
       { name: 'certificateImage', maxCount: 1 },
-    ])
+    ]),
   )
   async requestRestaurantWithFiles(
     @Body() createDto: any,
-    @UploadedFiles() files: {
-      avatar?: Express.Multer.File[],
-      backgroundImage?: Express.Multer.File[],
-      certificateImage?: Express.Multer.File[],
-    }
+    @UploadedFiles()
+    files: {
+      avatar?: Express.Multer.File[];
+      backgroundImage?: Express.Multer.File[];
+      certificateImage?: Express.Multer.File[];
+    },
   ): Promise<Restaurant> {
     // Extract restaurant data
     const restaurantData: CreateRestaurantDto = {
@@ -75,7 +97,7 @@ export class RestaurantController {
       licenseCode: createDto.licenseCode,
       ownerId: createDto.ownerId,
       latitude: createDto.latitude,
-      longitude: createDto.longitude
+      longitude: createDto.longitude,
     };
 
     // Extract address data based on what's provided
@@ -89,14 +111,14 @@ export class RestaurantController {
     // Check if we have a full address from Mapbox
     if (createDto.address) {
       // Parse the address into components - assuming format like "street, ward, district, city"
-      const addressParts = createDto.address.split(',').map(part => part.trim());
+      const addressParts = createDto.address.split(',').map((part) => part.trim());
 
       addressData = {
         // Use as many parts as available, with fallbacks
         street: addressParts[0] || 'Unknown street',
         ward: addressParts[1] || 'Unknown ward',
         district: addressParts[2] || 'Unknown district',
-        city: addressParts[3] || 'Unknown city'
+        city: addressParts[3] || 'Unknown city',
       };
     } else {
       // Use the individual fields if provided
@@ -104,7 +126,7 @@ export class RestaurantController {
         street: createDto.addressStreet || 'Unknown street',
         ward: createDto.addressWard || 'Unknown ward',
         district: createDto.addressDistrict || 'Unknown district',
-        city: createDto.addressCity || 'Unknown city'
+        city: createDto.addressCity || 'Unknown city',
       };
     }
 
@@ -113,7 +135,7 @@ export class RestaurantController {
       addressData,
       files.avatar?.[0],
       files.backgroundImage?.[0],
-      files.certificateImage?.[0]
+      files.certificateImage?.[0],
     );
   }
 
@@ -123,8 +145,7 @@ export class RestaurantController {
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
-    @Query('status') status?: string // 👈 THÊM DÒNG NÀY
-
+    @Query('status') status?: string, // 👈 THÊM DÒNG NÀY
   ) {
     return await this.restaurantService.findAll(page, pageSize, status, lat, lng);
   }
@@ -139,7 +160,7 @@ export class RestaurantController {
       items.map(async (restaurant) => {
         const foods = await this.restaurantService.getFoodsByRestaurantId(restaurant.id, 1, 3);
         return { ...restaurant, foods };
-      })
+      }),
     );
 
     return { items: itemsWithFoods };
@@ -183,7 +204,7 @@ export class RestaurantController {
   @UseGuards(AuthGuard)
   async getMyOrderCountByMonth(
     @Req() req: any,
-    @Query('month') month?: string // format: YYYY-MM
+    @Query('month') month?: string, // format: YYYY-MM
   ) {
     const userId = req.user?.id;
     if (!userId) throw new BadRequestException('Not authenticated');
@@ -194,7 +215,7 @@ export class RestaurantController {
   @UseGuards(AuthGuard)
   async getMyRevenueByMonth(
     @Req() req: any,
-    @Query('month') month?: string // format: YYYY-MM
+    @Query('month') month?: string, // format: YYYY-MM
   ) {
     const userId = req.user?.id;
     if (!userId) throw new BadRequestException('Not authenticated');
@@ -233,26 +254,32 @@ export class RestaurantController {
   @Put(':id/files')
   @UseGuards(AuthGuard)
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'avatar', maxCount: 1 },
-      { name: 'backgroundImage', maxCount: 1 },
-      { name: 'certificateImage', maxCount: 1 },
-    ], {
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB limit per file
-      }
-    })
+    FileFieldsInterceptor(
+      [
+        { name: 'avatar', maxCount: 1 },
+        { name: 'backgroundImage', maxCount: 1 },
+        { name: 'certificateImage', maxCount: 1 },
+      ],
+      {
+        limits: {
+          fileSize: 5 * 1024 * 1024, // 5MB limit per file
+        },
+      },
+    ),
   )
   async updateWithFiles(
     @Param('id') id: string,
     @Body() updateDto: any,
-    @UploadedFiles() files: {
-      avatar?: Express.Multer.File[],
-      backgroundImage?: Express.Multer.File[],
-      certificateImage?: Express.Multer.File[],
-    }
+    @UploadedFiles()
+    files: {
+      avatar?: Express.Multer.File[];
+      backgroundImage?: Express.Multer.File[];
+      certificateImage?: Express.Multer.File[];
+    },
   ): Promise<Restaurant> {
-    this.logger.log(`Updating restaurant ${id} with data: ${JSON.stringify(updateDto)} and files: ${Object.keys(files).join(', ')}`);
+    this.logger.log(
+      `Updating restaurant ${id} with data: ${JSON.stringify(updateDto)} and files: ${Object.keys(files).join(', ')}`,
+    );
     // Map only allowed fields to UpdateRestaurantDto
     const restaurantData: UpdateRestaurantDto = {
       name: updateDto.name,
@@ -275,7 +302,6 @@ export class RestaurantController {
       // ownerId is not needed for update, so do not map it here
     };
 
-
     const avatarFile = files?.avatar?.[0];
     const backgroundFile = files?.backgroundImage?.[0];
     const certificateFile = files?.certificateImage?.[0];
@@ -285,17 +311,13 @@ export class RestaurantController {
       restaurantData,
       avatarFile,
       backgroundFile,
-      certificateFile
+      certificateFile,
     );
   }
 
   // 3. Generic ID routes last (these are the most permissive)
   @Get(':id')
-  async findOne(
-    @Param('id') id: string,
-    @Query('lat') lat?: number,
-    @Query('lng') lng?: number
-  ) {
+  async findOne(@Param('id') id: string, @Query('lat') lat?: number, @Query('lng') lng?: number) {
     return await this.restaurantService.findOne(id, lat, lng);
   }
 
@@ -315,6 +337,4 @@ export class RestaurantController {
   async remove(@Param('id') id: string): Promise<void> {
     return await this.restaurantService.remove(id);
   }
-
-
 }

@@ -1,18 +1,20 @@
-/* eslint-disable prettier/prettier */
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/entities/user.entity';
-import { CreateUserDto } from './dto/create-users.dto';
-import { UpdateUserDto } from './dto/update-users.dto';
-import { Role, DefaultRole } from 'src/entities/role.entity';
 import * as bcrypt from 'bcryptjs';
 import * as moment from 'moment';
-import { UserResponse } from './interface/user-response.interface';
-import { v4 as uuidv4 } from 'uuid';
-import { AuthProvider } from 'src/auth/auth.service';
+import { AuthProvider } from 'src/auth/enums/auth-provider.enum';
 import { Address } from 'src/entities/address.entity';
-import { CertificateStatus, ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { DefaultRole, Role } from 'src/entities/role.entity';
+import {
+  CertificateStatus,
+  ShipperCertificateInfo,
+} from 'src/entities/shipperCertificateInfo.entity';
+import { User } from 'src/entities/user.entity';
+import { DataSource, Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
+import { CreateUserDto } from './dto/create-users.dto';
+import { UpdateUserDto } from './dto/update-users.dto';
+import { UserResponse } from './interface/user-response.interface';
 
 @Injectable()
 export class UsersService {
@@ -27,7 +29,10 @@ export class UsersService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async updateUserProvider(id: string, arg1: { provider: AuthProvider; googleId: string; }): Promise<User> {
+  async updateUserProvider(
+    id: string,
+    arg1: { provider: AuthProvider; googleId: string },
+  ): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
       throw new Error(`User with id ${id} not found`);
@@ -74,7 +79,7 @@ export class UsersService {
       await this.addressRepository.delete({ user: { id: user.id } });
 
       this.logger.log(`Adding new addresses for user: ${id}`);
-      const newAddresses = addresses.map(addr => {
+      const newAddresses = addresses.map((addr) => {
         const address = this.addressRepository.create({
           ...addr,
           user: user,
@@ -103,17 +108,17 @@ export class UsersService {
       const role = await this.rolesRepository.findOne({
         where: { id: createUserDto.role },
       });
-      
+
       if (!role) {
         throw new Error('Role not found');
       }
-      
+
       // Generate UUID for user ID
       const userId = uuidv4().substring(0, 28); // Generate a new UUID if not provided
-      
+
       // Hash password
       const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-      
+
       // Create user with hashed password
       const user = this.usersRepository.create({
         ...createUserDto,
@@ -121,7 +126,7 @@ export class UsersService {
         password: hashedPassword,
         role: role,
       });
-      
+
       return await this.usersRepository.save(user);
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -147,13 +152,13 @@ export class UsersService {
       throw new Error('Default User role not found');
     }
     if (!id) {
-      const uuid : string = uuidv4().substring(0, 28); // Generate a new UUID if not provided
+      const uuid: string = uuidv4().substring(0, 28); // Generate a new UUID if not provided
       id = uuid; // Generate a new UUID if not provided
     }
     const user = this.usersRepository.create({
       ...createUserDto,
       id: id,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       password: await bcrypt.hash(createUserDto.password, 10),
       role: role,
     });
@@ -163,7 +168,7 @@ export class UsersService {
   async findAll(): Promise<UserResponse[]> {
     const users = await this.usersRepository
       .createQueryBuilder('user')
-            .select([
+      .select([
         'user.id',
         'user.name',
         'user.username',
@@ -196,15 +201,15 @@ export class UsersService {
   }
 
   async findOne(id: string): Promise<User> {
-    const user = await this.usersRepository.findOne({ 
+    const user = await this.usersRepository.findOne({
       where: { id },
-      relations: ['role', 'role.permissions']
+      relations: ['role', 'role.permissions'],
     });
-    
+
     if (!user) {
       throw new Error(`User with id ${id} not found`);
     }
-    
+
     return user;
   }
 
@@ -245,40 +250,38 @@ export class UsersService {
 
   async getShippersByStatus(status?: CertificateStatus, userId?: string) {
     const shipperRepo = this.dataSource.getRepository(ShipperCertificateInfo);
-  
-    const query = shipperRepo.createQueryBuilder('shipper')
+
+    const query = shipperRepo
+      .createQueryBuilder('shipper')
       .leftJoinAndSelect('shipper.user', 'user')
       .leftJoinAndSelect('user.role', 'role')
       .leftJoinAndSelect('user.orders', 'orders')
       .where('role.name = :role', { role: 'shipper' });
-  
+
     if (status) {
       query.andWhere('shipper.status = :status', { status });
     }
-  
+
     if (userId) {
       query.andWhere('user.id = :userId', { userId });
     }
-  
+
     return query.getMany();
   }
-  
-  
-  
+
   async updateShipperStatus(userId: string, status: CertificateStatus) {
     const repo = this.dataSource.getRepository(ShipperCertificateInfo);
-  
+
     const shipper = await repo.findOne({
       where: { user: { id: userId } },
       relations: ['user'],
     });
-  
+
     if (!shipper) {
       throw new NotFoundException('Shipper not found');
     }
-  
+
     shipper.status = status;
     return repo.save(shipper);
   }
-  
 }

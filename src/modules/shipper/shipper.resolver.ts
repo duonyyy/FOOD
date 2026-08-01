@@ -1,9 +1,6 @@
-import { Resolver, Subscription, Args, ID } from '@nestjs/graphql';
+import { Args, ID, Resolver, Subscription } from '@nestjs/graphql';
 import { pubSub } from 'src/pubsub';
 import { ShipperLocation } from './shipper-location.type';
-import { UseGuards } from '@nestjs/common';
-import { WebSocketAuthGuard } from 'src/auth/websocket-auth.guard';
-import { log } from 'console';
 
 @Resolver()
 export class ShipperResolver {

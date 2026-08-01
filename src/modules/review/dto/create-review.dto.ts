@@ -1,39 +1,34 @@
-import { IsString, IsNumber, IsUUID } from 'class-validator';
+import { IsNumber, IsString, IsUUID } from 'class-validator';
 
 export class CreateFoodReviewDto {
+  @IsUUID()
+  foodId: string;
 
+  @IsString()
+  comment: string;
 
-    @IsUUID()
-    foodId: string;
+  @IsString()
+  image: string;
 
-    @IsString()
-    comment: string;
-
-    @IsString()
-    image: string;
-
-    @IsNumber()
-    rating: number;
+  @IsNumber()
+  rating: number;
 }
 
-
 export class CreateShipperReviewDto {
+  @IsString()
+  shipperId: string;
 
+  @IsString()
+  comment: string;
 
-    @IsString()
-    shipperId: string;
-
-    @IsString()
-    comment: string;
-
-    @IsNumber()
-    rating: number;
+  @IsNumber()
+  rating: number;
 }
 
 export class UpdateReviewDto {
-    @IsString()
-    comment: string;
+  @IsString()
+  comment: string;
 
-    @IsNumber()
-    rating: number;
+  @IsNumber()
+  rating: number;
 }

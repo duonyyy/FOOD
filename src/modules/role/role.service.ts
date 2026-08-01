@@ -1,12 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { Role, DefaultRole } from '../../entities/role.entity';
+import { Permission as PermissionEnum, PermissionType } from 'src/constants/permission.enum';
 import { Permission } from 'src/entities/permission.entity';
+import { In, Repository } from 'typeorm';
+import { DefaultRole, Role } from '../../entities/role.entity';
 import { User } from '../../entities/user.entity';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { RoleDetailsDto } from './dto/role-details.dto';
-import { Permission as PermissionEnum, PermissionType } from 'src/constants/permission.enum';
 import { UpdateRoleDto } from './dto/update-role.dto';
 
 /**
@@ -16,7 +16,7 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 export class RolesService {
   /**
    * Creates a new instance of RolesService
-   * 
+   *
    * @param roleRepository - The TypeORM repository for roles
    * @param permissionRepository - The TypeORM repository for permissions
    * @param userRepository - The TypeORM repository for users
@@ -28,24 +28,24 @@ export class RolesService {
     private readonly permissionRepository: Repository<Permission>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-  ) { }
+  ) {}
 
   /**
    * Get all roles with their permissions and accurate user counts
-   * 
+   *
    * @returns A promise that resolves to an array of roles with user count
    */
   async findAll(): Promise<(Role & { userCount: number })[]> {
     // First, get all roles
-    const roles = await this.roleRepository.find({
-    });
+    const roles = await this.roleRepository.find({});
 
     // Create an array to hold the results
     const rolesWithUserCount: (Role & { userCount: number })[] = [];
 
     // For each role, get the user count from the database using QueryBuilder
     for (const role of roles) {
-      const userCount = await this.userRepository.createQueryBuilder('user')
+      const userCount = await this.userRepository
+        .createQueryBuilder('user')
         .where('user.role_id = :roleId', { roleId: role.id })
         .getCount();
 
@@ -65,7 +65,8 @@ export class RolesService {
 
     // Bước 2: Đếm số user và nhóm theo role_id (1 Query duy nhất)
     // Câu SQL tạo ra sẽ giống như: SELECT role_id, COUNT(id) FROM user GROUP BY role_id
-    const userCounts = await this.userRepository.createQueryBuilder('user')
+    const userCounts = await this.userRepository
+      .createQueryBuilder('user')
       .select('user.role_id', 'roleId')
       .addSelect('COUNT(user.id)', 'count')
       .groupBy('user.role_id')
@@ -73,12 +74,12 @@ export class RolesService {
 
     // Bước 3: Chuyển mảng kết quả thành Map (Từ điển) để tìm kiếm cực nhanh O(1)
     const countMap = new Map();
-    userCounts.forEach(item => {
+    userCounts.forEach((item) => {
       countMap.set(item.roleId, Number(item.count)); // Đảm bảo count là số
     });
 
     // Bước 4: Ghép dữ liệu đếm được vào từng role tương ứng
-    return roles.map(role => ({
+    return roles.map((role) => ({
       ...role,
       userCount: countMap.get(role.id) || 0, // Nếu không tìm thấy trong Map (không có user) thì gán là 0
     }));
@@ -86,7 +87,7 @@ export class RolesService {
 
   /**
    * Find a role by its ID
-   * 
+   *
    * @param id - The ID of the role to find
    * @returns A promise that resolves to the found role
    * @throws NotFoundException if the role is not found
@@ -114,7 +115,7 @@ export class RolesService {
 
   /**
    * Find a role by its name
-   * 
+   *
    * @param name - The name of the role to find
    * @returns A promise that resolves to the found role
    * @throws NotFoundException if the role is not found
@@ -134,7 +135,7 @@ export class RolesService {
 
   /**
    * Get user permissions by user ID or role ID
-   * 
+   *
    * @param id - The user ID or role ID
    * @param isRoleId - Whether the ID is a role ID (defaults to false)
    * @returns A promise that resolves to an array of permissions
@@ -154,8 +155,9 @@ export class RolesService {
         throw new NotFoundException(`Role with id ${id} not found`);
       }
 
-      return role.permissions.filter(permission => permission.isActive)
-        .map(permission => permission.name);
+      return role.permissions
+        .filter((permission) => permission.isActive)
+        .map((permission) => permission.name);
     }
 
     const user = await this.userRepository.findOne({
@@ -167,19 +169,16 @@ export class RolesService {
       throw new NotFoundException(`User with id ${id} not found`);
     }
 
-    return user.role.permissions.filter(permission => permission.isActive);
+    return user.role.permissions.filter((permission) => permission.isActive);
   }
   /**
    * Check if a role has a specific permission
-   * 
+   *
    * @param roleId - The role ID to check
    * @param permissionName - The permission name to check for
    * @returns A promise that resolves to a boolean indicating if the role has the permission
    */
-  async hasPermission(
-    roleId: string,
-    permissionName: string,
-  ): Promise<boolean> {
+  async hasPermission(roleId: string, permissionName: string): Promise<boolean> {
     const role = await this.roleRepository.findOne({
       where: { id: roleId },
       relations: ['permissions'],
@@ -190,13 +189,13 @@ export class RolesService {
     }
 
     return role.permissions.some(
-      permission => permission.name === permissionName && permission.isActive
+      (permission) => permission.name === permissionName && permission.isActive,
     );
   }
 
   /**
    * Create a new role
-   * 
+   *
    * @param createRoleDto - The data for creating the role
    * @returns A promise that resolves to the created role
    */
@@ -207,7 +206,7 @@ export class RolesService {
 
   /**
    * Add users to a role
-   * 
+   *
    * @param roleId - The ID of the role to add users to
    * @param userIds - Array of user IDs to add to the role
    * @returns A promise that resolves to the updated role
@@ -228,17 +227,16 @@ export class RolesService {
       throw new NotFoundException('One or more users not found');
     }
 
-    if (users.some(user => user.role.name == DefaultRole.SUPER_ADMIN)) {
+    if (users.some((user) => user.role.name == DefaultRole.SUPER_ADMIN)) {
       throw new BadRequestException('Không thể chỉnh sửa vai trò này');
     }
-
 
     role.users = users;
     return await this.roleRepository.save(role);
   }
   /**
    * Assign multiple users to a role by adding them to existing users
-   * 
+   *
    * @param roleId - The ID of the role to assign users to
    * @param userIds - Array of user IDs to assign to the role
    * @returns A promise that resolves to the updated role
@@ -259,21 +257,21 @@ export class RolesService {
     const usersToAdd = await this.userRepository.findBy({ id: In(userIds) });
 
     if (usersToAdd.length !== userIds.length) {
-      const foundIds = usersToAdd.map(user => user.id);
-      const missingIds = userIds.filter(id => !foundIds.includes(id));
+      const foundIds = usersToAdd.map((user) => user.id);
+      const missingIds = userIds.filter((id) => !foundIds.includes(id));
       throw new NotFoundException(`Users not found: ${missingIds.join(', ')}`);
     }
 
     // Prevent modifying Super Admin users
-    if (usersToAdd.some(user => user.role?.name === DefaultRole.SUPER_ADMIN)) {
+    if (usersToAdd.some((user) => user.role?.name === DefaultRole.SUPER_ADMIN)) {
       throw new BadRequestException('Không thể chỉnh sửa vai trò này');
     }
 
     // Get existing user IDs to avoid duplicates
-    const existingUserIds = (role.users || []).map(user => user.id);
+    const existingUserIds = (role.users || []).map((user) => user.id);
 
     // Add only users that aren't already assigned to the role
-    const filteredUsersToAdd = usersToAdd.filter(user => !existingUserIds.includes(user.id));
+    const filteredUsersToAdd = usersToAdd.filter((user) => !existingUserIds.includes(user.id));
 
     // Combine existing and new users
     role.users = [...(role.users || []), ...filteredUsersToAdd];
@@ -282,7 +280,7 @@ export class RolesService {
   }
   /**
    * Remove users from a role
-   * 
+   *
    * @param roleId - The ID of the role to remove users from
    * @param userIds - Array of user IDs to remove from the role
    * @returns A promise that resolves to the updated role
@@ -305,7 +303,7 @@ export class RolesService {
     }
 
     // Prevent removing Super Admin users
-    if (users.some(user => user.role?.name === DefaultRole.SUPER_ADMIN)) {
+    if (users.some((user) => user.role?.name === DefaultRole.SUPER_ADMIN)) {
       throw new BadRequestException('Không thể chỉnh sửa vai trò này');
     }
 
@@ -315,7 +313,7 @@ export class RolesService {
 
   /**
    * Get users with a specific role
-   * 
+   *
    * @param roleId - The ID of the role to get users for
    * @returns A promise that resolves to an array of users with the specified role
    * @throws NotFoundException if role not found
@@ -335,7 +333,7 @@ export class RolesService {
 
   /**
    * Get users who don't have a specific role and are not Super Admins
-   * 
+   *
    * @param params - Parameters for filtering users
    * @param params.roleId - The ID of the role to exclude
    * @param params.limit - Maximum number of users to return (optional)
@@ -352,7 +350,7 @@ export class RolesService {
 
     // First verify the role exists
     const role = await this.roleRepository.findOne({
-      where: { id: roleId }
+      where: { id: roleId },
     });
 
     if (!role) {
@@ -361,18 +359,19 @@ export class RolesService {
 
     // Find the Super Admin role
     const superAdminRole = await this.roleRepository.findOne({
-      where: { name: DefaultRole.SUPER_ADMIN }
+      where: { name: DefaultRole.SUPER_ADMIN },
     });
 
     // Build the query
-    const queryBuilder = this.userRepository.createQueryBuilder('user')
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
       .leftJoin('user.role', 'role')
       .where('role.id != :roleId', { roleId });
 
     // Add condition to exclude Super Admins
     if (superAdminRole) {
       queryBuilder.andWhere('role.id != :superAdminRoleId', {
-        superAdminRoleId: superAdminRole.id
+        superAdminRoleId: superAdminRole.id,
       });
     }
 
@@ -380,7 +379,7 @@ export class RolesService {
     if (searchTerm) {
       queryBuilder.andWhere(
         '(user.name ILIKE :searchTerm OR user.username ILIKE :searchTerm OR user.email ILIKE :searchTerm)',
-        { searchTerm: `%${searchTerm}%` }
+        { searchTerm: `%${searchTerm}%` },
       );
     }
 
@@ -397,7 +396,7 @@ export class RolesService {
   }
   /**
    * Add permissions to a role
-   * 
+   *
    * @param roleId - The ID of the role to add permissions to
    * @param permissionNames - Array of permission names to add
    * @returns A promise that resolves to the updated role
@@ -419,11 +418,11 @@ export class RolesService {
     });
 
     // Collect names of existing permissions
-    const existingPermissionNames: string[] = existingPermissions.map(p => p.name);
+    const existingPermissionNames: string[] = existingPermissions.map((p) => p.name);
 
     // Create any permissions that don't exist yet
     const permissionsToCreate = permissionNames.filter(
-      name => !existingPermissionNames.includes(name)
+      (name) => !existingPermissionNames.includes(name),
     );
 
     const newPermissions: Permission[] = [];
@@ -443,15 +442,16 @@ export class RolesService {
     role.permissions = [...role.permissions, ...existingPermissions, ...newPermissions];
 
     // Remove duplicates if any
-    role.permissions = Array.from(new Set(role.permissions.map(p => p.id)))
-      .map(id => role.permissions.find(p => p.id === id)!);
+    role.permissions = Array.from(new Set(role.permissions.map((p) => p.id))).map(
+      (id) => role.permissions.find((p) => p.id === id)!,
+    );
 
     return await this.roleRepository.save(role);
   }
 
   /**
    * Remove permissions from a role
-   * 
+   *
    * @param roleId - The ID of the role to remove permissions from
    * @param permissionNames - Array of permission names to remove
    * @returns A promise that resolves to the updated role
@@ -468,7 +468,7 @@ export class RolesService {
     }
 
     role.permissions = role.permissions.filter(
-      permission => !permissionNames.includes(permission.name)
+      (permission) => !permissionNames.includes(permission.name),
     );
 
     return await this.roleRepository.save(role);
@@ -476,7 +476,7 @@ export class RolesService {
 
   /**
    * Update the permissions of a role
-   * 
+   *
    * @param roleId - The ID of the role to update permissions for
    * @param permissionNames - Array of permission names to set for the role
    * @returns A promise that resolves to the updated role
@@ -487,7 +487,7 @@ export class RolesService {
     // Validate that all permissions exist in the enum
     const allValidPermissions = this.getAllPermissions();
     const invalidPermissions = permissionNames.filter(
-      name => !allValidPermissions.includes(name as unknown as PermissionType)
+      (name) => !allValidPermissions.includes(name as unknown as PermissionType),
     );
 
     if (invalidPermissions.length > 0) {
@@ -510,9 +510,9 @@ export class RolesService {
     });
 
     // Create any permissions that don't exist yet
-    const existingPermissionNames = existingPermissions.map(p => p.name);
+    const existingPermissionNames = existingPermissions.map((p) => p.name);
     const permissionsToCreate = permissionNames.filter(
-      name => !existingPermissionNames.includes(name)
+      (name) => !existingPermissionNames.includes(name),
     );
 
     const newPermissions: Permission[] = [];
@@ -542,7 +542,7 @@ export class RolesService {
     const allPermissions: PermissionType[] = [];
 
     // Iterate through main permission categories
-    Object.keys(PermissionEnum).forEach(category => {
+    Object.keys(PermissionEnum).forEach((category) => {
       const categoryPermissions = PermissionEnum[category];
 
       if (typeof categoryPermissions === 'string') {
@@ -550,7 +550,7 @@ export class RolesService {
         allPermissions.push(categoryPermissions as unknown as PermissionType);
       } else if (typeof categoryPermissions === 'object') {
         // Handle permission object with multiple types
-        Object.values(categoryPermissions).forEach(permission => {
+        Object.values(categoryPermissions).forEach((permission) => {
           if (typeof permission === 'string') {
             allPermissions.push(permission as unknown as PermissionType);
           }
@@ -563,7 +563,7 @@ export class RolesService {
 
   /**
    * Get detailed role information including permissions, users, and user count
-   * 
+   *
    * @param roleId - The ID of the role to get details for
    * @returns A promise that resolves to the role details DTO
    * @throws NotFoundException if role not found
@@ -579,7 +579,8 @@ export class RolesService {
     }
 
     // Get accurate user count using query builder
-    const userCount = await this.userRepository.createQueryBuilder('user')
+    const userCount = await this.userRepository
+      .createQueryBuilder('user')
       .where('user.role_id = :roleId', { roleId: role.id })
       .getCount();
 
@@ -601,7 +602,7 @@ export class RolesService {
   }
   /**
    * Get all roles with their permissions, user count, and users
-   * 
+   *
    * @returns A promise that resolves to an array of role details DTOs
    */
   async findAllWithDetails(): Promise<RoleDetailsDto[]> {
@@ -609,7 +610,7 @@ export class RolesService {
       relations: ['permissions', 'users'],
     });
 
-    return roles.map(role => ({
+    return roles.map((role) => ({
       id: role.id,
       name: role.name,
       displayName: role.displayName,
@@ -625,7 +626,7 @@ export class RolesService {
 
   /**
    * Update role details
-   * 
+   *
    * @param roleId - The ID of the role to update
    * @param updateRoleDto - The data to update the role with
    * @returns A promise that resolves to the updated role
@@ -643,8 +644,7 @@ export class RolesService {
     // Only update fields that are provided
     if (updateRoleDto.displayName !== undefined && updateRoleDto.displayName !== '') {
       role.displayName = updateRoleDto.displayName;
-      if (role.name === DefaultRole.USER)
-        role.name = DefaultRole.USER;
+      if (role.name === DefaultRole.USER) role.name = DefaultRole.USER;
     }
 
     if (updateRoleDto.description !== undefined) {
@@ -656,7 +656,7 @@ export class RolesService {
 
   /**
    * Delete a role by ID
-   * 
+   *
    * @param roleId - The ID of the role to delete
    * @returns A promise that resolves to the deleted role
    * @throws NotFoundException if role not found
@@ -703,6 +703,4 @@ export class RolesService {
       return { isNormal: false, roleName: user.role.name };
     }
   }
-
-
 }

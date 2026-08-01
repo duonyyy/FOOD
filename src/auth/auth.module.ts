@@ -10,12 +10,16 @@ import { AuthService } from './auth.service';
 import { UsersService } from 'src/modules/users/users.service';
 import { RolesService } from 'src/modules/role/role.service';
 import { Permission } from 'src/entities/permission.entity';
-import { AuthGuard } from './auth.guard';
+import { AuthGuard } from './guards/auth.guard';
 import { UsersModule } from 'src/modules/users/users.module';
 import { RoleModule } from 'src/modules/role/role.module';
 import { Address } from 'src/entities/address.entity';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
-import { MailingService } from 'src/nodemailer/send-mail.service';
+import { MailModule } from 'src/infra/mail/mail.module';
+import { OtpService } from './services/otp.service';
+import { PasswordResetService } from './services/password-reset.service';
+import { SocialAuthService } from './services/social-auth.service';
+import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
@@ -31,17 +35,21 @@ import { MailingService } from 'src/nodemailer/send-mail.service';
       inject: [ConfigService],
     }),
     forwardRef(()=> UsersModule),
-    forwardRef(()=> RoleModule)
+    forwardRef(()=> RoleModule),
+    MailModule
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
+    OtpService,
+    PasswordResetService,
+    SocialAuthService,
     UsersService,
     RolesService,
     AuthGuard,
-    ConfigService,
-    MailingService
+    RolesGuard,
+    ConfigService
   ],
-  exports: [AuthService, AuthGuard, JwtModule],
+  exports: [AuthService, AuthGuard, RolesGuard, JwtModule, UsersService],
 })
 export class AuthModule { }

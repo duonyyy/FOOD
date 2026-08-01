@@ -1,15 +1,13 @@
-import { Resolver, Subscription, Query, Args, Context } from '@nestjs/graphql';
-import { NotificationService } from './notification.service';
+import { UseGuards } from '@nestjs/common';
+import { Context, Resolver, Subscription } from '@nestjs/graphql';
+import { WebSocketAuthGuard } from 'src/auth/guards/websocket-auth.guard';
 import { Notification } from 'src/entities/notification.entity';
 import { pubSub } from 'src/pubsub';
-import { UseGuards } from '@nestjs/common';
-import { WebSocketAuthGuard } from 'src/auth/websocket-auth.guard';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { NotificationService } from './notification.service';
 
 @Resolver(() => Notification)
 export class NotificationResolver {
   constructor(private notificationService: NotificationService) {}
-
 
   @Subscription(() => Notification, {
     filter: (payload, variables, context) =>

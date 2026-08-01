@@ -52,23 +52,23 @@ export class AddSampleData1750000000003 implements MigrationInterface {
         // 3. Insert Users - Fix column names to match entity
         await queryRunner.query(`
             INSERT INTO "users" ("id", "username", "password", "email", "role_id", "name", "phone", "birthday", "avatar", "authProvider", "is_active") VALUES
-            ($1, 'chubep1', $7, 'chubep1@fooddie.com', $13, 'Nguyễn Văn An - Chủ Phở', '0901234568', '1985-05-15', $19, 'email', true),
-            ($2, 'chubep2', $8, 'chubep2@fooddie.com', $14, 'Trần Thị Bình - Chủ Cơm Tấm', '0901234569', '1988-08-20', $20, 'email', true),
-            ($3, 'chubep3', $9, 'chubep3@fooddie.com', $15, 'Lê Văn Chính - Chủ Bánh Mì', '0901234567', '1987-03-12', $21, 'email', true),
-            ($4, 'chubep4', $10, 'chubep4@fooddie.com', $16, 'Phạm Thị Dung - Chủ Chè', '0901234566', '1990-02-28', $22, 'email', true),
-            ($5, 'khachhang1', $11, 'khachhang1@fooddie.com', $17, 'Lê Văn Cường', '0901234570', '1995-03-10', $23, 'email', true),
-            ($6, 'taixe1', $12, 'taixe1@fooddie.com', $18, 'Hoàng Văn Em', '0901234572', '1990-07-08', $24, 'email', true)
+            ($1, 'chubep1', $7, 'chubep1@foodee.com', $13, 'Nguyễn Văn An - Chủ Phở', '0901234568', '1985-05-15', $19, 'email', true),
+            ($2, 'chubep2', $8, 'chubep2@foodee.com', $14, 'Trần Thị Bình - Chủ Cơm Tấm', '0901234569', '1988-08-20', $20, 'email', true),
+            ($3, 'chubep3', $9, 'chubep3@foodee.com', $15, 'Lê Văn Chính - Chủ Bánh Mì', '0901234567', '1987-03-12', $21, 'email', true),
+            ($4, 'chubep4', $10, 'chubep4@foodee.com', $16, 'Phạm Thị Dung - Chủ Chè', '0901234566', '1990-02-28', $22, 'email', true),
+            ($5, 'khachhang1', $11, 'khachhang1@foodee.com', $17, 'Lê Văn Cường', '0901234570', '1995-03-10', $23, 'email', true),
+            ($6, 'taixe1', $12, 'taixe1@foodee.com', $18, 'Hoàng Văn Em', '0901234572', '1990-07-08', $24, 'email', true)
             ON CONFLICT ("id") DO NOTHING
         `, [
             this.userIds[0], this.userIds[1], this.userIds[2], this.userIds[3], this.userIds[4], this.userIds[5],
             hashedPasswords[0], hashedPasswords[1], hashedPasswords[2], hashedPasswords[3], hashedPasswords[4], hashedPasswords[5],
             shopOwnerRoleId, shopOwnerRoleId, shopOwnerRoleId, shopOwnerRoleId, userRoleId, shipperRoleId,
-            'https://testingbot.com/free-online-tools/random-avatar/128?u=chubep1@fooddie.com',
-            'https://testingbot.com/free-online-tools/random-avatar/128?u=chubep2@fooddie.com',
-            'https://testingbot.com/free-online-tools/random-avatar/128?u=chubep3@fooddie.com',
-            'https://testingbot.com/free-online-tools/random-avatar/128?u=chubep4@fooddie.com',
-            'https://testingbot.com/free-online-tools/random-avatar/128?u=khachhang1@fooddie.com',
-            'https://testingbot.com/free-online-tools/random-avatar/128?u=taixe1@fooddie.com'
+            'https://testingbot.com/free-online-tools/random-avatar/128?u=chubep1@foodee.com',
+            'https://testingbot.com/free-online-tools/random-avatar/128?u=chubep2@foodee.com',
+            'https://testingbot.com/free-online-tools/random-avatar/128?u=chubep3@foodee.com',
+            'https://testingbot.com/free-online-tools/random-avatar/128?u=chubep4@foodee.com',
+            'https://testingbot.com/free-online-tools/random-avatar/128?u=khachhang1@foodee.com',
+            'https://testingbot.com/free-online-tools/random-avatar/128?u=taixe1@foodee.com'
         ]);
 
         // 4. Insert Shipper Certificate Information

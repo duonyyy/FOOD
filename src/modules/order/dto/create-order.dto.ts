@@ -1,5 +1,15 @@
-import { Type } from "class-transformer";
-import { IsNotEmpty, IsString, IsOptional, IsUUID, IsNumber, IsArray, ValidateNested, Min, Max } from "class-validator";
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class SelectedToppingDto {
   @IsNotEmpty()

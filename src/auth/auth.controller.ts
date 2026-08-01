@@ -13,7 +13,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register-user.dto';
 import { log } from 'console';
 import { GoogleRegisterDto } from './dto/google-register.dto';
-import { AuthGuard } from './auth.guard';
+import { AuthGuard } from './guards/auth.guard';
 import { CreateShipperDto } from './dto/create-shipper.dto';
 import { ApiBody } from '@nestjs/swagger';
 import { LoginDriverDto } from './dto/login-driver.dto';
@@ -68,13 +68,8 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  async resetPassword( @Req() req) {
-    const resetPasswordDto: ResetPasswordDto = {
-      token: req.body.token.token,
-      email: req.body.token.email,
-      newPassword: req.body.token.newPassword,
-    };
-    //log('Reset Password DTO:', resetPasswordDto);
+  @UsePipes(new ValidationPipe())
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return await this.authService.resetPassword(resetPasswordDto);
   }
 
@@ -115,8 +110,6 @@ export class AuthController {
   @Post('check')
   @UseGuards(AuthGuard)
   async checkAuth(@Req() req) {
-    // Log the user ID for debugging
-    console.log('Authenticated user ID:', req.user.uid);
     return { message: 'User is authenticated', user: req.user, isLogin: true  };
   }
 }

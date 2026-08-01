@@ -1,71 +1,31 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from 'src/auth/auth.module';
+import { AddressModule } from '../address/address.module';
+import { FoodModule } from '../food/food.module';
+import { OrderModule } from '../order/order.module';
+import { RestaurantModule } from '../restaurant/restaurant.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
-import { JwtModule, JwtService } from '@nestjs/jwt';
-import { FoodService } from '../food/food.service';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Food } from 'src/entities/food.entity';
-import { Order } from 'src/entities/order.entity';
-import { Restaurant } from 'src/entities/restaurant.entity';
-import { Category } from 'src/entities/category.entity';
-import { Review } from 'src/entities/review.entity';
-import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
-import { OrderDetail } from 'src/entities/orderDetail.entity';
-import { User } from 'src/entities/user.entity';
-import { Address } from 'src/entities/address.entity';
-import { Promotion } from 'src/entities/promotion.entity';
-import { Checkout } from 'src/entities/checkout.entity';
-import { PromotionService } from '../promotion/promotion.service';
-import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
-
-import { Notification } from 'src/entities/notification.entity';
-import { OrderModule } from '../order/order.module';
-import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-
-import { AddressService } from '../address/address.service';
-import { RestaurantService } from '../restaurant/restaurant.service';
-import { GeocodingService } from 'src/services/geocoding.service';
-import { SystemConstraintsService } from 'src/services/system-constraints.service';
-import { SystemConstraint } from 'src/entities/systemConstaints.entity';
-import { Topping } from 'src/entities/topping.entity';
-import { MapboxService } from 'src/services/mapbox.service';
-import { QueueModule } from 'src/queue/queue.module';
+import { GeneralChatFlowService } from './flows/general-chat-flow.service';
+import { OrderConversationFlowService } from './flows/order-conversation-flow.service';
+import { QuickReorderFlowService } from './flows/quick-reorder-flow.service';
+import { ChatContextService } from './services/chat-context.service';
+import { ChatLlmService } from './services/chat-llm.service';
+import { ChatOrderValidationService } from './services/chat-order-validation.service';
+import { OrderCreatedPublisher } from './services/order-created-publisher.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      Food,
-      Topping,
-      SystemConstraint,
-      Order,
-      Restaurant,
-      Category,
-      Review,
-      OrderDetail,
-      User,
-      Address,
-      Promotion,
-      Checkout,
-      PendingShipperAssignment,
-      Notification,
-      ShippingDetail,
-    ]),
-    OrderModule,
-    QueueModule,
-  ],
+  imports: [AuthModule, FoodModule, OrderModule, AddressModule, RestaurantModule],
   controllers: [ChatController],
   providers: [
     ChatService,
-    SystemConstraintsService,
-    JwtModule,
-    FoodService,
-    GoogleCloudStorageService,
-    PromotionService,
-    JwtService,
-    AddressService,
-    RestaurantService,
-    GeocodingService,
-    MapboxService,
+    ChatContextService,
+    ChatLlmService,
+    ChatOrderValidationService,
+    OrderCreatedPublisher,
+    QuickReorderFlowService,
+    OrderConversationFlowService,
+    GeneralChatFlowService,
   ],
 })
 export class ChatModule {}

@@ -1,6 +1,6 @@
 import { Permission } from '../../../entities/permission.entity';
-import { User } from '../../../entities/user.entity';
 import { DefaultRole } from '../../../entities/role.entity';
+import { User } from '../../../entities/user.entity';
 
 /**
  * Data transfer object for returning detailed role information

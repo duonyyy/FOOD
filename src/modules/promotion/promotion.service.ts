@@ -1,387 +1,459 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
+import { buildCacheKey } from 'src/infra/cache/cache-key.util';
+import { CACHE_TTL_SECONDS } from 'src/infra/cache/cache.constants';
+import { AppCacheService } from 'src/infra/cache/cache.service';
+import { MinioService } from 'src/infra/minio/minio.service';
+
+import { EntityManager, Repository } from 'typeorm';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
-import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
-import { AppCacheService } from 'src/cache/cache.service';
-import { CACHE_TTL_SECONDS } from 'src/cache/cache.constants';
-import { buildCacheKey } from 'src/cache/cache-key.util';
 
 @Injectable()
 export class PromotionService {
-    constructor(
-        @InjectRepository(Promotion)
-        private promotionRepository: Repository<Promotion>,
-        private readonly gcsService: GoogleCloudStorageService,
-        private readonly cacheService: AppCacheService
-    ) {}
+  constructor(
+    @InjectRepository(Promotion)
+    private promotionRepository: Repository<Promotion>,
+    private readonly minioService: MinioService,
 
-    private async clearPromotionCache(): Promise<void> {
-        await this.cacheService.deleteByPattern('promotion:*');
+    private readonly cacheService: AppCacheService,
+  ) {}
+
+  async clearPromotionCache(): Promise<void> {
+    await this.cacheService.deleteByPattern('promotion:*');
+  }
+
+  async createPromotion(data: CreatePromotionDto) {
+    // Validate dates
+    if (data.startDate && data.endDate) {
+      const startDate = new Date(data.startDate);
+      const endDate = new Date(data.endDate);
+
+      if (startDate >= endDate) {
+        throw new BadRequestException('Start date must be before end date');
+      }
     }
 
-    async createPromotion(data: CreatePromotionDto) {
-        // Validate dates
-        if (data.startDate && data.endDate) {
-            const startDate = new Date(data.startDate);
-            const endDate = new Date(data.endDate);
-            
-            if (startDate >= endDate) {
-                throw new BadRequestException('Start date must be before end date');
-            }
-        }
-
-        // Validate discount fields
-        if (!data.discountPercent && !data.discountAmount) {
-            throw new BadRequestException('Either discountPercent or discountAmount must be provided');
-        }
-
-        if (data.discountPercent && data.discountAmount) {
-            throw new BadRequestException('Cannot provide both discountPercent and discountAmount');
-        }
-
-        if (data.discountPercent && (data.discountPercent < 0 || data.discountPercent > 100)) {
-            throw new BadRequestException('Discount percent must be between 0 and 100');
-        }
-
-        const promotionData = {
-            description: data.description,
-            type: data.type,
-            discountPercent: data.discountPercent,
-            discountAmount: data.discountAmount,
-            minOrderValue: data.minOrderValue,
-            maxDiscountAmount: data.maxDiscountAmount,
-            code: data.code,
-            image: data.image,
-            startDate: data.startDate ? new Date(data.startDate) : undefined,
-            endDate: data.endDate ? new Date(data.endDate) : undefined,
-            maxUsage: data.maxUsage,
-            numberOfUsed: 0,
-        };
-
-        const promotion = this.promotionRepository.create(promotionData);
-        const savedPromotion = await this.promotionRepository.save(promotion);
-        await this.clearPromotionCache();
-        return savedPromotion;
+    // Validate discount fields
+    if (!data.discountPercent && !data.discountAmount) {
+      throw new BadRequestException('Either discountPercent or discountAmount must be provided');
     }
 
-    async getAllPromotions() {
-        return this.cacheService.remember(
-            buildCacheKey('promotion:all'),
-            CACHE_TTL_SECONDS.LONG,
-            () => this.promotionRepository.find()
-        );
+    if (data.discountPercent && data.discountAmount) {
+      throw new BadRequestException('Cannot provide both discountPercent and discountAmount');
     }
 
-    async getActivePromotions() {
-        return this.cacheService.remember(
-            buildCacheKey('promotion:active'),
-            CACHE_TTL_SECONDS.MEDIUM,
-            async () => {
+    if (data.discountPercent && (data.discountPercent < 0 || data.discountPercent > 100)) {
+      throw new BadRequestException('Discount percent must be between 0 and 100');
+    }
+
+    const promotionData = {
+      description: data.description,
+      type: data.type,
+      discountPercent: data.discountPercent,
+      discountAmount: data.discountAmount,
+      minOrderValue: data.minOrderValue,
+      maxDiscountAmount: data.maxDiscountAmount,
+      code: data.code,
+      image: data.image,
+      startDate: data.startDate ? new Date(data.startDate) : undefined,
+      endDate: data.endDate ? new Date(data.endDate) : undefined,
+      maxUsage: data.maxUsage,
+      numberOfUsed: 0,
+    };
+
+    const promotion = this.promotionRepository.create(promotionData);
+    const savedPromotion = await this.promotionRepository.save(promotion);
+    await this.clearPromotionCache();
+    return savedPromotion;
+  }
+
+  async getAllPromotions() {
+    return this.cacheService.remember(buildCacheKey('promotion:all'), CACHE_TTL_SECONDS.LONG, () =>
+      this.promotionRepository.find(),
+    );
+  }
+
+  async getActivePromotions() {
+    return this.cacheService.remember(
+      buildCacheKey('promotion:active'),
+      CACHE_TTL_SECONDS.MEDIUM,
+      async () => {
         const now = new Date();
         return await this.promotionRepository
-            .createQueryBuilder('promotion')
-            .where('(promotion.startDate IS NULL OR promotion.startDate <= :now)', { now })
-            .andWhere('(promotion.endDate IS NULL OR promotion.endDate >= :now)', { now })
-            .andWhere('(promotion.maxUsage IS NULL OR promotion.numberOfUsed < promotion.maxUsage)')
-            .getMany();
-            }
-        );
-    }
+          .createQueryBuilder('promotion')
+          .where('(promotion.startDate IS NULL OR promotion.startDate <= :now)', { now })
+          .andWhere('(promotion.endDate IS NULL OR promotion.endDate >= :now)', { now })
+          .andWhere('(promotion.maxUsage IS NULL OR promotion.numberOfUsed < promotion.maxUsage)')
+          .getMany();
+      },
+    );
+  }
 
-    async getActivePromotionsByType(type: PromotionType) {
-        return this.cacheService.remember(
-            buildCacheKey('promotion:activeByType', { type }),
-            CACHE_TTL_SECONDS.MEDIUM,
-            async () => {
+  async getActivePromotionsByType(type: PromotionType) {
+    return this.cacheService.remember(
+      buildCacheKey('promotion:activeByType', { type }),
+      CACHE_TTL_SECONDS.MEDIUM,
+      async () => {
         const now = new Date();
         return await this.promotionRepository
-            .createQueryBuilder('promotion')
-            .where('promotion.type = :type', { type })
-            .andWhere('(promotion.startDate IS NULL OR promotion.startDate <= :now)', { now })
-            .andWhere('(promotion.endDate IS NULL OR promotion.endDate >= :now)', { now })
-            .andWhere('(promotion.maxUsage IS NULL OR promotion.numberOfUsed < promotion.maxUsage)')
-            .getMany();
-            }
-        );
+          .createQueryBuilder('promotion')
+          .where('promotion.type = :type', { type })
+          .andWhere('(promotion.startDate IS NULL OR promotion.startDate <= :now)', { now })
+          .andWhere('(promotion.endDate IS NULL OR promotion.endDate >= :now)', { now })
+          .andWhere('(promotion.maxUsage IS NULL OR promotion.numberOfUsed < promotion.maxUsage)')
+          .getMany();
+      },
+    );
+  }
+
+  async getPromotionById(id: string) {
+    const promotion = await this.promotionRepository.findOne({ where: { id } });
+    if (!promotion) throw new NotFoundException('Promotion not found');
+    return promotion;
+  }
+
+  async getPromotionByCode(code: string) {
+    const promotion = await this.cacheService.remember(
+      buildCacheKey('promotion:code', { code }),
+      CACHE_TTL_SECONDS.MEDIUM,
+      () => this.promotionRepository.findOne({ where: { code } }),
+    );
+    if (!promotion) throw new NotFoundException('Promotion not found');
+    return promotion;
+  }
+
+  async validatePromotion(
+    code: string,
+    orderValue?: number,
+  ): Promise<{
+    valid: boolean;
+    promotion?: Promotion;
+    reason?: string;
+    calculatedDiscount?: number;
+  }> {
+    const promotion = await this.promotionRepository.findOne({
+      where: { code },
+    });
+
+    if (!promotion) {
+      return { valid: false, reason: 'Promotion code not found' };
     }
 
-    async getPromotionById(id: string) {
-        const promotion = await this.promotionRepository.findOne({ where: { id } });
-        if (!promotion) throw new NotFoundException('Promotion not found');
-        return promotion;
+    const now = new Date();
+
+    // Check if promotion has started
+    if (promotion.startDate && promotion.startDate > now) {
+      return { valid: false, reason: 'Promotion has not started yet' };
     }
 
-    async getPromotionByCode(code: string) {
-        const promotion = await this.cacheService.remember(
-            buildCacheKey('promotion:code', { code }),
-            CACHE_TTL_SECONDS.MEDIUM,
-            () => this.promotionRepository.findOne({ where: { code } })
-        );
-        if (!promotion) throw new NotFoundException('Promotion not found');
-        return promotion;
+    // Check if promotion has ended
+    if (promotion.endDate && promotion.endDate < now) {
+      return { valid: false, reason: 'Promotion has expired' };
     }
 
-    async validatePromotion(code: string, orderValue?: number): Promise<{ 
-        valid: boolean; 
-        promotion?: Promotion; 
-        reason?: string;
-        calculatedDiscount?: number;
-    }> {
-        const promotion = await this.promotionRepository.findOne({ where: { code } });
-        
-        if (!promotion) {
-            return { valid: false, reason: 'Promotion code not found' };
-        }
-
-        const now = new Date();
-
-        // Check if promotion has started
-        if (promotion.startDate && promotion.startDate > now) {
-            return { valid: false, reason: 'Promotion has not started yet' };
-        }
-
-        // Check if promotion has ended
-        if (promotion.endDate && promotion.endDate < now) {
-            return { valid: false, reason: 'Promotion has expired' };
-        }
-
-        // Check usage limit
-        if (promotion.maxUsage && promotion.numberOfUsed >= promotion.maxUsage) {
-            return { valid: false, reason: 'Promotion usage limit reached' };
-        }
-
-        // Check minimum order value
-        if (promotion.minOrderValue && orderValue && orderValue < promotion.minOrderValue) {
-            return { 
-                valid: false, 
-                reason: `Minimum order value of ${promotion.minOrderValue} required` 
-            };
-        }
-
-        // Calculate discount
-        let calculatedDiscount = 0;
-        if (orderValue) {
-            calculatedDiscount = this.calculateDiscount(promotion, orderValue);
-        }
-
-        return { 
-            valid: true, 
-            promotion, 
-            calculatedDiscount 
-        };
+    // Check usage limit
+    if (promotion.maxUsage && promotion.numberOfUsed >= promotion.maxUsage) {
+      return { valid: false, reason: 'Promotion usage limit reached' };
     }
 
-    calculateDiscount(promotion: Promotion, orderAmount: number): number {
-        try {
-            let discount = 0;
-            const amount = Number(orderAmount) || 0;
-
-            if (promotion.discountPercent && Number(promotion.discountPercent) > 0) {
-                // Percentage discount
-                discount = (amount * Number(promotion.discountPercent)) / 100;
-                
-                // Apply max discount limit if specified
-                if (promotion.maxDiscountAmount && Number(promotion.maxDiscountAmount) > 0) {
-                    discount = Math.min(discount, Number(promotion.maxDiscountAmount));
-                }
-            } else if (promotion.discountAmount && Number(promotion.discountAmount) > 0) {
-                // Fixed amount discount
-                discount = Number(promotion.discountAmount);
-            }
-
-            // Ensure discount is a valid number and not negative
-            if (isNaN(discount) || discount < 0) {
-                discount = 0;
-            }
-
-            // Don't let discount exceed the order amount
-            const finalDiscount = Math.min(discount, amount);
-            
-            
-            return finalDiscount;
-        } catch (error) {
-            return 0; // Return 0 discount on error
-        }
+    // Check minimum order value
+    if (promotion.minOrderValue && orderValue && orderValue < promotion.minOrderValue) {
+      return {
+        valid: false,
+        reason: `Minimum order value of ${promotion.minOrderValue} required`,
+      };
     }
 
-    async usePromotion(code: string, orderValue?: number): Promise<Promotion> {
-        const validation = await this.validatePromotion(code, orderValue);
-        
-        if (!validation.valid || !validation.promotion) {
-            throw new BadRequestException(validation.reason || 'Invalid promotion');
-        }
-
-        // Increment usage count
-        await this.promotionRepository.increment(
-            { id: validation.promotion.id },
-            'numberOfUsed',
-            1
-        );
-        await this.clearPromotionCache();
-
-        return await this.getPromotionById(validation.promotion.id);
+    // Calculate discount
+    let calculatedDiscount = 0;
+    if (orderValue) {
+      calculatedDiscount = this.calculateDiscount(promotion, orderValue);
     }
 
-    async updatePromotion(id: string, data: UpdatePromotionDto) {
-        const promotion = await this.getPromotionById(id);
+    return {
+      valid: true,
+      promotion,
+      calculatedDiscount,
+    };
+  }
 
-        // Validate dates if both are provided
-        const startDate = data.startDate ? new Date(data.startDate) : promotion.startDate;
-        const endDate = data.endDate ? new Date(data.endDate) : promotion.endDate;
+  calculateDiscount(promotion: Promotion, orderAmount: number): number {
+    try {
+      let discount = 0;
+      const amount = Number(orderAmount) || 0;
 
-        if (startDate && endDate && startDate >= endDate) {
-            throw new BadRequestException('Start date must be before end date');
+      if (promotion.discountPercent && Number(promotion.discountPercent) > 0) {
+        // Percentage discount
+        discount = (amount * Number(promotion.discountPercent)) / 100;
+
+        // Apply max discount limit if specified
+        if (promotion.maxDiscountAmount && Number(promotion.maxDiscountAmount) > 0) {
+          discount = Math.min(discount, Number(promotion.maxDiscountAmount));
         }
+      } else if (promotion.discountAmount && Number(promotion.discountAmount) > 0) {
+        // Fixed amount discount
+        discount = Number(promotion.discountAmount);
+      }
 
-        // Validate discount fields
-        const newDiscountPercent = data.discountPercent !== undefined ? data.discountPercent : promotion.discountPercent;
-        const newDiscountAmount = data.discountAmount !== undefined ? data.discountAmount : promotion.discountAmount;
+      // Ensure discount is a valid number and not negative
+      if (isNaN(discount) || discount < 0) {
+        discount = 0;
+      }
 
-        if (!newDiscountPercent && !newDiscountAmount) {
-            throw new BadRequestException('Either discountPercent or discountAmount must be provided');
-        }
+      // Don't let discount exceed the order amount
+      const finalDiscount = Math.min(discount, amount);
 
-        if (newDiscountPercent && newDiscountAmount) {
-            throw new BadRequestException('Cannot provide both discountPercent and discountAmount');
-        }
+      return finalDiscount;
+    } catch (error) {
+      return 0; // Return 0 discount on error
+    }
+  }
 
-        // Handle image update
-        if (promotion.image && data.image && promotion.image !== data.image) {
-            await this.gcsService.deleteFile(promotion.image);
-        }
-
-        // Build update object with proper typing
-        const updateData: Partial<Promotion> = {};
-        
-        if (data.description !== undefined) updateData.description = data.description;
-        if (data.type !== undefined) updateData.type = data.type;
-        if (data.discountPercent !== undefined) updateData.discountPercent = data.discountPercent;
-        if (data.discountAmount !== undefined) updateData.discountAmount = data.discountAmount;
-        if (data.minOrderValue !== undefined) updateData.minOrderValue = data.minOrderValue;
-        if (data.maxDiscountAmount !== undefined) updateData.maxDiscountAmount = data.maxDiscountAmount;
-        if (data.code !== undefined) updateData.code = data.code;
-        if (data.image !== undefined) updateData.image = data.image;
-        if (data.maxUsage !== undefined) updateData.maxUsage = data.maxUsage;
-        if (data.startDate !== undefined) updateData.startDate = new Date(data.startDate);
-        if (data.endDate !== undefined) updateData.endDate = new Date(data.endDate);
-
-        await this.promotionRepository.update(id, updateData);
-        await this.clearPromotionCache();
-        return this.getPromotionById(id);
+  async usePromotion(
+    code: string,
+    orderValue?: number,
+    manager?: EntityManager,
+  ): Promise<Promotion> {
+    if (!manager) {
+      return this.promotionRepository.manager.transaction((transactionManager) =>
+        this.usePromotion(code, orderValue, transactionManager),
+      );
     }
 
-    async deletePromotion(id: string) {
-        const promotion = await this.getPromotionById(id);
-        
-        // Delete image if exists
-        if (promotion.image) {
-            await this.gcsService.deleteFile(promotion.image);
-        }
+    const promotionRepository = manager.getRepository(Promotion);
+    const promotion = await promotionRepository.findOne({
+      where: { code },
+      lock: { mode: 'pessimistic_write' },
+    });
 
-        const result = await this.promotionRepository.delete(id);
-        if (result.affected === 0) throw new NotFoundException('Promotion not found');
-        await this.clearPromotionCache();
-        return { message: 'Promotion deleted successfully' };
+    if (!promotion) {
+      throw new BadRequestException('Promotion code not found');
     }
 
-    async resetPromotionUsage(id: string) {
-        await this.promotionRepository.update(id, { numberOfUsed: 0 });
-        await this.clearPromotionCache();
-        return this.getPromotionById(id);
+    const validation = this.validatePromotionEntity(promotion, orderValue);
+    if (!validation.valid) {
+      throw new BadRequestException(validation.reason || 'Invalid promotion');
     }
 
-    /**
-     * Get all promotions with pagination for guest users
-     * 
-     * @param page The page number
-     * @param pageSize The number of items per page
-     * @param type Optional promotion type filter
-     * @returns List of all promotions with pagination metadata
-     */
-    async getAllPromotionsWithPagination(page = 1, pageSize = 10, type?: PromotionType): Promise<{
-        items: Promotion[];
-        totalItems: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-    }> {
-        const cacheKey = buildCacheKey('promotion:allPaginated', { page, pageSize, type });
-        return this.cacheService.remember(cacheKey, CACHE_TTL_SECONDS.MEDIUM, async () => {
-        const queryBuilder = this.promotionRepository.createQueryBuilder('promotion');
-        
-        if (type) {
-            queryBuilder.where('promotion.type = :type', { type });
-        }
+    promotion.numberOfUsed = Number(promotion.numberOfUsed || 0) + 1;
+    const updatedPromotion = await promotionRepository.save(promotion);
+    // NOTE: cache is intentionally NOT cleared here.
+    // The caller (OrderService) is responsible for clearing the cache
+    // AFTER the outer transaction commits successfully, so that a rollback
+    // does not result in stale-cache invalidation with no actual DB change.
 
-        const [items, totalItems] = await queryBuilder
-            .orderBy('promotion.id', 'DESC')
-            .skip((page - 1) * pageSize)
-            .take(pageSize)
-            .getManyAndCount();
+    return updatedPromotion;
+  }
 
-        return {
-            items,
-            totalItems,
-            page,
-            pageSize,
-            totalPages: Math.ceil(totalItems / pageSize),
-        };
+  private validatePromotionEntity(
+    promotion: Promotion,
+    orderValue?: number,
+  ): {
+    valid: boolean;
+    reason?: string;
+  } {
+    const now = new Date();
+
+    if (promotion.startDate && promotion.startDate > now) {
+      return { valid: false, reason: 'Promotion has not started yet' };
+    }
+
+    if (promotion.endDate && promotion.endDate < now) {
+      return { valid: false, reason: 'Promotion has expired' };
+    }
+
+    if (promotion.maxUsage && promotion.numberOfUsed >= promotion.maxUsage) {
+      return { valid: false, reason: 'Promotion usage limit reached' };
+    }
+
+    if (promotion.minOrderValue && orderValue && orderValue < promotion.minOrderValue) {
+      return {
+        valid: false,
+        reason: `Minimum order value of ${promotion.minOrderValue} required`,
+      };
+    }
+
+    return { valid: true };
+  }
+
+  async updatePromotion(id: string, data: UpdatePromotionDto) {
+    const promotion = await this.getPromotionById(id);
+
+    // Validate dates if both are provided
+    const startDate = data.startDate ? new Date(data.startDate) : promotion.startDate;
+    const endDate = data.endDate ? new Date(data.endDate) : promotion.endDate;
+
+    if (startDate && endDate && startDate >= endDate) {
+      throw new BadRequestException('Start date must be before end date');
+    }
+
+    // Validate discount fields
+    const newDiscountPercent =
+      data.discountPercent !== undefined ? data.discountPercent : promotion.discountPercent;
+    const newDiscountAmount =
+      data.discountAmount !== undefined ? data.discountAmount : promotion.discountAmount;
+
+    if (!newDiscountPercent && !newDiscountAmount) {
+      throw new BadRequestException('Either discountPercent or discountAmount must be provided');
+    }
+
+    if (newDiscountPercent && newDiscountAmount) {
+      throw new BadRequestException('Cannot provide both discountPercent and discountAmount');
+    }
+
+    // Handle image update
+    if (promotion.image && data.image && promotion.image !== data.image) {
+      await this.minioService.deleteFile(promotion.image);
+
+    }
+
+    // Build update object with proper typing
+    const updateData: Partial<Promotion> = {};
+
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.type !== undefined) updateData.type = data.type;
+    if (data.discountPercent !== undefined) updateData.discountPercent = data.discountPercent;
+    if (data.discountAmount !== undefined) updateData.discountAmount = data.discountAmount;
+    if (data.minOrderValue !== undefined) updateData.minOrderValue = data.minOrderValue;
+    if (data.maxDiscountAmount !== undefined) updateData.maxDiscountAmount = data.maxDiscountAmount;
+    if (data.code !== undefined) updateData.code = data.code;
+    if (data.image !== undefined) updateData.image = data.image;
+    if (data.maxUsage !== undefined) updateData.maxUsage = data.maxUsage;
+    if (data.startDate !== undefined) updateData.startDate = new Date(data.startDate);
+    if (data.endDate !== undefined) updateData.endDate = new Date(data.endDate);
+
+    await this.promotionRepository.update(id, updateData);
+    await this.clearPromotionCache();
+    return this.getPromotionById(id);
+  }
+
+  async deletePromotion(id: string) {
+    const promotion = await this.getPromotionById(id);
+
+    // Delete image if exists
+    if (promotion.image) {
+      await this.minioService.deleteFile(promotion.image);
+
+    }
+
+    const result = await this.promotionRepository.delete(id);
+    if (result.affected === 0) throw new NotFoundException('Promotion not found');
+    await this.clearPromotionCache();
+    return { message: 'Promotion deleted successfully' };
+  }
+
+  async resetPromotionUsage(id: string) {
+    await this.promotionRepository.update(id, { numberOfUsed: 0 });
+    await this.clearPromotionCache();
+    return this.getPromotionById(id);
+  }
+
+  /**
+   * Get all promotions with pagination for guest users
+   *
+   * @param page The page number
+   * @param pageSize The number of items per page
+   * @param type Optional promotion type filter
+   * @returns List of all promotions with pagination metadata
+   */
+  async getAllPromotionsWithPagination(
+    page = 1,
+    pageSize = 10,
+    type?: PromotionType,
+  ): Promise<{
+    items: Promotion[];
+    totalItems: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }> {
+    const cacheKey = buildCacheKey('promotion:allPaginated', {
+      page,
+      pageSize,
+      type,
+    });
+    return this.cacheService.remember(cacheKey, CACHE_TTL_SECONDS.MEDIUM, async () => {
+      const queryBuilder = this.promotionRepository.createQueryBuilder('promotion');
+
+      if (type) {
+        queryBuilder.where('promotion.type = :type', { type });
+      }
+
+      const [items, totalItems] = await queryBuilder
+        .orderBy('promotion.id', 'DESC')
+        .skip((page - 1) * pageSize)
+        .take(pageSize)
+        .getManyAndCount();
+
+      return {
+        items,
+        totalItems,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalItems / pageSize),
+      };
+    });
+  }
+
+  /**
+   * Get active promotions with pagination for guest users
+   *
+   * @param page The page number
+   * @param pageSize The number of items per page
+   * @param type Optional promotion type filter
+   * @returns List of active promotions with pagination metadata
+   */
+  async getActivePromotionsWithPagination(
+    page = 1,
+    pageSize = 10,
+    type?: PromotionType,
+    name?: string,
+  ): Promise<{
+    items: Promotion[];
+    totalItems: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }> {
+    const cacheKey = buildCacheKey('promotion:activePaginated', {
+      page,
+      pageSize,
+      type,
+      name,
+    });
+    return this.cacheService.remember(cacheKey, CACHE_TTL_SECONDS.MEDIUM, async () => {
+      const now = new Date();
+
+      const queryBuilder = this.promotionRepository
+        .createQueryBuilder('promotion')
+        .where('(promotion.startDate IS NULL OR promotion.startDate <= :now)', { now })
+        .andWhere('(promotion.endDate IS NULL OR promotion.endDate >= :now)', { now })
+        .andWhere('(promotion.maxUsage IS NULL OR promotion.numberOfUsed < promotion.maxUsage)');
+
+      if (type) {
+        queryBuilder.andWhere('promotion.type = :type', { type });
+      }
+      if (name) {
+        queryBuilder.andWhere('LOWER(promotion.description) LIKE :name', {
+          name: `%${name.toLowerCase()}%`,
         });
-    }
+      }
 
-    /**
-     * Get active promotions with pagination for guest users
-     * 
-     * @param page The page number
-     * @param pageSize The number of items per page
-     * @param type Optional promotion type filter
-     * @returns List of active promotions with pagination metadata
-     */
-    async getActivePromotionsWithPagination(
-        page = 1,
-        pageSize = 10,
-        type?: PromotionType,
-        name?: string
-    ): Promise<{
-        items: Promotion[];
-        totalItems: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-    }> {
-        const cacheKey = buildCacheKey('promotion:activePaginated', { page, pageSize, type, name });
-        return this.cacheService.remember(cacheKey, CACHE_TTL_SECONDS.MEDIUM, async () => {
-        const now = new Date();
+      const [items, totalItems] = await queryBuilder
+        .orderBy('promotion.id', 'DESC')
+        .skip((page - 1) * pageSize)
+        .take(pageSize)
+        .getManyAndCount();
 
-        const queryBuilder = this.promotionRepository
-            .createQueryBuilder('promotion')
-            .where('(promotion.startDate IS NULL OR promotion.startDate <= :now)', { now })
-            .andWhere('(promotion.endDate IS NULL OR promotion.endDate >= :now)', { now })
-            .andWhere('(promotion.maxUsage IS NULL OR promotion.numberOfUsed < promotion.maxUsage)');
-
-        if (type) {
-            queryBuilder.andWhere('promotion.type = :type', { type });
-        }
-        if (name) {
-            queryBuilder.andWhere('LOWER(promotion.description) LIKE :name', { name: `%${name.toLowerCase()}%` });
-        }
-
-        const [items, totalItems] = await queryBuilder
-            .orderBy('promotion.id', 'DESC')
-            .skip((page - 1) * pageSize)
-            .take(pageSize)
-            .getManyAndCount();
-
-        return {
-            items,
-            totalItems,
-            page,
-            pageSize,
-            totalPages: Math.ceil(totalItems / pageSize),
-        };
-        });
-    }
+      return {
+        items,
+        totalItems,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalItems / pageSize),
+      };
+    });
+  }
 }

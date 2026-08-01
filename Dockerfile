@@ -24,7 +24,7 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 
 # Copy package files
 COPY package*.json ./

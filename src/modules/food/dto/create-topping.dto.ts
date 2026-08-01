@@ -1,5 +1,5 @@
-import { IsNotEmpty, IsString, IsNumberString, IsOptional, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { IsBoolean, IsNotEmpty, IsNumberString, IsOptional, IsString } from 'class-validator';
 
 export class CreateToppingDto {
   @IsString()

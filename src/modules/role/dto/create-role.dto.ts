@@ -1,9 +1,6 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
-import { DefaultRole } from '../../../entities/role.entity';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateRoleDto {
-
-
   @IsString()
   @IsNotEmpty()
   displayName: string;

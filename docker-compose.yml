@@ -10,16 +10,23 @@ services:
     ports:
       - "3000:3000"
     environment:
+      - NODE_ENV=development
+      - PORT=3000
       # Ghi đè DB_HOST trong .env để trỏ tới service postgres của Docker
       - DB_HOST=postgres
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - AI_SERVER_URL=http://ai-server:8000
     env_file:
       - .env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      ai-server:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   postgres:
@@ -55,6 +62,43 @@ services:
       timeout: 5s
       retries: 5
 
+  ai-server:
+    build:
+      context: ../foodee-ai
+      dockerfile: Dockerfile
+    container_name: fooddie_ai_server
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../foodee-ai/.env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2023-09-04T19-57-37Z
+    container_name: fooddie_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-miniouser}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-miniopassword}
+    ports:
+      - '${MINIO_PORT:-9000}:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
+  minio-data:
+    driver: local

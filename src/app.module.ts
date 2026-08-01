@@ -6,7 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './modules/users/users.module';
 import { RoleModule } from './modules/role/role.module';
 import { AuthModule } from './auth/auth.module';
-import { DataSource } from 'typeorm';
+import minioConfig from './config/minio.config';
 import { ConfigModule } from '@nestjs/config';
 import { Role } from './entities/role.entity';
 import { User } from './entities/user.entity';
@@ -27,52 +27,23 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriverConfig, ApolloDriver } from '@nestjs/apollo';
 import { AppResolver } from './app.resolver';
 import { ShipperModule } from './modules/shipper/shipper.module';
-import { QueueModule } from './queue/queue.module';
+import { QueueModule } from './infra/queue/queue.module';
 import { Order } from './entities/order.entity';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { MessengerModule } from './modules/messenger/messenger.module';
 import { NotificationModule } from './modules/notification/notification.module';
-import { AppCacheModule } from './cache/cache.module';
+import { AppCacheModule } from './infra/cache/cache.module';
+import { DatabaseModule } from './infra/database/database.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      cache: true, // Cache config
+      cache: true,
+      load: [minioConfig],
     }),
+    DatabaseModule,
     AppCacheModule,
-    // Database connection
-    TypeOrmModule.forRootAsync({
-      useFactory: () => ({
-        type: 'postgres',
-        host: process.env.DB_HOST,
-        port: +(process.env.DB_PORT ?? 5432),
-        username: process.env.DB_USERNAME,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_NAME,
-        entities: [__dirname + '/entities/*.entity{.ts,.js}'],
-        synchronize: false,
-        migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        migrationsRun: false,
-        migrationsTableName: 'migrations',
-        autoLoadEntities: true,
-        // ssl: {
-        //   rejectUnauthorized: false,
-        // },
-        // Memory optimizations
-        keepConnectionAlive: false,
-        retryAttempts: 1,
-        retryDelay: 1000,
-        maxQueryExecutionTime: 5000,
-        poolSize: 3, // Reduce connection pool
-        extra: {
-          max: 3, // Maximum pool size
-          min: 1, // Minimum pool size
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 2000,
-        },
-      }),
-    }),
     
     // Core modules only
     ChatModule,
@@ -160,7 +131,7 @@ import { AppCacheModule } from './cache/cache.module';
   providers: [AppService, AppResolver],
 })
 export class AppModule {
-  constructor(private readonly dataSource: DataSource) {
+  constructor() {
     console.log('AppModule.constructor()');
   }
 }

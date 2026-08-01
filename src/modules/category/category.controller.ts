@@ -1,8 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('categories')
 @Controller('categories')
@@ -19,13 +19,9 @@ export class CategoryController {
   @Get()
   @ApiOperation({ summary: 'Get all categories' })
   @ApiResponse({ status: 200, description: 'Return all categories.' })
-  findAll(
-    @Query('page') page: number = 1,
-    @Query('pageSize') pageSize: number = 10,
-  ) {
+  findAll(@Query('page') page: number = 1, @Query('pageSize') pageSize: number = 10) {
     return this.categoryService.findAll(page, pageSize);
   }
-  
 
   @Get(':id')
   @ApiOperation({ summary: 'Get category by id' })

@@ -1,56 +1,66 @@
-/* eslint-disable prettier/prettier */
 // src/roles/roles.controller.ts
-import { Controller, Post, Body, UseGuards, Get, Query, Req, UnauthorizedException, ForbiddenException, HttpCode, HttpStatus, Delete, Param, Put } from '@nestjs/common';
-import { CreateRoleDto } from './dto/create-role.dto';
-import { RolesGuard } from 'src/common/guard/role.guard';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Permission, PermissionType } from 'src/constants/permission.enum';
-import { AuthGuard } from 'src/auth/auth.guard';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { Request } from 'express';
+import { Permissions } from 'src/auth/decorators/permissions.decorator';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Permission, PermissionType } from 'src/constants/permission.enum';
 import { DefaultRole, Role } from 'src/entities/role.entity';
 import { User } from 'src/entities/user.entity';
+import { Permission as PermissionEntity } from '../../entities/permission.entity';
+import { CreateRoleDto } from './dto/create-role.dto';
 import { RoleDetailsDto } from './dto/role-details.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RolesService } from './role.service';
-import { Permission as PermissionEntity } from '../../entities/permission.entity';
 
 @Controller('role')
-
 export class RoleController {
-  constructor(private readonly roleService: RolesService) { }
+  constructor(private readonly roleService: RolesService) {}
 
   @Post()
   @UseGuards(RolesGuard)
-  @Permissions(Permission.ROLE.CREATE)  // Chỉ cho phép những user có permission 'create_role'
+  @Permissions(Permission.ROLE.CREATE) // Chỉ cho phép những user có permission 'create_role'
   async create(@Body() createRoleDto: CreateRoleDto) {
     return await this.roleService.createRole(createRoleDto);
   }
 
   @Get()
   @UseGuards(RolesGuard)
-  @Permissions(Permission.ROLE.READ)  // Ví dụ: xem danh sách role
+  @Permissions(Permission.ROLE.READ) // Ví dụ: xem danh sách role
   async findAll() {
     return await this.roleService.findAll();
   }
 
-
   /**
- * Adds users to a role.
- *
- * @param roleId The ID of the role to which users will be added.
- * @param userIds An array of user IDs to be added to the role.
- * @returns A promise resolving with the updated role.
- *
- * Example usage:
- * POST /role/add-users
- * Body:
- * {
- *   "roleId": "role123",
- *   "userIds": ["user456", "user789"]
- * }
- * 
- * This will add users with IDs "user456" and "user789" to the role with ID "role123".
- */
+   * Adds users to a role.
+   *
+   * @param roleId The ID of the role to which users will be added.
+   * @param userIds An array of user IDs to be added to the role.
+   * @returns A promise resolving with the updated role.
+   *
+   * Example usage:
+   * POST /role/add-users
+   * Body:
+   * {
+   *   "roleId": "role123",
+   *   "userIds": ["user456", "user789"]
+   * }
+   *
+   * This will add users with IDs "user456" and "user789" to the role with ID "role123".
+   */
 
   @Get('permissions')
   @UseGuards(RolesGuard)
@@ -70,9 +80,9 @@ export class RoleController {
   @Get('user-role-and-permission')
   @UseGuards(AuthGuard) // Ensures user is authenticated and req.user is populated
   // @Permissions(Permission.ROLE.READ) // Not strictly needed if AuthGuard is sufficient for identification
-                                      // and the logic here is about role-based access for a specific purpose.
-                                      // If any authenticated user can ask for their own role, this is fine.
-                                      // The middleware uses this to gate /admin, so the check is effectively there.
+  // and the logic here is about role-based access for a specific purpose.
+  // If any authenticated user can ask for their own role, this is fine.
+  // The middleware uses this to gate /admin, so the check is effectively there.
   async getUserRoleAndPermission(@Req() req: Request) {
     const userFromRequest = req.user as any;
 
@@ -84,7 +94,10 @@ export class RoleController {
     const roleStatus = await this.roleService.getUserRoleStatus(userId);
 
     // Check if the user is an Administrator or Super Admin
-    if (roleStatus.roleName === DefaultRole.ADMINISTRATOR || roleStatus.roleName === DefaultRole.SUPER_ADMIN) {
+    if (
+      roleStatus.roleName === DefaultRole.ADMINISTRATOR ||
+      roleStatus.roleName === DefaultRole.SUPER_ADMIN
+    ) {
       // User has an administrative role, return 200 OK with the role name.
       // The frontend expects the role name for its specific check against DefaultRole.ADMINISTRATOR.
       // If a SUPER_ADMIN should also pass the DefaultRole.ADMINISTRATOR check in the frontend,
@@ -99,10 +112,9 @@ export class RoleController {
     }
   }
 
-
   /**
    * Get role by ID
-   * 
+   *
    * @param id - Role ID to find
    * @returns The requested role
    */
@@ -114,7 +126,7 @@ export class RoleController {
   }
   /**
    * Update permissions for a role
-   * 
+   *
    * @param roleId - Role ID to update permissions for
    * @param permissions - Array of permission names to set
    * @returns The updated role with new permissions
@@ -129,12 +141,12 @@ export class RoleController {
     return this.roleService.updateRolePermissions(roleId, permissionNames);
   }
   /**
-* Update role details
-* 
-* @param roleId - Role ID to update
-* @param updateRoleDto - The data to update the role with
-* @returns The updated role
-*/
+   * Update role details
+   *
+   * @param roleId - Role ID to update
+   * @param updateRoleDto - The data to update the role with
+   * @returns The updated role
+   */
   @Put(':id')
   @UseGuards(RolesGuard)
   @Permissions(Permission.ROLE.WRITE)
@@ -146,7 +158,7 @@ export class RoleController {
   }
   /**
    * Get users who don't have a specific role
-   * 
+   *
    * @param roleId - Role ID to exclude
    * @param limit - Maximum number of users to return (optional)
    * @param search - Search term to filter by name, username or email (optional)
@@ -158,20 +170,20 @@ export class RoleController {
   async getUsersWithoutRole(
     @Param('id') roleId: string,
     @Query('limit') limit?: number,
-    @Query('search') search?: string
+    @Query('search') search?: string,
   ): Promise<User[]> {
     return this.roleService.getUsersWithoutRole({
       roleId,
       limit: limit ? parseInt(limit.toString(), 10) : undefined,
-      searchTerm: search
+      searchTerm: search,
     });
   }
   /**
- * Get permissions for a specific role
- * 
- * @param roleId - Role ID to get permissions for
- * @returns List of role's permissions
- */
+   * Get permissions for a specific role
+   *
+   * @param roleId - Role ID to get permissions for
+   * @returns List of role's permissions
+   */
   @Get(':id/permissions')
   @UseGuards(RolesGuard)
   @Permissions(Permission.ROLE.READ)
@@ -181,7 +193,7 @@ export class RoleController {
 
   /**
    * Add users to a role
-   * 
+   *
    * @param roleId - Role ID to add users to
    * @param userIds - Array of user IDs to add
    * @returns The updated role
@@ -197,7 +209,7 @@ export class RoleController {
   }
   /**
    * Assign multiple users to a role
-   * 
+   *
    * @param roleId - Role ID to assign users to
    * @param userIds - Array of user IDs to assign to the role
    * @returns The updated role with assigned users
@@ -213,7 +225,7 @@ export class RoleController {
   }
   /**
    * Remove users from a role
-   * 
+   *
    * @param roleId - Role ID to remove users from
    * @param userIds - Array of user IDs to remove
    * @returns The updated role
@@ -230,7 +242,7 @@ export class RoleController {
 
   /**
    * Get all users with a specific role
-   * 
+   *
    * @param roleId - Role ID to get users for
    * @returns List of users with the role
    */
@@ -243,20 +255,22 @@ export class RoleController {
 
   /**
    * Get permissions for a specific user
-   * 
+   *
    * @param userId - User ID to get permissions for
    * @returns List of user's permissions
    */
   @Get('user/:userId/permissions')
   @UseGuards(RolesGuard)
   @Permissions(Permission.ROLE.READ, Permission.USER.READ)
-  async getUserRoleAndPermissionForSpecifictUser(@Param('userId') userId: string): Promise<PermissionEntity[] | string[]> {
+  async getUserRoleAndPermissionForSpecifictUser(
+    @Param('userId') userId: string,
+  ): Promise<PermissionEntity[] | string[]> {
     return this.roleService.getUserPermissions(userId);
   }
 
   /**
    * Check if a role has a specific permission
-   * 
+   *
    * @param roleId - Role ID to check
    * @param permissionName - Permission name to check
    * @returns Boolean indicating if the role has the permission
@@ -273,7 +287,7 @@ export class RoleController {
 
   /**
    * Add permissions to a role
-   * 
+   *
    * @param roleId - Role ID to add permissions to
    * @param permissionNames - Array of permission names to add
    * @returns The updated role with new permissions
@@ -290,7 +304,7 @@ export class RoleController {
 
   /**
    * Remove permissions from a role
-   * 
+   *
    * @param roleId - Role ID to remove permissions from
    * @param permissionNames - Array of permission names to remove
    * @returns The updated role without the removed permissions
@@ -305,10 +319,9 @@ export class RoleController {
     return this.roleService.removePermissionsFromRole(roleId, permissionNames);
   }
 
-
   /**
    * Delete a role by ID
-   * 
+   *
    * @param id - Role ID to delete
    * @return Success message
    */
@@ -319,5 +332,4 @@ export class RoleController {
     await this.roleService.deleteRole(id);
     return { message: 'Role deleted successfully' };
   }
-
 }

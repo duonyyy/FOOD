@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/require-await */
 // src/protected/protected.controller.ts
 import { Controller, Get, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 
 @Controller('protected')
 export class ProtectedController {

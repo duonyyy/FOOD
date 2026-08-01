@@ -1,26 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
-import { User } from 'src/entities/user.entity';
-import { Order } from 'src/entities/order.entity';
-import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import { 
-  startOfYear, 
-  endOfYear, 
-  startOfMonth, 
-  endOfMonth, 
-  startOfWeek, 
+import {
+  eachDayOfInterval,
+  eachMonthOfInterval,
+  endOfDay,
+  endOfMonth,
   endOfWeek,
-  subYears,
+  endOfYear,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
   subMonths,
   subWeeks,
-  format,
-  eachMonthOfInterval,
-  eachDayOfInterval,
-  eachWeekOfInterval,
-  startOfDay,
-  endOfDay
+  subYears,
 } from 'date-fns';
+import { Order } from 'src/entities/order.entity';
+import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { User } from 'src/entities/user.entity';
+import { Between, Repository } from 'typeorm';
 
 @Injectable()
 export class DashboardService {
@@ -50,7 +49,7 @@ export class DashboardService {
       .where('role.name = :roleName', { roleName: 'shipper' })
       .andWhere('user.createdAt BETWEEN :start AND :end', {
         start: new Date(previousYear, 0, 1),
-        end: new Date(previousYear, 11, 31)
+        end: new Date(previousYear, 11, 31),
       })
       .getCount();
 
@@ -59,11 +58,11 @@ export class DashboardService {
       .createQueryBuilder('sd')
       .leftJoin('sd.shipper', 'shipper')
       .where('sd.status = :status', { status: 'COMPLETED' })
-      .andWhere('sd.actualDeliveryTime >= :startYear', { 
-        startYear: new Date(currentYear, 0, 1) 
+      .andWhere('sd.actualDeliveryTime >= :startYear', {
+        startYear: new Date(currentYear, 0, 1),
       })
-      .andWhere('sd.actualDeliveryTime <= :endYear', { 
-        endYear: new Date(currentYear, 11, 31) 
+      .andWhere('sd.actualDeliveryTime <= :endYear', {
+        endYear: new Date(currentYear, 11, 31),
       })
       .select('COUNT(DISTINCT sd.shipper)', 'count')
       .getRawOne();
@@ -72,11 +71,11 @@ export class DashboardService {
       .createQueryBuilder('sd')
       .leftJoin('sd.shipper', 'shipper')
       .where('sd.status = :status', { status: 'COMPLETED' })
-      .andWhere('sd.actualDeliveryTime >= :startYear', { 
-        startYear: new Date(previousYear, 0, 1) 
+      .andWhere('sd.actualDeliveryTime >= :startYear', {
+        startYear: new Date(previousYear, 0, 1),
       })
-      .andWhere('sd.actualDeliveryTime <= :endYear', { 
-        endYear: new Date(previousYear, 11, 31) 
+      .andWhere('sd.actualDeliveryTime <= :endYear', {
+        endYear: new Date(previousYear, 11, 31),
       })
       .select('COUNT(DISTINCT sd.shipper)', 'count')
       .getRawOne();
@@ -85,58 +84,62 @@ export class DashboardService {
     const completedOrders = await this.orderRepository.count({
       where: {
         status: 'completed',
-        createdAt: Between(
-          new Date(currentYear, 0, 1),
-          new Date(currentYear, 11, 31)
-        )
-      }
+        createdAt: Between(new Date(currentYear, 0, 1), new Date(currentYear, 11, 31)),
+      },
     });
 
     const previousYearCompletedOrders = await this.orderRepository.count({
       where: {
         status: 'completed',
-        createdAt: Between(
-          new Date(previousYear, 0, 1),
-          new Date(previousYear, 11, 31)
-        )
-      }
+        createdAt: Between(new Date(previousYear, 0, 1), new Date(previousYear, 11, 31)),
+      },
     });
 
     // Calculate percentage changes
-    const shipperChange = previousYearShippers > 0 
-      ? ((totalShippers - previousYearShippers) / previousYearShippers * 100).toFixed(2)
-      : '0';
+    const shipperChange =
+      previousYearShippers > 0
+        ? (((totalShippers - previousYearShippers) / previousYearShippers) * 100).toFixed(2)
+        : '0';
 
-    const activeShipperChange = previousYearActiveShippers.count > 0
-      ? ((activeShippers.count - previousYearActiveShippers.count) / previousYearActiveShippers.count * 100).toFixed(2)
-      : '0';
+    const activeShipperChange =
+      previousYearActiveShippers.count > 0
+        ? (
+            ((activeShippers.count - previousYearActiveShippers.count) /
+              previousYearActiveShippers.count) *
+            100
+          ).toFixed(2)
+        : '0';
 
-    const orderChange = previousYearCompletedOrders > 0
-      ? ((completedOrders - previousYearCompletedOrders) / previousYearCompletedOrders * 100).toFixed(2)
-      : '0';
+    const orderChange =
+      previousYearCompletedOrders > 0
+        ? (
+            ((completedOrders - previousYearCompletedOrders) / previousYearCompletedOrders) *
+            100
+          ).toFixed(2)
+        : '0';
 
     return [
       {
-        title: "Shipper",
+        title: 'Shipper',
         value: totalShippers.toLocaleString(),
         previousValue: previousYearShippers.toLocaleString(),
         change: `${shipperChange > '0' ? '+' : ''}${shipperChange}% so với năm trước`,
         isPositive: parseFloat(shipperChange) >= 0,
       },
       {
-        title: "Shipper Hoạt Động",
+        title: 'Shipper Hoạt Động',
         value: activeShippers.count.toLocaleString(),
         previousValue: previousYearActiveShippers.count.toLocaleString(),
         change: `${activeShipperChange > '0' ? '+' : ''}${activeShipperChange}% so với năm trước`,
         isPositive: parseFloat(activeShipperChange) >= 0,
       },
       {
-        title: "Hoàn thành đơn hàng",
+        title: 'Hoàn thành đơn hàng',
         value: completedOrders.toLocaleString(),
         previousValue: previousYearCompletedOrders.toLocaleString(),
         change: `${orderChange > '0' ? '+' : ''}${orderChange}% so với năm trước`,
         isPositive: parseFloat(orderChange) >= 0,
-      }
+      },
     ];
   }
 
@@ -168,7 +171,7 @@ export class DashboardService {
         break;
     }
 
-    const labels = intervals.map(date => {
+    const labels = intervals.map((date) => {
       if (period === 'week') {
         const dayNames = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
         const dayIndex = date.getDay();
@@ -184,7 +187,7 @@ export class DashboardService {
           order: {
             labels,
             values: orderData,
-          }
+          },
         };
       }
     }
@@ -196,7 +199,7 @@ export class DashboardService {
           revenue: {
             labels,
             values: revenueData,
-          }
+          },
         };
       }
     }
@@ -213,11 +216,14 @@ export class DashboardService {
       revenue: {
         labels,
         values: revenueData,
-      }
+      },
     };
   }
 
-  private async getOrderDataForPeriod(intervals: Date[], period: 'year' | 'month' | 'week'): Promise<number[]> {
+  private async getOrderDataForPeriod(
+    intervals: Date[],
+    period: 'year' | 'month' | 'week',
+  ): Promise<number[]> {
     const data: number[] = [];
 
     for (const date of intervals) {
@@ -239,8 +245,8 @@ export class DashboardService {
       const count = await this.orderRepository.count({
         where: {
           status: 'completed',
-          createdAt: Between(start, end)
-        }
+          createdAt: Between(start, end),
+        },
       });
 
       data.push(count);
@@ -249,7 +255,10 @@ export class DashboardService {
     return data;
   }
 
-  private async getRevenueDataForPeriod(intervals: Date[], period: 'year' | 'month' | 'week'): Promise<number[]> {
+  private async getRevenueDataForPeriod(
+    intervals: Date[],
+    period: 'year' | 'month' | 'week',
+  ): Promise<number[]> {
     const data: number[] = [];
 
     for (const date of intervals) {
@@ -281,7 +290,7 @@ export class DashboardService {
     return data;
   }
 
-async getShipperStats(period: 'year' | 'month' | 'week') {
+  async getShipperStats(period: 'year' | 'month' | 'week') {
     // Implementation for detailed shipper statistics
     const now = new Date();
     let startDate: Date;
@@ -343,19 +352,20 @@ async getShipperStats(period: 'year' | 'month' | 'week') {
       .getRawMany();
 
     const totalOrders = stats.reduce((sum, stat) => sum + Number(stat.count), 0);
-    const completedOrders = stats.find(stat => stat.status === 'completed')?.count || 0;
-    const completionRate = totalOrders > 0 ? (Number(completedOrders) / totalOrders * 100).toFixed(2) : '0';
+    const completedOrders = stats.find((stat) => stat.status === 'completed')?.count || 0;
+    const completionRate =
+      totalOrders > 0 ? ((Number(completedOrders) / totalOrders) * 100).toFixed(2) : '0';
 
     return {
       period,
       totalOrders,
       completedOrders: Number(completedOrders),
       completionRate: parseFloat(completionRate),
-      breakdown: stats.map(stat => ({
+      breakdown: stats.map((stat) => ({
         status: stat.status,
         count: Number(stat.count),
-        percentage: totalOrders > 0 ? (Number(stat.count) / totalOrders * 100).toFixed(2) : '0'
-      }))
+        percentage: totalOrders > 0 ? ((Number(stat.count) / totalOrders) * 100).toFixed(2) : '0',
+      })),
     };
   }
 }

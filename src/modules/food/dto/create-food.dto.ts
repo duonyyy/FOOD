@@ -1,5 +1,12 @@
-import { IsNotEmpty, IsOptional, IsString, IsNumberString, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsNumberString,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { CreateToppingDto } from './create-topping.dto';
 
 export class CreateFoodDto {

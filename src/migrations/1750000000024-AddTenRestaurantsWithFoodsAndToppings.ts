@@ -45,16 +45,16 @@ export class AddTenRestaurantsWithFoodsAndToppings1750000000024 implements Migra
         // 2. Insert new restaurant owners
         await queryRunner.query(`
             INSERT INTO "users" ("id", "username", "password", "email", "role_id", "name", "phone", "birthday", "avatar", "authProvider", "is_active") VALUES
-            ($1, 'chubep5', $11, 'chubep5@fooddie.com', $21, 'Nguyễn Văn Khôi - Chủ Quán Pizza', '0901234573', '1986-04-20', $31, 'email', true),
-            ($2, 'chubep6', $12, 'chubep6@fooddie.com', $22, 'Lê Thị Lan - Chủ Quán Burger', '0901234574', '1988-09-15', $32, 'email', true),
-            ($3, 'chubep7', $13, 'chubep7@fooddie.com', $23, 'Trần Minh Tuấn - Chủ Quán Sushi', '0901234575', '1985-11-30', $33, 'email', true),
-            ($4, 'chubep8', $14, 'chubep8@fooddie.com', $24, 'Phạm Thị Hoa - Chủ Quán Lẩu Thái', '0901234576', '1987-06-12', $34, 'email', true),
-            ($5, 'chubep9', $15, 'chubep9@fooddie.com', $25, 'Vũ Đình Nam - Chủ Quán BBQ', '0901234577', '1989-02-25', $35, 'email', true),
-            ($6, 'chubep10', $16, 'chubep10@fooddie.com', $26, 'Hoàng Thị Mai - Chủ Quán Dimsum', '0901234578', '1986-08-18', $36, 'email', true),
-            ($7, 'chubep11', $17, 'chubep11@fooddie.com', $27, 'Đặng Văn Hùng - Chủ Quán Hotpot', '0901234579', '1984-12-05', $37, 'email', true),
-            ($8, 'chubep12', $18, 'chubep12@fooddie.com', $28, 'Bùi Thị Linh - Chủ Quán Pasta', '0901234580', '1990-03-14', $38, 'email', true),
-            ($9, 'chubep13', $19, 'chubep13@fooddie.com', $29, 'Cao Minh Đức - Chủ Quán Taco', '0901234581', '1988-07-22', $39, 'email', true),
-            ($10, 'chubep14', $20, 'chubep14@fooddie.com', $30, 'Ngô Thị Thủy - Chủ Quán Salad', '0901234582', '1991-01-08', $40, 'email', true)
+            ($1, 'chubep5', $11, 'chubep5@foodee.com', $21, 'Nguyễn Văn Khôi - Chủ Quán Pizza', '0901234573', '1986-04-20', $31, 'email', true),
+            ($2, 'chubep6', $12, 'chubep6@foodee.com', $22, 'Lê Thị Lan - Chủ Quán Burger', '0901234574', '1988-09-15', $32, 'email', true),
+            ($3, 'chubep7', $13, 'chubep7@foodee.com', $23, 'Trần Minh Tuấn - Chủ Quán Sushi', '0901234575', '1985-11-30', $33, 'email', true),
+            ($4, 'chubep8', $14, 'chubep8@foodee.com', $24, 'Phạm Thị Hoa - Chủ Quán Lẩu Thái', '0901234576', '1987-06-12', $34, 'email', true),
+            ($5, 'chubep9', $15, 'chubep9@foodee.com', $25, 'Vũ Đình Nam - Chủ Quán BBQ', '0901234577', '1989-02-25', $35, 'email', true),
+            ($6, 'chubep10', $16, 'chubep10@foodee.com', $26, 'Hoàng Thị Mai - Chủ Quán Dimsum', '0901234578', '1986-08-18', $36, 'email', true),
+            ($7, 'chubep11', $17, 'chubep11@foodee.com', $27, 'Đặng Văn Hùng - Chủ Quán Hotpot', '0901234579', '1984-12-05', $37, 'email', true),
+            ($8, 'chubep12', $18, 'chubep12@foodee.com', $28, 'Bùi Thị Linh - Chủ Quán Pasta', '0901234580', '1990-03-14', $38, 'email', true),
+            ($9, 'chubep13', $19, 'chubep13@foodee.com', $29, 'Cao Minh Đức - Chủ Quán Taco', '0901234581', '1988-07-22', $39, 'email', true),
+            ($10, 'chubep14', $20, 'chubep14@foodee.com', $30, 'Ngô Thị Thủy - Chủ Quán Salad', '0901234582', '1991-01-08', $40, 'email', true)
             ON CONFLICT ("id") DO NOTHING
         `, [
             // User IDs (1-10)

@@ -1,36 +1,36 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Put,
-  Delete,
-  Query,
-  DefaultValuePipe,
-  ParseIntPipe,
-  UseGuards,
-  UnauthorizedException,
-  Req,
-  ParseFloatPipe,
   BadRequestException,
-  NotFoundException
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  ParseFloatPipe,
+  ParseIntPipe,
+  Post,
+  Put,
+  Query,
+  Req,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
-import { FoodService } from './food.service';
-import { CreateFoodDto } from './dto/create-food.dto';
-import { UpdateFoodDto } from './dto/update-food.dto';
-import { Food } from 'src/entities/food.entity';
-import { RolesGuard } from 'src/common/guard/role.guard';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Permission } from 'src/constants/permission.enum';
-import { AuthGuard } from 'src/auth/auth.guard';
 import { plainToInstance } from 'class-transformer';
+import { Permissions } from 'src/auth/decorators/permissions.decorator';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Permission } from 'src/constants/permission.enum';
+import { Food } from 'src/entities/food.entity';
+import { CreateFoodDto } from './dto/create-food.dto';
 import { CreateToppingDto } from './dto/create-topping.dto';
+import { UpdateFoodDto } from './dto/update-food.dto';
 import { UpdateToppingDto } from './dto/update-topping.dto';
+import { FoodService } from './food.service';
 
 @Controller('foods')
 export class FoodController {
-  constructor(private readonly foodService: FoodService) { }
+  constructor(private readonly foodService: FoodService) {}
 
   @Post()
   @UseGuards(AuthGuard)
@@ -40,11 +40,12 @@ export class FoodController {
     // Clean up empty string UUIDs
     const cleanedDto = {
       ...createFoodDto,
-      categoryId: createFoodDto.categoryId === "" ? undefined : createFoodDto.categoryId,
+      categoryId: createFoodDto.categoryId === '' ? undefined : createFoodDto.categoryId,
     };
     const dto = plainToInstance(CreateFoodDto, cleanedDto);
     return await this.foodService.createIfOwner(dto, userId);
-  }  @Get('all')
+  }
+  @Get('all')
   @UseGuards(RolesGuard)
   @Permissions(Permission.FOOD.READ)
   async findAllForStore(
@@ -55,92 +56,95 @@ export class FoodController {
     @Query('restaurantId') restaurantId?: string,
     @Query('categoryId') categoryId?: string,
     @Query('status') status?: string, // Add status param
-    @Query('sortBy') sortBy?: 'newest' | 'nearby' | 'hot' | 'most_review' | 'most_buy' | 'rating' | 'price' | 'name',
+    @Query('sortBy')
+    sortBy?: 'newest' | 'nearby' | 'hot' | 'most_review' | 'most_buy' | 'rating' | 'price' | 'name',
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
+    // Use limit if provided, otherwise use pageSize
+    const actualPageSize = limit || pageSize;
 
-  // Use limit if provided, otherwise use pageSize
-  const actualPageSize = limit || pageSize;
+    // Normalize parameters - treat empty strings and 'all' as undefined
+    const normalizedRestaurantId =
+      restaurantId && restaurantId !== 'all' && restaurantId.trim() !== ''
+        ? restaurantId
+        : undefined;
+    const normalizedCategoryId =
+      categoryId && categoryId !== 'all' && categoryId.trim() !== '' ? categoryId : undefined;
+    const normalizedStatus =
+      status && status !== 'all' && status.trim() !== '' ? status : undefined;
+    const normalizedSearch = search && search.trim() !== '' ? search.trim() : undefined;
 
-  // Normalize parameters - treat empty strings and 'all' as undefined
-  const normalizedRestaurantId = restaurantId && restaurantId !== 'all' && restaurantId.trim() !== '' 
-    ? restaurantId : undefined;
-  const normalizedCategoryId = categoryId && categoryId !== 'all' && categoryId.trim() !== '' 
-    ? categoryId : undefined;
-  const normalizedStatus = status && status !== 'all' && status.trim() !== '' ? status : undefined;
-  const normalizedSearch = search && search.trim() !== '' ? search.trim() : undefined;
-
-  console.log('Normalized parameters:', {
-    normalizedRestaurantId,
-    normalizedCategoryId,
-    normalizedStatus,
-    normalizedSearch,
-    actualPageSize,
-  });
-
-  const latitude = lat ? Number(lat) : undefined;
-  const longitude = lng ? Number(lng) : undefined;
-
-  // If search is provided, use search functionality
-  if (normalizedSearch) {
-    console.log('Using search functionality');
-    return await this.foodService.searchFoodsForStore(
+    console.log('Normalized parameters:', {
+      normalizedRestaurantId,
+      normalizedCategoryId,
+      normalizedStatus,
       normalizedSearch,
-      page,
       actualPageSize,
-      latitude,
-      longitude,
-      normalizedRestaurantId,
-      normalizedCategoryId,
-      sortBy
-    );
-  }
+    });
 
-  // Route to appropriate service method based on filters
-  if (normalizedRestaurantId && normalizedCategoryId) {
-    // Both restaurant and category filters
-    return await this.foodService.findByRestaurantAndCategory(
-      normalizedRestaurantId,
-      normalizedCategoryId,
-      page,
-      actualPageSize,
-      latitude,
-      longitude,
-      normalizedStatus, // Pass status filter
-      sortBy
-    );
-  } else if (normalizedRestaurantId) {
-    // Restaurant filter only
-    return await this.foodService.findByRestaurant(
-      normalizedRestaurantId,
-      page,
-      actualPageSize,
-      latitude,
-      longitude,
-      normalizedStatus, // Pass status filter
-      sortBy
-    );
-  } else if (normalizedCategoryId) {
-    // Category filter only
-    return await this.foodService.findByCategory(
-      normalizedCategoryId,
-      page,
-      actualPageSize,
-      latitude,
-      longitude
-    );
-  } else {
-    // No filters - get all foods
-    return await this.foodService.findAll(
-      page,
-      actualPageSize,
-      latitude,
-      longitude,
-      normalizedStatus // Pass status filter
-    );
+    const latitude = lat ? Number(lat) : undefined;
+    const longitude = lng ? Number(lng) : undefined;
+
+    // If search is provided, use search functionality
+    if (normalizedSearch) {
+      console.log('Using search functionality');
+      return await this.foodService.searchFoodsForStore(
+        normalizedSearch,
+        page,
+        actualPageSize,
+        latitude,
+        longitude,
+        normalizedRestaurantId,
+        normalizedCategoryId,
+        sortBy,
+      );
+    }
+
+    // Route to appropriate service method based on filters
+    if (normalizedRestaurantId && normalizedCategoryId) {
+      // Both restaurant and category filters
+      return await this.foodService.findByRestaurantAndCategory(
+        normalizedRestaurantId,
+        normalizedCategoryId,
+        page,
+        actualPageSize,
+        latitude,
+        longitude,
+        normalizedStatus, // Pass status filter
+        sortBy,
+      );
+    } else if (normalizedRestaurantId) {
+      // Restaurant filter only
+      return await this.foodService.findByRestaurant(
+        normalizedRestaurantId,
+        page,
+        actualPageSize,
+        latitude,
+        longitude,
+        normalizedStatus, // Pass status filter
+        sortBy,
+      );
+    } else if (normalizedCategoryId) {
+      // Category filter only
+      return await this.foodService.findByCategory(
+        normalizedCategoryId,
+        page,
+        actualPageSize,
+        latitude,
+        longitude,
+      );
+    } else {
+      // No filters - get all foods
+      return await this.foodService.findAll(
+        page,
+        actualPageSize,
+        latitude,
+        longitude,
+        normalizedStatus, // Pass status filter
+      );
+    }
   }
-}
 
   @Get()
   async findAll(
@@ -149,7 +153,12 @@ export class FoodController {
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findAll(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+    return await this.foodService.findAll(
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Get('top-selling')
@@ -159,7 +168,12 @@ export class FoodController {
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findTopSelling(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+    return await this.foodService.findTopSelling(
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Get('newest')
@@ -169,7 +183,12 @@ export class FoodController {
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findNewest(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+    return await this.foodService.findNewest(
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Get('with-discount')
@@ -179,7 +198,12 @@ export class FoodController {
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findWithDiscount(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+    return await this.foodService.findWithDiscount(
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Get('search')
@@ -189,7 +213,7 @@ export class FoodController {
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
     @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769, // HCM default
     @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
-    @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5 // km
+    @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5, // km
   ) {
     return await this.foodService.searchFoods(query, page, pageSize, lat, lng, 99999);
   }
@@ -216,13 +240,16 @@ export class FoodController {
       radius,
       categoryIds,
       minPrice,
-      maxPrice
+      maxPrice,
     });
 
     // Parse categoryIds to array if provided
     let categoryIdList: string[] | undefined = undefined;
     if (categoryIds) {
-      categoryIdList = categoryIds.split(',').map(id => id.trim()).filter(Boolean);
+      categoryIdList = categoryIds
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean);
       console.log('Parsed categoryIds:', categoryIdList);
     }
     if (name && name.trim() === '') {
@@ -257,13 +284,13 @@ export class FoodController {
       totalItems: result.totalItems,
       itemsCount: result.items.length,
       page: result.page,
-      totalPages: result.totalPages
+      totalPages: result.totalPages,
     });
     console.log('=== End Controller findByName ===');
 
     return result;
   }
-  
+
   @Get('top')
   async getTopFoodsByRestaurant(
     @Query('restaurantId') restaurantId: string,
@@ -282,7 +309,13 @@ export class FoodController {
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findByRestaurant(restaurantId, page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+    return await this.foodService.findByRestaurant(
+      restaurantId,
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Get('restaurant/:restaurantId/top-selling')
@@ -293,7 +326,13 @@ export class FoodController {
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findTopSellingByRestaurant(restaurantId, page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+    return await this.foodService.findTopSellingByRestaurant(
+      restaurantId,
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Get('restaurant/:restaurantId/with-discount')
@@ -304,7 +343,13 @@ export class FoodController {
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findWithDiscountByRestaurant(restaurantId, page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+    return await this.foodService.findWithDiscountByRestaurant(
+      restaurantId,
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Get('category/:categoryId')
@@ -315,7 +360,13 @@ export class FoodController {
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findByCategory(categoryId, page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+    return await this.foodService.findByCategory(
+      categoryId,
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Get('category/:categoryId/restaurant/:restaurantId')
@@ -338,12 +389,12 @@ export class FoodController {
   }
 
   @Get(':id')
-  async findOne(
-    @Param('id') id: string,
-    @Query('lat') lat?: number,
-    @Query('lng') lng?: number,
-  ) {
-    return await this.foodService.findOne(id, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
+  async findOne(@Param('id') id: string, @Query('lat') lat?: number, @Query('lng') lng?: number) {
+    return await this.foodService.findOne(
+      id,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
   }
 
   @Put(':id')
@@ -366,17 +417,13 @@ export class FoodController {
 
   @Put(':id/status')
   @UseGuards(AuthGuard)
-  async updateStatus(
-    @Param('id') id: string,
-    @Body('status') status: string,
-    @Req() req: any,
-  ) {
+  async updateStatus(@Param('id') id: string, @Body('status') status: string, @Req() req: any) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     if (status !== 'available' && status !== 'hidden') {
       throw new BadRequestException('Status must be either "available" or "hidden"');
     }
-      return await this.foodService.updateStatusIfOwner(id, status, userId);
+    return await this.foodService.updateStatusIfOwner(id, status, userId);
   }
 
   @Get(':id/reviews')
@@ -397,7 +444,7 @@ export class FoodController {
       sortBy,
       sortOrder,
       minRating,
-      maxRating
+      maxRating,
     });
 
     const result = await this.foodService.getReviewsByFood(
@@ -414,75 +461,68 @@ export class FoodController {
       totalItems: result.totalItems,
       itemsCount: result.items.length,
       page: result.page,
-      totalPages: result.totalPages
+      totalPages: result.totalPages,
     });
     console.log('=== End Controller getReviewsByFood ===');
 
     return result;
   }
 
-  @Delete(":id")
+  @Delete(':id')
   @UseGuards(RolesGuard)
   @Permissions(Permission.FOOD.DELETE)
-  async deleteFood(
-    @Param('id') id: string,
-    @Req() req: any
-  ) {
+  async deleteFood(@Param('id') id: string, @Req() req: any) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     return await this.foodService.delete(id);
   }
 
-  
-@Post(':id/toppings')
-@UseGuards(AuthGuard)
-async addTopping(
-  @Param('id') foodId: string,
-  @Body() createToppingDto: CreateToppingDto,
-  @Req() req: any
-): Promise<any> {
-  const userId = req.user?.id;
-  if (!userId) throw new UnauthorizedException('Not authenticated');
+  @Post(':id/toppings')
+  @UseGuards(AuthGuard)
+  async addTopping(
+    @Param('id') foodId: string,
+    @Body() createToppingDto: CreateToppingDto,
+    @Req() req: any,
+  ): Promise<any> {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException('Not authenticated');
 
-  // Verify user owns the restaurant that owns this food
-  const food = await this.foodService.findOne(foodId);
-  if (!food || !food.restaurant) {
-    throw new NotFoundException('Food or restaurant not found');
+    // Verify user owns the restaurant that owns this food
+    const food = await this.foodService.findOne(foodId);
+    if (!food || !food.restaurant) {
+      throw new NotFoundException('Food or restaurant not found');
+    }
+
+    // You might want to add a check to ensure user owns the restaurant
+    // For now, we'll trust the auth guard handles this
+
+    return await this.foodService.addTopping(foodId, createToppingDto);
   }
 
-  // You might want to add a check to ensure user owns the restaurant
-  // For now, we'll trust the auth guard handles this
+  @Put('toppings/:toppingId')
+  @UseGuards(AuthGuard)
+  async updateTopping(
+    @Param('toppingId') toppingId: string,
+    @Body() updateToppingDto: UpdateToppingDto,
+    @Req() req: any,
+  ): Promise<any> {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException('Not authenticated');
 
-  return await this.foodService.addTopping(foodId, createToppingDto);
-}
+    return await this.foodService.updateTopping(toppingId, updateToppingDto);
+  }
 
-@Put('toppings/:toppingId')
-@UseGuards(AuthGuard)
-async updateTopping(
-  @Param('toppingId') toppingId: string,
-  @Body() updateToppingDto: UpdateToppingDto,
-  @Req() req: any
-): Promise<any> {
-  const userId = req.user?.id;
-  if (!userId) throw new UnauthorizedException('Not authenticated');
+  @Delete('toppings/:toppingId')
+  @UseGuards(AuthGuard)
+  async removeTopping(@Param('toppingId') toppingId: string, @Req() req: any): Promise<void> {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException('Not authenticated');
 
-  return await this.foodService.updateTopping(toppingId, updateToppingDto);
-}
+    return await this.foodService.removeTopping(toppingId);
+  }
 
-@Delete('toppings/:toppingId')
-@UseGuards(AuthGuard)
-async removeTopping(
-  @Param('toppingId') toppingId: string,
-  @Req() req: any
-): Promise<void> {
-  const userId = req.user?.id;
-  if (!userId) throw new UnauthorizedException('Not authenticated');
-
-  return await this.foodService.removeTopping(toppingId);
-}
-
-@Get(':id/toppings')
-async getToppings(@Param('id') foodId: string) {
-  return await this.foodService.getToppingsByFood(foodId);
-}
+  @Get(':id/toppings')
+  async getToppings(@Param('id') foodId: string) {
+    return await this.foodService.getToppingsByFood(foodId);
+  }
 }

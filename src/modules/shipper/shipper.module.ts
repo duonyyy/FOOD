@@ -1,24 +1,27 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ShipperController } from './shipper.controller';
-import { ShipperService } from './shipper.service';
-import { User } from 'src/entities/user.entity';
-import { Order } from 'src/entities/order.entity';
-import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import { UsersModule } from '../users/users.module';
-import { OrderModule } from '../order/order.module';
 import { JwtModule } from '@nestjs/jwt';
-import { QueueModule } from 'src/queue/queue.module';
-import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
-import { Certificate } from 'crypto';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Order } from 'src/entities/order.entity';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { User } from 'src/entities/user.entity';
+import { QueueModule } from 'src/infra/queue/queue.module';
+import { OrderModule } from '../order/order.module';
+import { UsersModule } from '../users/users.module';
+import { ShipperController } from './shipper.controller';
 import { ShipperResolver } from './shipper.resolver';
-
+import { ShipperService } from './shipper.service';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Order, ShippingDetail, PendingShipperAssignment, ShipperCertificateInfo]), UsersModule, OrderModule, JwtModule, QueueModule] ,
-    controllers: [ShipperController],
-    providers: [ShipperService, ShipperResolver],
-    exports: [ShipperService],
+  imports: [
+    TypeOrmModule.forFeature([User, Order, ShippingDetail, ShipperCertificateInfo]),
+    UsersModule,
+    OrderModule,
+    JwtModule,
+    QueueModule,
+  ],
+  controllers: [ShipperController],
+  providers: [ShipperService, ShipperResolver],
+  exports: [ShipperService],
 })
 export class ShipperModule {}
