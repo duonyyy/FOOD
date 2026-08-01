@@ -52,6 +52,14 @@ export class MinioService implements OnModuleInit {
     }
   }
 
+  async healthCheck(): Promise<void> {
+    const exists = await this.minioClient.bucketExists(this.bucketName);
+
+    if (!exists) {
+      throw new Error(`MinIO bucket does not exist: ${this.bucketName}`);
+    }
+  }
+
   async upload(
     file: Express.Multer.File,
     fileName: string,

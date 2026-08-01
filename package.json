@@ -25,7 +25,9 @@
     "migration:create": "npm run typeorm -- migration:create",
     "migration:run": "npm run typeorm -- migration:run -d src/config/typeorm.data-source.ts",
     "migration:revert": "npm run typeorm -- migration:revert -d src/config/typeorm.data-source.ts",
-    "migration:show": "npm run typeorm -- migration:show -d src/config/typeorm.data-source.ts"
+    "migration:show": "npm run typeorm -- migration:show -d src/config/typeorm.data-source.ts",
+    "migration:show:compiled": "node ./node_modules/typeorm/cli.js migration:show -d dist/config/typeorm.data-source.js",
+    "migration:run:compiled": "node ./node_modules/typeorm/cli.js migration:run -d dist/config/typeorm.data-source.js"
   },
   "dependencies": {
     "@apollo/server": "^4.12.1",

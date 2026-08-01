@@ -1,6 +1,21 @@
 version: '3.8'
 
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fooddie_migrate
+    command: npm run migration:run:compiled
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build:
       context: .
@@ -28,6 +43,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   postgres:
     image: postgres:15-alpine
