@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Address } from 'src/entities/address.entity';
 import { Repository } from 'typeorm';
@@ -17,6 +17,17 @@ export class AddressService {
     return await this.addressRepository.save(address);
   }
 
+  async createAddressForUser(data: CreateAddressDto, userId: string) {
+    const addressData: Partial<CreateAddressDto> = { ...data };
+    delete addressData.id;
+    delete addressData.userId;
+    const address = this.addressRepository.create({
+      ...addressData,
+      user: { id: userId },
+    });
+    return this.addressRepository.save(address);
+  }
+
   async getAllAddresses() {
     return await this.addressRepository.find({ relations: ['user'] });
   }
@@ -24,6 +35,14 @@ export class AddressService {
   async getAddressById(id: string) {
     const address = await this.addressRepository.findOne({ where: { id }, relations: ['user'] });
     if (!address) throw new NotFoundException('Address not found');
+    return address;
+  }
+
+  async getOwnedAddressById(id: string, userId: string) {
+    const address = await this.getAddressById(id);
+    if (address.user?.id !== userId) {
+      throw new ForbiddenException("You cannot access another user's address");
+    }
     return address;
   }
 
@@ -47,9 +66,23 @@ export class AddressService {
     return this.getAddressById(id);
   }
 
+  async updateOwnedAddress(id: string, data: UpdateAddressDto, userId: string) {
+    await this.getOwnedAddressById(id, userId);
+    const addressData: Partial<UpdateAddressDto> = { ...data };
+    delete addressData.id;
+    delete addressData.userId;
+    await this.addressRepository.update(id, addressData);
+    return this.getOwnedAddressById(id, userId);
+  }
+
   async deleteAddress(id: string) {
     const result = await this.addressRepository.delete(id);
     if (result.affected === 0) throw new NotFoundException('Address not found');
     return { message: 'Address deleted successfully' };
+  }
+
+  async deleteOwnedAddress(id: string, userId: string) {
+    await this.getOwnedAddressById(id, userId);
+    return this.deleteAddress(id);
   }
 }

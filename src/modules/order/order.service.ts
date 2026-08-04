@@ -9,7 +9,7 @@ import { Notification } from 'src/entities/notification.entity';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
-import { Restaurant } from 'src/entities/restaurant.entity';
+import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { Review } from 'src/entities/review.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { Topping } from 'src/entities/topping.entity';
@@ -67,6 +67,7 @@ export class OrderService {
       selectedToppings?: Array<{ id: string; name: string; price: number }>;
       discountPercent?: number; // thêm nếu client gửi
     }[],
+    restaurantId: string,
   ): Promise<{
     calculatedTotal: number;
     foodDetails: {
@@ -94,11 +95,17 @@ export class OrderService {
       console.log('>>>>> Received selectedToppings:', detail.selectedToppings);
       const food = await this.foodRepository.findOne({
         where: { id: detail.foodId },
-        relations: ['toppings'],
+        relations: ['toppings', 'restaurant'],
       });
 
       if (!food) {
         throw new NotFoundException(`Food with ID ${detail.foodId} not found`);
+      }
+      if (food.status !== 'available') {
+        throw new BadRequestException(`Food with ID ${detail.foodId} is not available`);
+      }
+      if (food.restaurant?.id !== restaurantId) {
+        throw new BadRequestException(`Food with ID ${detail.foodId} is not from this restaurant`);
       }
 
       const quantity = Number(detail.quantity);
@@ -108,7 +115,7 @@ export class OrderService {
 
       // Discount xử lý
       const basePrice = Number(food.price);
-      const discountPercent = detail.discountPercent ?? food.discountPercent ?? 0;
+      const discountPercent = Number(food.discountPercent) || 0;
       const discountedPrice = basePrice - (basePrice * discountPercent) / 100;
 
       // Xử lý topping
@@ -131,15 +138,11 @@ export class OrderService {
             );
           }
 
-          if (Math.abs(topping.price - selectedTopping.price) > 0.01) {
-            throw new BadRequestException(`Invalid topping price for ${topping.name}`);
-          }
-
-          toppingTotal += topping.price * quantity;
+          toppingTotal += Number(topping.price) * quantity;
           validatedToppings.push({
             id: topping.id,
             name: topping.name,
-            price: topping.price,
+            price: Number(topping.price),
           });
         }
       }
@@ -279,9 +282,12 @@ export class OrderService {
       if (!restaurant || !restaurant.address) {
         throw new NotFoundException('Restaurant or its address not found');
       }
+      if (restaurant.status !== RestaurantStatus.APPROVED) {
+        throw new BadRequestException('Restaurant is not active');
+      }
 
       const address = await queryRunner.manager.findOne(Address, {
-        where: { id: data.addressId },
+        where: { id: data.addressId, user: { id: data.userId } },
       });
       if (!address) {
         throw new NotFoundException('Delivery address not found');
@@ -371,7 +377,10 @@ export class OrderService {
       }
 
       // Continue with the rest of the order creation using Mapbox-calculated values
-      const { foodDetails } = await this.validateAndCalculateOrderDetails(data.orderDetails);
+      const { foodDetails } = await this.validateAndCalculateOrderDetails(
+        data.orderDetails,
+        data.restaurantId,
+      );
 
       const orderCalculation = await this.calculateOrderWithConstraints({
         addressId: data.addressId,
@@ -438,10 +447,20 @@ export class OrderService {
         await this.promotionService.usePromotion(
           order.promotionCode.code,
           orderCalculation.subtotal,
+          queryRunner.manager,
         );
       }
 
       await queryRunner.commitTransaction();
+      if (order.promotionCode) {
+        try {
+          await this.promotionService.clearPromotionCache();
+        } catch (cacheError) {
+          this.logger.warn(
+            `Order committed but promotion cache invalidation failed: ${(cacheError as Error).message}`,
+          );
+        }
+      }
       this.logger.log(`✅ Enhanced order transaction committed for order ID: ${savedOrder.id}`);
       console.log(`Order created successfully with ID: ${savedOrder.id}`);
       return await this.getOrderById(savedOrder.id);
@@ -485,6 +504,7 @@ export class OrderService {
         'user.role',
         'user.address',
         'restaurant',
+        'restaurant.owner',
         'restaurant.address',
         'orderDetails',
         'orderDetails.food',
@@ -648,6 +668,7 @@ export class OrderService {
       'pending',
       'confirmed',
       'delivering',
+      'shipper_received',
       'completed',
       'canceled',
       'processing_payment',
@@ -662,12 +683,15 @@ export class OrderService {
     const currentStatus = order.status;
     const validTransitions: Record<string, string[]> = {
       pending: ['confirmed', 'canceled'],
-      confirmed: ['delivering', 'canceled'],
+      confirmed: ['shipper_received', 'delivering', 'canceled'],
+      shipper_received: ['delivering', 'canceled'],
       delivering: ['completed', 'canceled'],
       processing_payment: ['pending', 'canceled'],
+      completed: [],
+      canceled: [],
     };
 
-    if (validTransitions[currentStatus] && !validTransitions[currentStatus].includes(status)) {
+    if (!validTransitions[currentStatus]?.includes(status)) {
       throw new BadRequestException(`Cannot change status from ${currentStatus} to ${status}`);
     }
 
@@ -837,6 +861,9 @@ export class OrderService {
     if (!address || !restaurant || !restaurant.address) {
       throw new Error('Invalid address or restaurant');
     }
+    if (restaurant.status !== RestaurantStatus.APPROVED) {
+      throw new BadRequestException('Restaurant is not active');
+    }
 
     const userLat = Number(address.latitude);
     const userLng = Number(address.longitude);
@@ -894,6 +921,9 @@ export class OrderService {
     if (!restaurant || !restaurant.address) {
       throw new Error('Invalid restaurant');
     }
+    if (restaurant.status !== RestaurantStatus.APPROVED) {
+      throw new BadRequestException('Restaurant is not active');
+    }
 
     // 🗺️ Use Mapbox for actual route calculation
     const routeResult = await this.mapboxService.calculateBikeRoute(
@@ -915,13 +945,28 @@ export class OrderService {
 
     let foodTotal = 0;
     for (const item of items) {
-      const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
-      if (!food) continue;
+      const food = await this.foodRepository.findOne({
+        where: { id: item.foodId },
+        relations: ['restaurant'],
+      });
+      if (!food) throw new NotFoundException(`Food with ID ${item.foodId} not found`);
+      if (food.status !== 'available' || food.restaurant?.id !== restaurantId) {
+        throw new BadRequestException(`Food with ID ${item.foodId} is not orderable`);
+      }
 
       const basePrice = Number(food.price);
-      const discountPercent = item.discountPercent ?? 0;
+      const discountPercent = Number(food.discountPercent) || 0;
       const discountedPrice = basePrice - (basePrice * discountPercent) / 100;
-      const toppingTotal = item.toppings?.reduce((sum, t) => sum + Number(t.price), 0) || 0;
+      let toppingTotal = 0;
+      for (const selectedTopping of item.toppings || []) {
+        const topping = await this.toppingRepository.findOne({
+          where: { id: selectedTopping.id, food: { id: item.foodId }, isAvailable: true },
+        });
+        if (!topping) {
+          throw new BadRequestException(`Topping ${selectedTopping.id} is not orderable`);
+        }
+        toppingTotal += Number(topping.price);
+      }
 
       foodTotal += (discountedPrice + toppingTotal) * item.quantity;
     }
@@ -1013,12 +1058,27 @@ export class OrderService {
 
     let foodTotal = 0;
     for (const item of data.items) {
-      const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
-      if (!food) continue;
+      const food = await this.foodRepository.findOne({
+        where: { id: item.foodId },
+        relations: ['restaurant'],
+      });
+      if (!food) throw new NotFoundException(`Food with ID ${item.foodId} not found`);
+      if (food.status !== 'available' || food.restaurant?.id !== data.restaurantId) {
+        throw new BadRequestException(`Food with ID ${item.foodId} is not orderable`);
+      }
 
-      const discountPercent = item.discountPercent || food.discountPercent || 0;
+      const discountPercent = Number(food.discountPercent) || 0;
       const discountedPrice = Number(food.price) - (Number(food.price) * discountPercent) / 100;
-      const toppingTotal = (item.toppings || []).reduce((sum, t) => sum + Number(t.price), 0);
+      let toppingTotal = 0;
+      for (const selectedTopping of item.toppings || []) {
+        const topping = await this.toppingRepository.findOne({
+          where: { id: selectedTopping.id, food: { id: item.foodId }, isAvailable: true },
+        });
+        if (!topping) {
+          throw new BadRequestException(`Topping ${selectedTopping.id} is not orderable`);
+        }
+        toppingTotal += Number(topping.price);
+      }
 
       foodTotal += (discountedPrice + toppingTotal) * item.quantity;
     }
@@ -1143,10 +1203,10 @@ export class OrderService {
       if (paymentSuccess) {
         // For cash payments, set to processing
         if (paymentData.method === 'cash') {
-          order.status = 'processing';
+          order.status = 'processing_payment';
         } else {
           // For electronic payments, you might set to 'paid' or 'processing'
-          order.status = 'processing';
+          order.status = 'processing_payment';
         }
 
         // Store payment details (in a real system, this would be in a Payment entity)

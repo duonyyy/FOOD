@@ -1,8 +1,8 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { haversineDistance } from 'src/common/utils/geo.util';
@@ -196,7 +196,7 @@ export class FoodService {
     });
     if (!restaurant) throw new BadRequestException('Restaurant not found');
     if (restaurant.owner.id !== userId) {
-      throw new UnauthorizedException('You are not the owner of this restaurant');
+      throw new ForbiddenException('You are not the owner of this restaurant');
     }
     return this.create(createFoodDto);
   }
@@ -1269,7 +1269,6 @@ export class FoodService {
     // Delete old cover image if changed
     if (updateFoodDto.image && updateFoodDto.image !== food.image && food.image) {
       await this.minioService.deleteFile(food.image).catch((err) => {
-
         // Log and ignore error if file doesn't exist
         console.warn('Failed to delete old food image:', err?.message || err);
       });
@@ -1288,7 +1287,6 @@ export class FoodService {
       );
       for (const url of removedImages) {
         await this.minioService.deleteFile(url).catch((err) => {
-
           console.warn('Failed to delete old food gallery image:', err?.message || err);
         });
       }
@@ -1343,7 +1341,7 @@ export class FoodService {
     });
     if (!food) throw new NotFoundException('Food not found');
     if (!food.restaurant || food.restaurant.owner.id !== userId) {
-      throw new UnauthorizedException('You are not the owner of this restaurant');
+      throw new ForbiddenException('You are not the owner of this restaurant');
     }
     return this.update(id, updateFoodDto);
   }
@@ -1373,7 +1371,7 @@ export class FoodService {
     });
     if (!food) throw new NotFoundException('Food not found');
     if (!food.restaurant || food.restaurant.owner.id !== userId) {
-      throw new UnauthorizedException('You are not the owner of this restaurant');
+      throw new ForbiddenException('You are not the owner of this restaurant');
     }
     return this.remove(id);
   }
@@ -1455,7 +1453,7 @@ export class FoodService {
     });
     if (!food) throw new NotFoundException('Food not found');
     if (!food.restaurant || food.restaurant.owner.id !== userId) {
-      throw new UnauthorizedException('You are not the owner of this restaurant');
+      throw new ForbiddenException('You are not the owner of this restaurant');
     }
     food.status = status;
     const updatedFood = await this.foodRepository.save(food);

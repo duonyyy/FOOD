@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Permission } from 'src/constants/permission.enum';
@@ -19,6 +20,7 @@ import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { PromotionService } from './promotion.service';
 
 @Controller('promotions')
+@ApiTags('promotions')
 export class PromotionController {
   constructor(private readonly promotionService: PromotionService) {}
 
@@ -46,18 +48,21 @@ export class PromotionController {
   }
 
   @Get(':id')
+  @UseGuards(RolesGuard)
   @Permissions(Permission.PROMOTION.CREATE)
   getPromotionById(@Param('id') id: string) {
     return this.promotionService.getPromotionById(id);
   }
 
   @Put(':id')
+  @UseGuards(RolesGuard)
   @Permissions(Permission.PROMOTION.WRITE)
   updatePromotion(@Param('id') id: string, @Body() updatePromotionDto: UpdatePromotionDto) {
     return this.promotionService.updatePromotion(id, updatePromotionDto);
   }
 
   @Delete(':id')
+  @UseGuards(RolesGuard)
   @Permissions(Permission.PROMOTION.DELETE)
   deletePromotion(@Param('id') id: string) {
     return this.promotionService.deletePromotion(id);

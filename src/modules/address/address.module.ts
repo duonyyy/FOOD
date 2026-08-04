@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Address } from 'src/entities/address.entity';
 import { AddressController } from './address.controller';
 import { AddressService } from './address.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Address])],
+  imports: [TypeOrmModule.forFeature([Address]), JwtModule],
   controllers: [AddressController],
   providers: [AddressService],
   exports: [AddressService],

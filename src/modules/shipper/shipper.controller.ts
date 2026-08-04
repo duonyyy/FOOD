@@ -8,10 +8,13 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { ShipperService } from './shipper.service';
 
 @Controller('shippers')
+@ApiTags('delivery')
+@ApiBearerAuth('bearer')
 export class ShipperController {
   constructor(private readonly shipperService: ShipperService) {}
 
@@ -32,12 +35,26 @@ export class ShipperController {
 
   @Post('get-order')
   @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Read an assigned order without changing delivery state' })
+  @ApiResponse({ status: 200, description: 'Assigned order returned' })
   async getOrder(@Body('orderId') orderId: string, @Req() req) {
     const userId = req.user?.userId || req.user?.uid || req.user?.id;
     if (!orderId) {
       throw new BadRequestException('Order ID is required');
     }
     return this.shipperService.getOrder(orderId, userId);
+  }
+
+  @Post('start-order')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Start an assigned delivery' })
+  @ApiResponse({ status: 201, description: 'Order transitioned to delivering' })
+  async startOrder(@Body('orderId') orderId: string, @Req() req) {
+    const userId = req.user?.userId || req.user?.uid || req.user?.id;
+    if (!orderId) {
+      throw new BadRequestException('Order ID is required');
+    }
+    return this.shipperService.startOrder(orderId, userId);
   }
 
   @UseGuards(AuthGuard)

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,7 +19,6 @@ import { User } from 'src/entities/user.entity';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { pubSub } from 'src/pubsub';
 import { LessThan, Repository } from 'typeorm';
-import { OrderService } from '../order/order.service';
 import { UpdateDriverProfileDto } from './dto/update-driver-dto';
 
 @Injectable()
@@ -35,7 +35,6 @@ export class ShipperService {
     @InjectRepository(ShipperCertificateInfo)
     private readonly certRepo: Repository<ShipperCertificateInfo>,
     private pendingAssignmentService: PendingAssignmentService, // Inject the service
-    private orderService: OrderService, // Inject the OrderService for finalizing assignments
   ) {}
 
   /**
@@ -217,50 +216,68 @@ export class ShipperService {
     shipperId: string,
     responseTimeSeconds: number = 120,
   ) {
-    // Check if order exists and is confirmed
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['restaurant', 'user', 'shippingDetail'],
+    const pendingAssignment =
+      await this.pendingAssignmentService.getPendingAssignmentForShipper(shipperId);
+    if (!pendingAssignment || pendingAssignment.orderId !== orderId) {
+      throw new ForbiddenException('This order is not currently offered to this shipper');
+    }
+
+    const assignment = await this.orderRepository.manager.transaction(async (manager) => {
+      const orderRepository = manager.getRepository(Order);
+      const shippingDetailRepository = manager.getRepository(ShippingDetail);
+      const userRepository = manager.getRepository(User);
+
+      const order = await orderRepository.findOne({
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new BadRequestException('Order not found');
+      }
+      if (order.status !== 'confirmed') {
+        throw new ConflictException('Order is no longer available for assignment');
+      }
+
+      const existingShippingDetail = await shippingDetailRepository.findOne({
+        where: { order: { id: orderId } },
+      });
+      if (existingShippingDetail) {
+        throw new ConflictException('Order already assigned to a shipper');
+      }
+
+      const shipper = await userRepository.findOne({
+        where: { id: shipperId },
+        relations: ['role', 'shipperCertificateInfo'],
+      });
+      if (
+        !shipper ||
+        shipper.role?.name !== DefaultRole.SHIPPER ||
+        shipper.shipperCertificateInfo?.status !== CertificateStatus.APPROVED
+      ) {
+        throw new BadRequestException('Invalid or unapproved shipper');
+      }
+
+      const shippingDetail = shippingDetailRepository.create({
+        order,
+        shipper,
+        status: ShippingStatus.SHIPPING,
+        estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000),
+      });
+      await shippingDetailRepository.save(shippingDetail);
+
+      order.status = 'shipper_received';
+      await orderRepository.save(order);
+
+      shipper.activeDeliveries = (shipper.activeDeliveries || 0) + 1;
+      shipper.responseTimeMinutes = Math.max(
+        (shipper.responseTimeMinutes || 0) + Math.ceil(responseTimeSeconds / 60),
+        1,
+      );
+      await userRepository.save(shipper);
+
+      return { order, shippingDetail };
     });
-
-    if (!order) {
-      throw new BadRequestException('Order not found');
-    }
-
-    if (order.status !== 'confirmed') {
-      throw new BadRequestException('Order must be confirmed to assign to shipper');
-    }
-
-    if (order.shippingDetail) {
-      throw new ConflictException('Order already assigned to a shipper');
-    }
-
-    // Check if shipper exists and is approved
-    const shipper = await this.userRepository.findOne({
-      where: { id: shipperId },
-      relations: ['role', 'shipperCertificateInfo'],
-    });
-
-    if (
-      !shipper ||
-      shipper.role?.name !== DefaultRole.SHIPPER ||
-      shipper.shipperCertificateInfo?.status !== CertificateStatus.APPROVED
-    ) {
-      throw new BadRequestException('Invalid or unapproved shipper');
-    }
-
-    // Create shipping detail
-    const shippingDetail = new ShippingDetail();
-    shippingDetail.order = order;
-    shippingDetail.shipper = shipper;
-    shippingDetail.status = ShippingStatus.SHIPPING;
-    shippingDetail.estimatedDeliveryTime = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
-
-    await this.shippingDetailRepository.save(shippingDetail);
-
-    // Update order status to 'shipper_received'
-    order.status = 'shipper_received';
-    await this.orderRepository.save(order);
 
     // Remove from pending assignments
     try {
@@ -277,19 +294,12 @@ export class ShipperService {
 
     // Publish status update to user
     await pubSub.publish('orderStatusUpdated', {
-      orderStatusUpdated: order,
+      orderStatusUpdated: assignment.order,
     });
 
     this.logger.log(`Order ${orderId} assigned to shipper ${shipperId}`);
 
-    shipper.activeDeliveries = (shipper.activeDeliveries || 0) + 1;
-    shipper.responseTimeMinutes = Math.max(
-      (shipper.responseTimeMinutes || 0) + Math.ceil(responseTimeSeconds / 60),
-      1,
-    );
-    await this.userRepository.save(shipper);
-
-    return shippingDetail;
+    return assignment.shippingDetail;
   }
 
   async getOrder(orderId: string, shipperId: string) {
@@ -329,29 +339,34 @@ export class ShipperService {
     }
 
     this.logger.log(`Order ${orderId} successfully retrieved for shipper ${shipperId}`);
-    // Update order status to 'delivering' when shipper picks up the order
-    order.status = 'delivering';
-    await this.orderRepository.save(order);
+    return order;
+  }
 
-    this.logger.log(`Order ${orderId} status updated to delivering for shipper ${shipperId}`);
-    // Update order service status
-    //await this.orderService.updateOrderStatus(orderId, 'delivering');
-
-    this.logger.log(
-      `📦 Shipper ${shipperId} retrieved order ${orderId}, status updated to delivering`,
-    );
-    // Publish the status update
-    await pubSub.publish('orderStatusUpdated', {
-      orderStatusUpdated: order,
+  async startOrder(orderId: string, shipperId: string) {
+    const shippingDetail = await this.shippingDetailRepository.findOne({
+      where: { order: { id: orderId }, shipper: { id: shipperId } },
+      relations: ['order', 'shipper'],
     });
+    if (!shippingDetail) {
+      throw new NotFoundException('Shipping detail not found for this order and shipper');
+    }
+    if (shippingDetail.shipper?.id !== shipperId) {
+      throw new ForbiddenException('You are not assigned to this order');
+    }
 
-    // Update shipping detail status to SHIPPING
+    const order = shippingDetail.order;
+    if (order.status === 'delivering') {
+      return order;
+    }
+    if (order.status !== 'shipper_received') {
+      throw new BadRequestException('Order must be received by shipper before delivery starts');
+    }
+
+    order.status = 'delivering';
     shippingDetail.status = ShippingStatus.SHIPPING;
+    await this.orderRepository.save(order);
     await this.shippingDetailRepository.save(shippingDetail);
-
-    this.logger.log(
-      `📦 Shipper ${shipperId} picked up order ${orderId}, status updated to delivering`,
-    );
+    await pubSub.publish('orderStatusUpdated', { orderStatusUpdated: order });
 
     return order;
   }
@@ -371,170 +386,141 @@ export class ShipperService {
   }
 
   async markOrderCompleted(orderId: string, shipperId: string) {
-    const shippingDetail = await this.shippingDetailRepository.findOne({
-      where: {
-        order: { id: orderId },
-        shipper: { id: shipperId },
-      },
-      relations: ['order', 'shipper'],
-    });
+    const completion = await this.orderRepository.manager.transaction(async (manager) => {
+      const orderRepository = manager.getRepository(Order);
+      const shippingDetailRepository = manager.getRepository(ShippingDetail);
+      const userRepository = manager.getRepository(User);
 
-    if (!shippingDetail) {
-      throw new NotFoundException('Không tìm thấy thông tin vận chuyển');
-    }
+      const order = await orderRepository.findOne({
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) {
+        throw new NotFoundException('Đơn hàng không tồn tại');
+      }
 
-    shippingDetail.status = ShippingStatus.COMPLETED;
-    shippingDetail.actualDeliveryTime = new Date();
+      const shippingDetail = await shippingDetailRepository.findOne({
+        where: { order: { id: orderId } },
+        relations: ['shipper'],
+      });
+      if (!shippingDetail) {
+        throw new NotFoundException('Không tìm thấy thông tin vận chuyển');
+      }
+      if (shippingDetail.shipper?.id !== shipperId) {
+        throw new ForbiddenException('You are not assigned to this order');
+      }
+      if (order.status === 'completed' && shippingDetail.status === ShippingStatus.COMPLETED) {
+        return {
+          order,
+          alreadyCompleted: true,
+          response: {
+            message: 'Đơn hàng đã được hoàn thành trước đó',
+            earnings: order.shipperEarnings || 0,
+          },
+        };
+      }
+      if (order.status !== 'delivering') {
+        throw new BadRequestException('Order must be delivering before completion');
+      }
 
-    await this.shippingDetailRepository.save(shippingDetail);
+      const shipper = await userRepository.findOne({
+        where: { id: shipperId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!shipper) {
+        throw new NotFoundException('Shipper not found');
+      }
 
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['user', 'restaurant'],
-    });
+      shippingDetail.status = ShippingStatus.COMPLETED;
+      shippingDetail.actualDeliveryTime = new Date();
 
-    if (!order) {
-      throw new NotFoundException('Đơn hàng không tồn tại');
-    }
-
-    order.status = 'completed';
-    await this.orderRepository.save(order);
-
-    await this.orderService.updateOrderStatus(orderId, 'completed');
-
-    // 🚨 ADD: Publish the status update
-    await pubSub.publish('orderStatusUpdated', {
-      orderStatusUpdated: order,
-    });
-
-    const shipper = await this.userRepository.findOne({
-      where: { id: shipperId },
-      relations: ['shipperCertificateInfo'],
-    });
-
-    if (!shipper) {
-      throw new NotFoundException('Shipper not found');
-    }
-
-    // Calculate delivery time and earnings
-    const deliveryTime =
-      shippingDetail.estimatedDeliveryTime && shippingDetail.actualDeliveryTime
+      const deliveryTime = shippingDetail.estimatedDeliveryTime
         ? Math.abs(
             shippingDetail.actualDeliveryTime.getTime() -
               shippingDetail.estimatedDeliveryTime.getTime(),
           ) /
           (1000 * 60)
         : 0;
-
-    const isOnTime = deliveryTime <= (order.estimatedDeliveryTime || 30);
-
-    // 🔥 IMPROVED EARNINGS CALCULATION - More profitable for shippers
-    let shipperEarnings = 0;
-
-    // Base earnings calculation
-    const shippingFee = order.shippingFee || 25000; // Default 25k VND if not set
-    const baseCommissionRate = 0.85; // 85% of shipping fee (increased from 80%)
-
-    // Distance-based bonus
-    const distance = order.deliveryDistance || 2; // Default 2km if not set
-    const distanceBonus = Math.max(0, (distance - 1) * 5000); // 5k VND per km after 1km
-
-    // Order value bonus (encourage high-value deliveries)
-    const orderValueBonus = Math.min(10000, (order.total || 0) * 0.01); // 1% of order value, max 10k
-
-    // Time-based bonus (peak hours, late night)
-    const hour = new Date().getHours();
-    let timeBonus = 0;
-    if ((hour >= 11 && hour <= 13) || (hour >= 17 && hour <= 20)) {
-      timeBonus = 5000; // Peak lunch/dinner hours
-    } else if (hour >= 22 || hour <= 6) {
-      timeBonus = 8000; // Late night/early morning
-    }
-
-    // On-time delivery bonus
-    const onTimeBonus = isOnTime ? 3000 : 0;
-
-    // Performance bonus based on shipper stats
-    const completedDeliveries = shipper.completedDeliveries || 0;
-    const performanceBonus =
-      completedDeliveries > 100
-        ? 2000
-        : completedDeliveries > 50
-          ? 1000
-          : completedDeliveries > 20
-            ? 500
+      const isOnTime = deliveryTime <= (order.estimatedDeliveryTime || 30);
+      const shippingFee = order.shippingFee || 25000;
+      const distance = order.deliveryDistance || 2;
+      const baseEarnings = Math.round(shippingFee * 0.85);
+      const distanceBonus = Math.max(0, (distance - 1) * 5000);
+      const orderValueBonus = Math.min(10000, (order.total || 0) * 0.01);
+      const hour = new Date().getHours();
+      const timeBonus =
+        (hour >= 11 && hour <= 13) || (hour >= 17 && hour <= 20)
+          ? 5000
+          : hour >= 22 || hour <= 6
+            ? 8000
             : 0;
+      const onTimeBonus = isOnTime ? 3000 : 0;
+      const completedDeliveries = shipper.completedDeliveries || 0;
+      const performanceBonus =
+        completedDeliveries > 100
+          ? 2000
+          : completedDeliveries > 50
+            ? 1000
+            : completedDeliveries > 20
+              ? 500
+              : 0;
+      const calculatedEarnings =
+        baseEarnings + distanceBonus + orderValueBonus + timeBonus + onTimeBonus + performanceBonus;
+      const shipperEarnings = order.shipperEarnings || Math.max(calculatedEarnings, 20000);
 
-    // Calculate final earnings
-    const baseEarnings = Math.round(shippingFee * baseCommissionRate);
-    shipperEarnings =
-      baseEarnings + distanceBonus + orderValueBonus + timeBonus + onTimeBonus + performanceBonus;
-
-    // Minimum earnings guarantee
-    const minimumEarnings = 20000; // Minimum 20k VND per delivery
-    shipperEarnings = Math.max(shipperEarnings, minimumEarnings);
-
-    // Update the order with calculated earnings if not already set
-    if (!order.shipperEarnings || order.shipperEarnings === 0) {
+      order.status = 'completed';
       order.shipperEarnings = shipperEarnings;
-      await this.orderRepository.save(order);
-    } else {
-      // Use existing earnings if already calculated
-      shipperEarnings = order.shipperEarnings;
+      shipper.completedDeliveries = completedDeliveries + 1;
+      shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
+      shipper.totalEarnings = (shipper.totalEarnings || 0) + shipperEarnings;
+      shipper.dailyEarnings = (shipper.dailyEarnings || 0) + shipperEarnings;
+      shipper.weeklyEarnings = (shipper.weeklyEarnings || 0) + shipperEarnings;
+      shipper.monthlyEarnings = (shipper.monthlyEarnings || 0) + shipperEarnings;
+      shipper.averageDeliveryTime =
+        ((shipper.averageDeliveryTime || 0) * completedDeliveries + deliveryTime) /
+        shipper.completedDeliveries;
+      if (isOnTime) {
+        shipper.onTimeDeliveries = (shipper.onTimeDeliveries || 0) + 1;
+      } else {
+        shipper.lateDeliveries = (shipper.lateDeliveries || 0) + 1;
+      }
+      shipper.lastActiveAt = new Date();
+
+      await shippingDetailRepository.save(shippingDetail);
+      await orderRepository.save(order);
+      await userRepository.save(shipper);
+
+      return {
+        order,
+        alreadyCompleted: false,
+        response: {
+          message: 'Đơn hàng đã được hoàn thành',
+          earnings: shipperEarnings,
+          earningsBreakdown: {
+            baseEarnings,
+            distanceBonus,
+            orderValueBonus,
+            timeBonus,
+            onTimeBonus,
+            performanceBonus,
+            totalEarnings: shipperEarnings,
+          },
+          isOnTime,
+          deliveryTime: Math.round(deliveryTime),
+          totalCompletedDeliveries: shipper.completedDeliveries,
+          distance,
+          orderValue: order.total,
+        },
+      };
+    });
+
+    if (!completion.alreadyCompleted) {
+      await pubSub.publish('orderStatusUpdated', {
+        orderStatusUpdated: completion.order,
+      });
     }
 
-    // Update shipper statistics with comprehensive tracking
-    shipper.completedDeliveries = (shipper.completedDeliveries || 0) + 1;
-    shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
-
-    // Update earnings tracking
-    shipper.totalEarnings = (shipper.totalEarnings || 0) + shipperEarnings;
-    shipper.dailyEarnings = (shipper.dailyEarnings || 0) + shipperEarnings;
-    shipper.weeklyEarnings = (shipper.weeklyEarnings || 0) + shipperEarnings;
-    shipper.monthlyEarnings = (shipper.monthlyEarnings || 0) + shipperEarnings;
-
-    // Update delivery time tracking
-    const totalDeliveries = shipper.completedDeliveries;
-    const currentAvgTime = shipper.averageDeliveryTime || 0;
-    shipper.averageDeliveryTime =
-      (currentAvgTime * (totalDeliveries - 1) + deliveryTime) / totalDeliveries;
-
-    // Update on-time delivery tracking
-    if (isOnTime) {
-      shipper.onTimeDeliveries = (shipper.onTimeDeliveries || 0) + 1;
-    } else {
-      shipper.lateDeliveries = (shipper.lateDeliveries || 0) + 1;
-    }
-
-    // Update last active time
-    shipper.lastActiveAt = new Date();
-
-    await this.userRepository.save(shipper);
-
-    this.logger.log(
-      `✅ Order ${orderId} completed by shipper ${shipperId}. Earnings: ${shipperEarnings}đ, On-time: ${isOnTime}`,
-    );
-
-    // Return detailed earnings breakdown
-    return {
-      message: 'Đơn hàng đã được hoàn thành',
-      earnings: shipperEarnings,
-      earningsBreakdown: {
-        baseEarnings: baseEarnings,
-        distanceBonus: distanceBonus,
-        orderValueBonus: orderValueBonus,
-        timeBonus: timeBonus,
-        onTimeBonus: onTimeBonus,
-        performanceBonus: performanceBonus,
-        totalEarnings: shipperEarnings,
-        breakdown: `Base: ${baseEarnings}đ + Distance: ${distanceBonus}đ + Value: ${orderValueBonus}đ + Time: ${timeBonus}đ + OnTime: ${onTimeBonus}đ + Performance: ${performanceBonus}đ = ${shipperEarnings}đ`,
-      },
-      isOnTime,
-      deliveryTime: Math.round(deliveryTime),
-      totalCompletedDeliveries: shipper.completedDeliveries,
-      distance: distance,
-      orderValue: order.total,
-    };
+    return completion.response;
   }
 
   async getCompletedOrdersByShipper(shipperId: string) {
@@ -871,8 +857,8 @@ export class ShipperService {
     if (order.status !== 'delivering') {
       throw new BadRequestException('Order is not currently being delivered');
     }
-    if (order.shippingDetail.shipper.id !== userId) {
-      throw new BadRequestException('You are not the shipper for this order');
+    if (order.shippingDetail?.shipper?.id !== userId) {
+      throw new ForbiddenException('You are not the shipper for this order');
     }
 
     const shipper = await this.userRepository.findOne({
@@ -897,6 +883,12 @@ export class ShipperService {
   }
 
   async rejectOrder(orderId: string, shipperId: string, responseTimeSeconds: number) {
+    const pendingAssignment =
+      await this.pendingAssignmentService.getPendingAssignmentForShipper(shipperId);
+    if (!pendingAssignment || pendingAssignment.orderId !== orderId) {
+      throw new ForbiddenException('This order is not currently offered to this shipper');
+    }
+
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
       relations: ['shippingDetail', 'shippingDetail.shipper'],

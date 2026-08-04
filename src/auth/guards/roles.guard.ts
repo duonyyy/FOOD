@@ -1,17 +1,17 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
-  UnauthorizedException,
+  ForbiddenException,
+  Injectable,
   Logger,
-  ForbiddenException
+  UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
-import { UsersService } from 'src/modules/users/users.service';
 import { extractBearerToken } from 'src/auth/utils/auth-token.util';
+import { UsersService } from 'src/modules/users/users.service';
+import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 
 /**
  * Interface for JWT payload structure.
@@ -61,12 +61,14 @@ export class RolesGuard implements CanActivate {
    * @throws ForbiddenException if authorization fails.
    */
   public async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.get<string[]>(
-      PERMISSIONS_KEY,
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
       context.getHandler(),
-    );
+      context.getClass(),
+    ]);
 
-    this.logger.debug(`Required permissions for this route: ${requiredPermissions?.join(', ') || 'None'}`);
+    this.logger.debug(
+      `Required permissions for this route: ${requiredPermissions?.join(', ') || 'None'}`,
+    );
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
       this.logger.debug('No permissions required, allowing access.');
@@ -88,11 +90,15 @@ export class RolesGuard implements CanActivate {
       const hasPermission = this.checkRequiredPermissions(requiredPermissions, userPermissions);
 
       if (!hasPermission) {
-        this.logger.warn(`User ${userId} attempted to access resource requiring ${requiredPermissions.join(', ')} but only has ${userPermissions.join(', ')}`);
+        this.logger.warn(
+          `User ${userId} attempted to access resource requiring ${requiredPermissions.join(', ')} but only has ${userPermissions.join(', ')}`,
+        );
         throw new ForbiddenException('Insufficient permissions to access this resource');
       }
 
-      this.logger.log(`User ${userId} granted access to resource requiring ${requiredPermissions.join(', ')}`);
+      this.logger.log(
+        `User ${userId} granted access to resource requiring ${requiredPermissions.join(', ')}`,
+      );
       return true;
     } catch (error) {
       this.logger.error(`Access denied: ${error instanceof Error ? error.message : error}`);
@@ -103,7 +109,7 @@ export class RolesGuard implements CanActivate {
 
   /**
    * Extracts the token from the request authorization header.
-   * 
+   *
    * @param request - The HTTP request object.
    * @returns The extracted JWT token.
    * @throws UnauthorizedException if token is missing or invalid.
@@ -114,7 +120,7 @@ export class RolesGuard implements CanActivate {
 
   /**
    * Verifies the JWT token and returns the user ID.
-   * 
+   *
    * @param token - The JWT token to verify.
    * @returns The user ID from the verified token.
    * @throws UnauthorizedException if token verification fails.
@@ -122,13 +128,13 @@ export class RolesGuard implements CanActivate {
   private async verifyTokenAndGetUserId(token: string): Promise<string> {
     try {
       const jwtSecret = this.configService.get<string>('JWT_SECRET');
-      
+
       if (!jwtSecret) {
         throw new Error('JWT_SECRET is not configured');
       }
 
       const decodedToken = this.jwtService.verify<JwtPayload>(token, {
-        secret: jwtSecret
+        secret: jwtSecret,
       });
 
       if (!decodedToken.sub) {
@@ -137,16 +143,18 @@ export class RolesGuard implements CanActivate {
 
       return decodedToken.sub;
     } catch (error) {
-      this.logger.error(`Token verification error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(
+        `Token verification error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       throw new UnauthorizedException(
-        `Failed to verify token: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to verify token: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }
 
   /**
    * Gets the user's permissions from the database as strings.
-   * 
+   *
    * @param userId - The user's ID.
    * @returns Array of permission strings assigned to the user.
    * @throws UnauthorizedException if user not found.
@@ -173,14 +181,14 @@ export class RolesGuard implements CanActivate {
 
   /**
    * Checks if the user has the required permissions.
-   * 
+   *
    * @param requiredPermissions - String permissions required for the endpoint.
    * @param userPermissions - String permissions the user has.
    * @returns True if user has all required permissions.
    */
   private checkRequiredPermissions(
     requiredPermissions: string[],
-    userPermissions: string[]
+    userPermissions: string[],
   ): boolean {
     return requiredPermissions.every((required) => {
       // Direct match
@@ -203,7 +211,7 @@ export class RolesGuard implements CanActivate {
 
   /**
    * Handles authentication errors by throwing appropriate exceptions.
-   * 
+   *
    * @param error - The error that occurred during authentication.
    * @throws UnauthorizedException with appropriate message.
    * @throws ForbiddenException if it's a permissions issue.

@@ -73,8 +73,7 @@
 
 ### **2️⃣ Clone dự án**
 ```bash
-git clone https://github.com/WuanDuc/edutech.git
-cd be
+
 ```
 
 ### **3️⃣ Cài đặt dependencies**
@@ -201,12 +200,7 @@ Body:
 4. Push lên GitHub (`git push origin feature-branch`)
 5. Tạo Pull Request
 
----
 
-## 📧 Liên hệ
-Nếu có câu hỏi hoặc lỗi, vui lòng tạo **Issue** hoặc liên hệ qua email: `univerbachtuoc@gmail.com`.
-
----
 
 **Chúc bạn code vui vẻ! 🚀**
 

@@ -13,16 +13,30 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AuthenticatedRequest } from 'src/auth/interfaces/authenticated-request.interface';
+import { Permission } from 'src/constants/permission.enum';
+import { Order } from 'src/entities/order.entity';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { PaymentService } from 'src/payment/payment.service';
 import { pubSub } from 'src/pubsub'; // THÊM IMPORT NÀY
 import { RestaurantService } from '../restaurant/restaurant.service';
+import { CreateOrderRequestDto } from './dto/create-order-request.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaymentDto } from './dto/payment.dto';
 import { OrderService } from './order.service';
 
 @Controller('orders')
+@ApiTags('orders')
 export class OrderController {
   private readonly logger = new Logger(OrderController.name);
 
@@ -34,19 +48,28 @@ export class OrderController {
   ) {}
 
   @Post()
-  async createOrder(@Body() body: any) {
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'Create an order using server-authoritative pricing' })
+  @ApiCreatedResponse({ description: 'Order and optional checkout created' })
+  @ApiUnauthorizedResponse({ description: 'JWT is missing or invalid' })
+  async createOrder(@Body() body: CreateOrderRequestDto, @Req() req: AuthenticatedRequest) {
+    const userId = req.user.id;
     this.logger.log(`Received order creation request: ${JSON.stringify(body)}`);
 
     // Map orderDetails if present
     const orderDetails = Array.isArray(body.orderDetails)
-      ? body.orderDetails.map((detail: any) => ({
+      ? body.orderDetails.map((detail) => ({
           foodId: detail.foodId,
           quantity: detail.quantity,
-          price: detail.price,
+          price: detail.price ?? '0',
           note: detail.note || '',
-          selectedToppings: detail.selectedToppings || [],
+          selectedToppings: (detail.selectedToppings || []).map((topping) => ({
+            id: topping.id,
+            name: topping.name ?? '',
+            price: topping.price ?? 0,
+          })),
           discountPercent: detail.discountPercent ?? 0,
-          deliveryType: detail.deliveryType || 'asap', // Default to 'delivery' if not provided
         }))
       : [];
 
@@ -59,20 +82,26 @@ export class OrderController {
       this.logger.log(`📍 Custom address: ${JSON.stringify(body.address)}`);
 
       // Create a temporary address record for this order
-      addressId = await this.orderService.createTemporaryAddress(body.address, body.userId);
+      addressId = await this.orderService.createTemporaryAddress(body.address, userId);
       isTemporaryAddress = true;
 
       this.logger.log(`✅ Temporary address created with ID: ${addressId}`);
     }
+    if (!addressId) {
+      throw new BadRequestException('Address ID or custom address is required');
+    }
 
     // Map to DTO
     const createOrderDto: CreateOrderDto = {
-      userId: body.userId,
+      userId,
       restaurantId: body.restaurantId,
       addressId: addressId, // Use either provided addressId or newly created temporary address
       total: body.total,
       note: body.note,
       paymentMethod: body.paymentMethod,
+      promotionCode: body.promotionCode,
+      requestedDeliveryTime: body.requestedDeliveryTime,
+      deliveryType: body.deliveryType,
       orderDetails,
     };
 
@@ -151,6 +180,8 @@ export class OrderController {
   }
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ORDER.READ)
   getAllOrders() {
     return this.orderService.getAllOrders();
   }
@@ -243,17 +274,28 @@ export class OrderController {
   }
 
   @Get(':id')
-  getOrderById(@Param('id') id: string, @Query('review') review?: boolean) {
-    return this.orderService.getOrderById(id, review);
+  @UseGuards(AuthGuard)
+  async getOrderById(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+    @Query('review') review?: boolean,
+  ) {
+    return this.getOrderForActor(id, req.user.id, review);
   }
 
   @Get('user/:userId')
-  getOrdersByUser(@Param('userId') userId: string) {
+  @UseGuards(AuthGuard)
+  getOrdersByUser(@Param('userId') userId: string, @Req() req: AuthenticatedRequest) {
+    if (userId !== req.user.id) {
+      throw new ForbiddenException("You cannot access another user's orders");
+    }
     return this.orderService.getOrdersByUser(userId);
   }
 
   @Get(':id/details')
-  getOrderDetails(@Param('id') id: string) {
+  @UseGuards(AuthGuard)
+  async getOrderDetails(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    await this.getOrderForActor(id, req.user.id);
     return this.orderService.getOrderDetails(id);
   }
 
@@ -336,12 +378,26 @@ export class OrderController {
   }
 
   @Delete(':id')
-  deleteOrder(@Param('id') id: string) {
+  @UseGuards(AuthGuard)
+  async deleteOrder(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    const order = await this.orderService.getOrderById(id);
+    if (order.user?.id !== req.user.id) {
+      throw new ForbiddenException('Only the customer who placed the order can delete it');
+    }
     return this.orderService.deleteOrder(id);
   }
 
   @Post(':id/payment')
-  processPayment(@Param('id') id: string, @Body() paymentData: PaymentDto) {
+  @UseGuards(AuthGuard)
+  async processPayment(
+    @Param('id') id: string,
+    @Body() paymentData: PaymentDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const order = await this.orderService.getOrderById(id);
+    if (order.user?.id !== req.user.id) {
+      throw new ForbiddenException('Only the customer who placed the order can pay for it');
+    }
     return this.orderService.processPayment(id, paymentData);
   }
 
@@ -375,5 +431,21 @@ export class OrderController {
       body.restaurantId,
       body.items,
     );
+  }
+
+  private async getOrderForActor(
+    orderId: string,
+    actorId: string,
+    includeReviewInfo: boolean = false,
+  ): Promise<Order> {
+    const order = await this.orderService.getOrderById(orderId, includeReviewInfo);
+    const isCustomer = order.user?.id === actorId;
+    const isRestaurantOwner = order.restaurant?.owner?.id === actorId;
+    const isAssignedShipper = order.shippingDetail?.shipper?.id === actorId;
+
+    if (!isCustomer && !isRestaurantOwner && !isAssignedShipper) {
+      throw new ForbiddenException('You cannot access this order');
+    }
+    return order;
   }
 }

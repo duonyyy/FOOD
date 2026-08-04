@@ -4,6 +4,7 @@ import {
   Controller,
   DefaultValuePipe,
   Delete,
+  ForbiddenException,
   Get,
   Logger,
   Param,
@@ -18,24 +19,28 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { ApiTags } from '@nestjs/swagger';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AuthenticatedRequest } from 'src/auth/interfaces/authenticated-request.interface';
 import { Permission } from 'src/constants/permission.enum';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
+import { RequestRestaurantDto, UpdateOwnedRestaurantDto } from './dto/restaurant-request.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { RestaurantService } from './restaurant.service';
 
 @Controller('restaurants')
+@ApiTags('restaurants')
 export class RestaurantController {
   private readonly logger = new Logger(RestaurantController.name);
   constructor(private readonly restaurantService: RestaurantService) {}
 
   // 1. Fixed, exact paths first (no path parameters)
   @Post()
-  //@UseGuards(RolesGuard)
-  //@Permissions(Permission.RESTAURANT.CREATE)
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.STORE.CREATE)
   async create(@Body() createRestaurantDto: CreateRestaurantDto): Promise<Restaurant> {
     return await this.restaurantService.create(createRestaurantDto);
   }
@@ -79,7 +84,8 @@ export class RestaurantController {
     ]),
   )
   async requestRestaurantWithFiles(
-    @Body() createDto: any,
+    @Body() createDto: RequestRestaurantDto,
+    @Req() req: AuthenticatedRequest,
     @UploadedFiles()
     files: {
       avatar?: Express.Multer.File[];
@@ -95,7 +101,7 @@ export class RestaurantController {
       openTime: createDto.openTime,
       closeTime: createDto.closeTime,
       licenseCode: createDto.licenseCode,
-      ownerId: createDto.ownerId,
+      ownerId: req.user.id,
       latitude: createDto.latitude,
       longitude: createDto.longitude,
     };
@@ -177,6 +183,8 @@ export class RestaurantController {
   }
 
   @Get('requests')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.STORE.READ)
   async getRestaurantRequests(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
@@ -231,22 +239,22 @@ export class RestaurantController {
   }
   // 2. Routes with specific ID patterns that include additional path segments
   @Put(':id/approve')
-  //@UseGuards(RolesGuard)
-  //@Permissions(Permission.RESTAURANT.APPROVE)
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.STORE.WRITE)
   async approveRestaurant(@Param('id') id: string): Promise<Restaurant> {
     return await this.restaurantService.approveRestaurant(id);
   }
 
   @Put(':id/reject')
-  //@UseGuards(RolesGuard)
-  //@Permissions(Permission.RESTAURANT.APPROVE)
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.STORE.WRITE)
   async rejectRestaurant(@Param('id') id: string): Promise<Restaurant> {
     return await this.restaurantService.rejectRestaurant(id);
   }
 
   @Delete('requests/:id')
-  //@UseGuards(RolesGuard)
-  //@Permissions(Permission.RESTAURANT.DELETE)
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.STORE.DELETE)
   async deleteRestaurantRequest(@Param('id') id: string): Promise<void> {
     return await this.restaurantService.deleteRestaurantRequest(id);
   }
@@ -269,7 +277,8 @@ export class RestaurantController {
   )
   async updateWithFiles(
     @Param('id') id: string,
-    @Body() updateDto: any,
+    @Body() updateDto: UpdateOwnedRestaurantDto,
+    @Req() req: AuthenticatedRequest,
     @UploadedFiles()
     files: {
       avatar?: Express.Multer.File[];
@@ -277,6 +286,7 @@ export class RestaurantController {
       certificateImage?: Express.Multer.File[];
     },
   ): Promise<Restaurant> {
+    await this.assertRestaurantOwner(id, req.user.id);
     this.logger.log(
       `Updating restaurant ${id} with data: ${JSON.stringify(updateDto)} and files: ${Object.keys(files).join(', ')}`,
     );
@@ -298,7 +308,6 @@ export class RestaurantController {
       addressWard: updateDto.addressWard,
       addressDistrict: updateDto.addressDistrict,
       addressCity: updateDto.addressCity,
-      status: updateDto.status,
       // ownerId is not needed for update, so do not map it here
     };
 
@@ -322,19 +331,27 @@ export class RestaurantController {
   }
 
   @Put(':id')
-  //@UseGuards(RolesGuard)
-  //@Permissions(Permission.RESTAURANT.WRITE)
+  @UseGuards(AuthGuard)
   async update(
     @Param('id') id: string,
     @Body() updateRestaurantDto: UpdateRestaurantDto,
+    @Req() req: AuthenticatedRequest,
   ): Promise<Restaurant> {
+    await this.assertRestaurantOwner(id, req.user.id);
     return await this.restaurantService.update(id, updateRestaurantDto);
   }
 
   @Delete(':id')
-  //@UseGuards(RolesGuard)
-  //@Permissions(Permission.RESTAURANT.DELETE)
-  async remove(@Param('id') id: string): Promise<void> {
+  @UseGuards(AuthGuard)
+  async remove(@Param('id') id: string, @Req() req: AuthenticatedRequest): Promise<void> {
+    await this.assertRestaurantOwner(id, req.user.id);
     return await this.restaurantService.remove(id);
+  }
+
+  private async assertRestaurantOwner(restaurantId: string, actorId: string): Promise<void> {
+    const ownedRestaurant = await this.restaurantService.findByOwnerId(actorId);
+    if (!ownedRestaurant || ownedRestaurant.id !== restaurantId) {
+      throw new ForbiddenException('You can only modify your own restaurant');
+    }
   }
 }

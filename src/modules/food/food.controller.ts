@@ -16,6 +16,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -29,6 +30,7 @@ import { UpdateToppingDto } from './dto/update-topping.dto';
 import { FoodService } from './food.service';
 
 @Controller('foods')
+@ApiTags('foods')
 export class FoodController {
   constructor(private readonly foodService: FoodService) {}
 

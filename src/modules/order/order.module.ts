@@ -22,6 +22,7 @@ import { PaymentModule } from 'src/payment/payment.module';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { PromotionModule } from '../promotion/promotion.module';
 import { RestaurantModule } from '../restaurant/restaurant.module';
+import { UsersModule } from '../users/users.module';
 import { OrderController } from './order.controller';
 import { OrderResolver } from './order.resolver';
 import { OrderService } from './order.service';
@@ -51,6 +52,7 @@ import { OrderService } from './order.service';
     QueueModule,
     MapsModule,
     StorageModule,
+    UsersModule,
   ],
 
   controllers: [OrderController],

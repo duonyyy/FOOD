@@ -6,7 +6,6 @@ import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.enti
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
 import { QueueModule } from 'src/infra/queue/queue.module';
-import { OrderModule } from '../order/order.module';
 import { UsersModule } from '../users/users.module';
 import { ShipperController } from './shipper.controller';
 import { ShipperResolver } from './shipper.resolver';
@@ -16,7 +15,6 @@ import { ShipperService } from './shipper.service';
   imports: [
     TypeOrmModule.forFeature([User, Order, ShippingDetail, ShipperCertificateInfo]),
     UsersModule,
-    OrderModule,
     JwtModule,
     QueueModule,
   ],
