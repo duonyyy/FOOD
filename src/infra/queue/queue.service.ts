@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Job, JobsOptions, Queue } from 'bullmq';
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import { QueueNames } from './queue.constants';
 
 export interface QueueJobOptions {
@@ -21,7 +22,7 @@ export class QueueService {
     @InjectQueue(QueueNames.FIND_SHIPPER)
     private readonly findShipperQueue: Queue,
   ) {
-    this.logger.log('QueueService initialized with BullMQ');
+    this.logger.log({ event: 'provider_initialized', provider: 'queue' });
   }
 
   async addJob<T extends object>(
@@ -40,9 +41,7 @@ export class QueueService {
       return String(job.id);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-
-      this.logger.error(`Failed to add job to queue '${queueName}': ${message}`, stack);
+      this.logProviderError('add_job', error, queueName);
       throw new InternalServerErrorException(`Failed to add job to queue '${queueName}': ${message}`);
     }
   }
@@ -67,9 +66,7 @@ export class QueueService {
       return queue.getJobs(['waiting', 'delayed', 'prioritized'], 0, end, true);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-
-      this.logger.error(`Failed to fetch pending jobs from '${queueName}': ${message}`, stack);
+      this.logProviderError('get_pending_jobs', error, queueName);
       throw new InternalServerErrorException(`Failed to fetch pending jobs from '${queueName}': ${message}`);
     }
   }
@@ -105,9 +102,7 @@ export class QueueService {
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-
-      this.logger.error(`Failed to cancel job ${jobId} in queue '${queueName}': ${message}`, stack);
+      this.logProviderError('cancel_job', error, queueName);
       throw new InternalServerErrorException(`Failed to cancel job ${jobId} in queue '${queueName}': ${message}`);
     }
   }
@@ -141,8 +136,7 @@ export class QueueService {
       await this.findShipperQueue.getJobCounts('waiting', 'active', 'failed');
       return { isHealthy: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to get queue health status: ${message}`);
+      this.logProviderError('health_check', error, QueueNames.FIND_SHIPPER);
       return { isHealthy: false };
     }
   }
@@ -168,5 +162,16 @@ export class QueueService {
       removeOnComplete: options?.removeOnComplete ?? true,
       removeOnFail: options?.removeOnFail ?? 1000,
     };
+  }
+
+  private logProviderError(operation: string, error: unknown, queueName: string): void {
+    this.logger.error({
+      event: 'provider_operation_failed',
+      provider: 'queue',
+      operation,
+      queueName,
+      errorCode: getProviderErrorCode(error),
+      errorType: getProviderErrorType(error),
+    });
   }
 }

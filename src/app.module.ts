@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -34,6 +34,10 @@ import { MessengerModule } from './modules/messenger/messenger.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AppCacheModule } from './infra/cache/cache.module';
 import { DatabaseModule } from './infra/database/database.module';
+import { LoggingModule } from './infra/logging/logging.module';
+import { RequestContextModule } from './common/request-context/request-context.module';
+
+const graphqlSubscriptionLogger = new Logger('GraphQLSubscription');
 
 @Module({
   imports: [
@@ -43,6 +47,8 @@ import { DatabaseModule } from './infra/database/database.module';
       load: [minioConfig],
     }),
     DatabaseModule,
+    RequestContextModule,
+    LoggingModule,
     AppCacheModule,
     
     // Core modules only
@@ -81,9 +87,6 @@ import { DatabaseModule } from './infra/database/database.module';
         'graphql-ws': {
           onConnect: (context) => {
             const { connectionParams } = context;
-            // console.log('🔌 WebSocket connection established');
-            // console.log('📝 Connection params:', connectionParams);
-            
             // Return the connection context that will be available in the context function
             return {
               headers: {
@@ -93,7 +96,7 @@ import { DatabaseModule } from './infra/database/database.module';
             };
           },
           onDisconnect: () => {
-            console.log('🔌 WebSocket connection closed');
+            graphqlSubscriptionLogger.debug({ event: 'graphql_subscription_disconnected' });
           },
         },
       },
@@ -131,7 +134,4 @@ import { DatabaseModule } from './infra/database/database.module';
   providers: [AppService, AppResolver],
 })
 export class AppModule {
-  constructor() {
-    console.log('AppModule.constructor()');
-  }
 }

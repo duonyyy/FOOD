@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as crypto from 'crypto';
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import {
   IPaymentGateway,
   PaymentGatewayConfig,
@@ -58,7 +59,11 @@ export class MomoPaymentGateway implements IPaymentGateway {
       if (config.environment === 'production') {
         throw new Error('MOMO_ACCESS_KEY and MOMO_SECRET_KEY are required in production');
       }
-      this.logger.warn('Momo credentials are missing; Momo payment calls are disabled');
+      this.logger.warn({
+        event: 'provider_configuration_missing',
+        provider: 'momo',
+        errorCode: 'CREDENTIALS_MISSING',
+      });
     }
 
     // Set base URL from environment or use default
@@ -66,7 +71,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
       this.configService.get<string>('MOMO_BASE_URL') ||
       'https://test-payment.momo.vn/v2/gateway/api';
 
-    this.logger.log(`Momo payment gateway initialized in ${config.environment} mode`);
+    this.logger.log({ event: 'provider_initialized', provider: 'momo', environment: config.environment });
   }
 
   /**
@@ -133,8 +138,6 @@ export class MomoPaymentGateway implements IPaymentGateway {
         signature,
       });
 
-      this.logger.debug(`Sending request to Momo: ${requestBody}`);
-
       // Configure axios request options
       const options = {
         method: 'POST',
@@ -148,8 +151,6 @@ export class MomoPaymentGateway implements IPaymentGateway {
 
       // Send request to Momo
       const response = await axios(options);
-      this.logger.debug(`Momo response: ${JSON.stringify(response.data)}`);
-
       const { payUrl, orderId: momoOrderId, requestId: momoRequestId } = response.data;
 
       // Return payment intent
@@ -166,10 +167,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to create payment intent: ${error.message}`);
-      if (error.response) {
-        this.logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-      }
+      this.logProviderError('create_payment_intent', error);
       throw error;
     }
   }
@@ -188,7 +186,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
         paymentIntentId,
       };
     } catch (error) {
-      this.logger.error(`Failed to confirm payment intent: ${error.message}`);
+      this.logProviderError('confirm_payment_intent', error);
       return {
         success: false,
         error: error.message,
@@ -219,7 +217,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
         };
       }
     } catch (error) {
-      this.logger.error(`Failed to cancel payment intent: ${error.message}`);
+      this.logProviderError('cancel_payment_intent', error);
       return {
         success: false,
         error: error.message,
@@ -260,7 +258,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to get payment intent: ${error.message}`);
+      this.logProviderError('get_payment_intent', error);
       throw error;
     }
   }
@@ -289,7 +287,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
 
       return expectedSignature === signature;
     } catch (error) {
-      this.logger.error(`Failed to verify webhook signature: ${error.message}`);
+      this.logProviderError('verify_webhook_signature', error);
       return false;
     }
   }
@@ -298,7 +296,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
    * Handle webhook event
    * @param payload Webhook payload
    */
-  async handleWebhookEvent(payload: any): Promise<void> {
+  async handleWebhookEvent(_payload: any): Promise<void> {
     // Momo webhook handling is done in the PaymentService
     // This method is just a placeholder
   }
@@ -351,9 +349,19 @@ export class MomoPaymentGateway implements IPaymentGateway {
         return PaymentStatus.FAILED;
       }
     } catch (error) {
-      this.logger.error(`Failed to check transaction status: ${error.message}`);
+      this.logProviderError('check_transaction_status', error);
       return PaymentStatus.FAILED;
     }
+  }
+
+  private logProviderError(operation: string, error: unknown): void {
+    this.logger.error({
+      event: 'provider_operation_failed',
+      provider: 'momo',
+      operation,
+      errorCode: getProviderErrorCode(error),
+      errorType: getProviderErrorType(error),
+    });
   }
 
   /**

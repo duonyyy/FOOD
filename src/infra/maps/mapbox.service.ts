@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 
 const mbxDirections = require('@mapbox/mapbox-sdk/services/directions');
 require('dotenv').config();
@@ -26,7 +27,11 @@ export class MapboxService {
     destination: [number, number] // [lng, lat]
   ): Promise<{ distanceKm: number; durationMin: number } | null> {
     try {
-      this.logger.debug(`🗺️ Calculating route from [${origin[1]}, ${origin[0]}] to [${destination[1]}, ${destination[0]}]`);
+      this.logger.debug({
+        event: 'provider_operation_started',
+        provider: 'mapbox',
+        operation: 'get_directions',
+      });
       
       const res = await this.directionsService.getDirections({
         profile: 'driving', // Use driving for motorcycle/scooter delivery
@@ -41,7 +46,11 @@ export class MapboxService {
       }).send();
 
       if (!res.body.routes || res.body.routes.length === 0) {
-        this.logger.error('No route found');
+        this.logger.warn({
+          event: 'provider_response_empty',
+          provider: 'mapbox',
+          operation: 'get_directions',
+        });
         return null;
       }
 
@@ -49,14 +58,20 @@ export class MapboxService {
       const distanceKm = route.distance / 1000;
       const durationMin = route.duration / 60;
 
-      this.logger.debug(`📏 Route calculated: ${distanceKm.toFixed(2)}km, ${durationMin.toFixed(1)} minutes`);
+      this.logger.debug({
+        event: 'provider_operation_completed',
+        provider: 'mapbox',
+        operation: 'get_directions',
+        distanceKm: Number(distanceKm.toFixed(2)),
+        durationMin: Number(durationMin.toFixed(1)),
+      });
 
       return {
         distanceKm: Number(distanceKm.toFixed(2)),
         durationMin: Number(durationMin.toFixed(1)),
       };
-    } catch (err) {
-      this.logger.error('Mapbox error:', err.message);
+    } catch (error) {
+      this.logProviderError('get_directions', error);
       return null;
     }
   }
@@ -86,7 +101,11 @@ export class MapboxService {
       }
 
       // Fallback to haversine if Mapbox fails
-      this.logger.warn('Mapbox failed, using haversine fallback');
+      this.logger.warn({
+        event: 'provider_fallback_used',
+        provider: 'mapbox',
+        operation: 'calculate_bike_route',
+      });
       const fallbackDistance = this.calculateHaversineDistance(fromLat, fromLng, toLat, toLng);
       
       return {
@@ -96,7 +115,7 @@ export class MapboxService {
       };
 
     } catch (error) {
-      this.logger.error(`Route calculation failed: ${error.message}`);
+      this.logProviderError('calculate_bike_route', error);
       
       // Fallback to haversine
       const fallbackDistance = this.calculateHaversineDistance(fromLat, fromLng, toLat, toLng);
@@ -146,11 +165,21 @@ export class MapboxService {
           duration: route.duration
         });
       } catch (error) {
-        this.logger.error(`Failed to calculate route to ${destination.id}:`, error);
+        this.logProviderError('calculate_multiple_routes', error);
       }
     }
 
     return results;
+  }
+
+  private logProviderError(operation: string, error: unknown): void {
+    this.logger.error({
+      event: 'provider_operation_failed',
+      provider: 'mapbox',
+      operation,
+      errorCode: getProviderErrorCode(error),
+      errorType: getProviderErrorType(error),
+    });
   }
 }
 

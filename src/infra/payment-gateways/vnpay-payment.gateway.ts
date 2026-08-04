@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as qs from 'qs'; // Replace querystring with qs to match VNPAY exactly
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import {
   IPaymentGateway,
   PaymentGatewayConfig,
@@ -39,7 +40,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
    */
   onModuleInit(): void {
     this.initializeDefaults();
-    this.logger.log('VNPAY payment gateway auto-initialized with default settings');
+    this.logger.log({ event: 'provider_initialized', provider: 'vnpay' });
   }
 
   /**
@@ -65,7 +66,11 @@ export class VnpayPaymentGateway implements IPaymentGateway {
       if (this.configService.get<string>('NODE_ENV') === 'production') {
         throw new Error('VNPAY_TMN_CODE and VNPAY_HASH_SECRET are required in production');
       }
-      this.logger.warn('VNPAY credentials are missing; VNPAY payment calls are disabled');
+      this.logger.warn({
+        event: 'provider_configuration_missing',
+        provider: 'vnpay',
+        errorCode: 'CREDENTIALS_MISSING',
+      });
     }
 
     // Set API URLs with proper defaults
@@ -77,10 +82,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
       this.configService.get<string>('VNPAY_API_URL') ||
       'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction';
 
-    this.logger.log(`Loaded VNPAY configuration:
-      - Return URL: ${this.vnpayConfig.returnUrl}
-      - IPN URL: ${this.vnpayConfig.ipnUrl}
-      - Base URL: ${this.baseUrl}`);
+    this.logger.log({ event: 'provider_configuration_loaded', provider: 'vnpay' });
   }
 
   /**
@@ -110,7 +112,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
       this.apiUrl = 'https://merchant.vnpay.vn/merchant_webapi/api/transaction';
     }
 
-    this.logger.log(`VNPAY payment gateway initialized in ${config.environment} mode`);
+    this.logger.log({ event: 'provider_initialized', provider: 'vnpay', environment: config.environment });
   }
 
   /**
@@ -182,9 +184,6 @@ export class VnpayPaymentGateway implements IPaymentGateway {
       // Create signature string using qs module to match VNPAY's sample exactly
       const signData = qs.stringify(sortedParams, { encode: false });
 
-      this.logger.debug(`Raw signature input: ${signData}`);
-      this.logger.debug(`Using secret key: ${secretKey}`);
-
       // Generate HMAC signature exactly as in VNPAY's sample
       const hmac = crypto.createHmac('sha512', secretKey);
       const secureHash = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
@@ -194,9 +193,6 @@ export class VnpayPaymentGateway implements IPaymentGateway {
 
       // Build the payment URL using the same approach as VNPAY's sample
       const paymentUrl = `${this.baseUrl}?${qs.stringify(sortedParams, { encode: false })}`;
-
-      this.logger.debug(`Generated signature: ${secureHash}`);
-      this.logger.debug(`Created VNPAY payment URL: ${paymentUrl}`);
 
       // Return the payment intent
       return {
@@ -213,7 +209,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to create payment intent: ${error.message}`);
+      this.logProviderError('create_payment_intent', error);
       throw error;
     }
   }
@@ -232,7 +228,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
         paymentIntentId,
       };
     } catch (error) {
-      this.logger.error(`Failed to confirm payment intent: ${error.message}`);
+      this.logProviderError('confirm_payment_intent', error);
       return {
         success: false,
         error: error.message,
@@ -254,7 +250,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
         paymentIntentId,
       };
     } catch (error) {
-      this.logger.error(`Failed to cancel payment intent: ${error.message}`);
+      this.logProviderError('cancel_payment_intent', error);
       return {
         success: false,
         error: error.message,
@@ -296,7 +292,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to get payment intent: ${error.message}`);
+      this.logProviderError('get_payment_intent', error);
       throw error;
     }
   }
@@ -308,9 +304,6 @@ export class VnpayPaymentGateway implements IPaymentGateway {
    */
   processReturnUrl(params: Record<string, string>): PaymentResult {
     try {
-      // Log received parameters for debugging
-      this.logger.debug('Received VNPAY return parameters:', JSON.stringify(params));
-
       // Extract the secure hash from the params
       const secureHash = params.vnp_SecureHash;
       if (!secureHash) {
@@ -331,9 +324,6 @@ export class VnpayPaymentGateway implements IPaymentGateway {
       if (!isValidSignature) {
         this.logger.warn('Invalid signature in return parameters');
 
-        // For debugging: Log the keys and values
-        this.logger.debug('Parameter keys:', Object.keys(paramsWithoutHash).sort().join(', '));
-
         return {
           success: false,
           error: 'Invalid signature in return parameters',
@@ -343,8 +333,6 @@ export class VnpayPaymentGateway implements IPaymentGateway {
       // Check response code
       const responseCode = params.vnp_ResponseCode;
       const transactionStatus = params.vnp_TransactionStatus;
-
-      this.logger.debug(`Response code: ${responseCode}, Transaction status: ${transactionStatus}`);
 
       if (responseCode === '00' && transactionStatus === '00') {
         return {
@@ -372,7 +360,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
         };
       }
     } catch (error) {
-      this.logger.error(`Failed to process return URL: ${error.message}`, error.stack);
+      this.logProviderError('process_return_url', error);
       return {
         success: false,
         error: error.message,
@@ -417,7 +405,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
 
       return { RspCode: '00', Message: 'success' };
     } catch (error) {
-      this.logger.error(`Failed to process IPN: ${error.message}`);
+      this.logProviderError('process_ipn_notification', error);
       return { RspCode: '99', Message: `Internal error: ${error.message}` };
     }
   }
@@ -437,7 +425,11 @@ export class VnpayPaymentGateway implements IPaymentGateway {
 
       // Ensure config is initialized
       if (!this.vnpayConfig?.secretKey) {
-        this.logger.error('VNPAY configuration not initialized');
+      this.logger.error({
+        event: 'provider_configuration_missing',
+        provider: 'vnpay',
+        errorCode: 'CONFIGURATION_MISSING',
+      });
         this.initializeDefaults();
       }
 
@@ -449,19 +441,13 @@ export class VnpayPaymentGateway implements IPaymentGateway {
       // Create signature string using qs module to match VNPAY exactly
       const signData = qs.stringify(sortedPayload, { encode: false });
 
-      this.logger.debug(`Verification raw signature input: ${signData}`);
-      this.logger.debug(`Using secret key: ${secretKey}`);
-
       // Generate HMAC-SHA512 signature exactly as in VNPAY sample
       const hmac = crypto.createHmac('sha512', secretKey);
       const calculatedSignature = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 
-      this.logger.debug(`Expected signature: ${calculatedSignature}`);
-      this.logger.debug(`Received signature: ${signature}`);
-
       return calculatedSignature.toLowerCase() === signature.toLowerCase();
     } catch (error) {
-      this.logger.error(`Signature verification failed: ${error.message}`, error.stack);
+      this.logProviderError('verify_webhook_signature', error);
       return false;
     }
   }
@@ -470,10 +456,20 @@ export class VnpayPaymentGateway implements IPaymentGateway {
    * Handle webhook event
    * @param payload Webhook payload
    */
-  async handleWebhookEvent(payload: any): Promise<void> {
+  async handleWebhookEvent(_payload: any): Promise<void> {
     // VNPAY webhook handling is typically done in the payment service
     // This method is a placeholder for interface implementation
-    this.logger.debug('Webhook event received:', payload);
+    this.logger.debug({ event: 'webhook_event_received', provider: 'vnpay' });
+  }
+
+  private logProviderError(operation: string, error: unknown): void {
+    this.logger.error({
+      event: 'provider_operation_failed',
+      provider: 'vnpay',
+      operation,
+      errorCode: getProviderErrorCode(error),
+      errorType: getProviderErrorType(error),
+    });
   }
 
   /**

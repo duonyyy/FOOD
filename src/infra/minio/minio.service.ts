@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'minio';
 import { MINIO_CONNECTION } from 'nestjs-minio';
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 
 export interface IMinioUploadResult {
   bucket: string;
@@ -43,20 +44,31 @@ export class MinioService implements OnModuleInit {
           ],
         };
         await this.minioClient.setBucketPolicy(this.bucketName, JSON.stringify(policy));
-        this.logger.log(`Bucket created and public read policy set: ${this.bucketName}`);
+        this.logger.log({ event: 'provider_initialized', provider: 'minio' });
       } else {
-        this.logger.log(`MinIO initialized — bucket already exists: ${this.bucketName}`);
+        this.logger.log({ event: 'provider_initialized', provider: 'minio' });
       }
     } catch (error) {
-      this.logger.error(`MinIO init failed: ${error}`);
+      this.logger.error({
+        event: 'provider_operation_failed',
+        provider: 'minio',
+        operation: 'initialize_bucket',
+        errorCode: getProviderErrorCode(error),
+        errorType: getProviderErrorType(error),
+      });
     }
   }
 
   async healthCheck(): Promise<void> {
-    const exists = await this.minioClient.bucketExists(this.bucketName);
+    try {
+      const exists = await this.minioClient.bucketExists(this.bucketName);
 
-    if (!exists) {
-      throw new Error(`MinIO bucket does not exist: ${this.bucketName}`);
+      if (!exists) {
+        throw new Error(`MinIO bucket does not exist: ${this.bucketName}`);
+      }
+    } catch (error) {
+      this.logProviderError('health_check', error);
+      throw error;
     }
   }
 
@@ -70,13 +82,18 @@ export class MinioService implements OnModuleInit {
       ? `${path}/${Date.now()}-${cleanFileName}`
       : `${Date.now()}-${cleanFileName}`;
 
-    await this.minioClient.putObject(
-      this.bucketName,
-      objectName,
-      file.buffer,
-      file.size,
-      { 'Content-Type': file.mimetype },
-    );
+    try {
+      await this.minioClient.putObject(
+        this.bucketName,
+        objectName,
+        file.buffer,
+        file.size,
+        { 'Content-Type': file.mimetype },
+      );
+    } catch (error) {
+      this.logProviderError('upload_object', error);
+      throw error;
+    }
 
     return {
       bucket: this.bucketName,
@@ -100,6 +117,20 @@ export class MinioService implements OnModuleInit {
       if (parts.length > 1) objectName = parts[1];
     }
 
-    await this.minioClient.removeObject(this.bucketName, objectName).catch(() => {});
+    try {
+      await this.minioClient.removeObject(this.bucketName, objectName);
+    } catch (error) {
+      this.logProviderError('delete_object', error);
+    }
+  }
+
+  private logProviderError(operation: string, error: unknown): void {
+    this.logger.error({
+      event: 'provider_operation_failed',
+      provider: 'minio',
+      operation,
+      errorCode: getProviderErrorCode(error),
+      errorType: getProviderErrorType(error),
+    });
   }
 }

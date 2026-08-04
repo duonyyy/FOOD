@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 
 interface GeocodingResult {
   lat: number;
@@ -59,10 +60,20 @@ export class GeocodingService {
         };
       }
 
-      this.logger.warn(`Mapbox geocoding failed for address: ${address}`);
+      this.logger.warn({
+        event: 'provider_response_empty',
+        provider: 'mapbox',
+        operation: 'geocode',
+      });
       return null;
     } catch (error) {
-      this.logger.error('Error during Mapbox geocoding', error);
+      this.logger.error({
+        event: 'provider_operation_failed',
+        provider: 'mapbox',
+        operation: 'geocode',
+        errorCode: getProviderErrorCode(error),
+        errorType: getProviderErrorType(error),
+      });
       return null;
     }
   }

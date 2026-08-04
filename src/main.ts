@@ -3,7 +3,10 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { RequestContextMiddleware } from './common/request-context/request-context.middleware';
 import { assertProductionConfiguration } from './config/production-config.guard';
+import { HttpRequestLoggingMiddleware } from './infra/logging/http-request-logging.middleware';
+import { StructuredLoggerService } from './infra/logging/structured-logger.service';
 
 async function bootstrap(): Promise<void> {
   assertProductionConfiguration();
@@ -33,7 +36,10 @@ async function bootstrap(): Promise<void> {
         'Access-Control-Allow-Headers',
         'Access-Control-Request-Method',
         'Access-Control-Request-Headers',
+        'X-Request-Id',
+        'X-Correlation-Id',
       ],
+      exposedHeaders: ['X-Request-Id', 'X-Correlation-Id'],
       credentials: true,
       preflightContinue: false,
       optionsSuccessStatus: 204,
@@ -43,6 +49,14 @@ async function bootstrap(): Promise<void> {
         ? ['error', 'warn']
         : ['log', 'debug', 'error', 'verbose', 'warn'],
   });
+
+  const structuredLogger = app.get(StructuredLoggerService);
+  app.useLogger(structuredLogger);
+
+  const requestContextMiddleware = app.get(RequestContextMiddleware);
+  const httpRequestLoggingMiddleware = app.get(HttpRequestLoggingMiddleware);
+  app.use(requestContextMiddleware.use.bind(requestContextMiddleware));
+  app.use(httpRequestLoggingMiddleware.use.bind(httpRequestLoggingMiddleware));
 
   // Optimized validation pipe
   app.useGlobalPipes(
@@ -71,9 +85,9 @@ async function bootstrap(): Promise<void> {
   await app.listen(port);
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`Application is running on: http://localhost:${port}`);
-    console.log(`Swagger documentation: http://localhost:${port}/api`);
-    console.log('Allowed CORS origins:', allowedOrigins);
+    structuredLogger.log({ event: 'application_started', port });
+    structuredLogger.log({ event: 'swagger_enabled', path: '/api' });
+    structuredLogger.log({ event: 'cors_configured', allowedOriginCount: allowedOrigins.length });
   }
 }
 
