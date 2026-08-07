@@ -1,12 +1,16 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
+import {
+  PAYMENT_SUCCEEDED_EVENT,
+  PaymentSucceededEvent,
+} from 'src/common/events/payment-succeeded.event';
 import { Food } from 'src/entities/food.entity';
 import { Promotion } from 'src/entities/promotion.entity';
 import { User } from 'src/entities/user.entity';
 import { MomoPaymentGateway } from 'src/infra/payment-gateways/momo-payment.gateway';
 import { VnpayPaymentGateway } from 'src/infra/payment-gateways/vnpay-payment.gateway';
-import { OrderService } from 'src/modules/order/order.service';
 import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
 import { Checkout, CheckoutStatus } from '../entities/checkout.entity';
@@ -40,8 +44,8 @@ export class PaymentService {
 
     private configService: ConfigService,
     private momoPaymentGateway: MomoPaymentGateway,
-    private orderService: OrderService,
     private vnpayPaymentGateway: VnpayPaymentGateway,
+    private readonly eventBus: InProcessEventBus,
   ) {}
 
   /**
@@ -255,16 +259,12 @@ export class PaymentService {
         });
 
         if (order) {
-          // Update order status to pending if payment method is COD
-          await this.orderService.updateOrderStatus(order.id, 'pending');
-
-          // THÊM PUBLISH EVENT KHI STATUS CHUYỂN THÀNH PENDING
-          const updatedOrder = await this.orderService.getOrderById(order.id);
-          await pubSub.publish('orderCreated', {
-            orderCreated: updatedOrder,
+          await this.eventBus.publish<PaymentSucceededEvent>(PAYMENT_SUCCEEDED_EVENT, {
+            orderId: order.id,
+            checkoutId: checkout.id,
+            paymentId: checkout.paymentIntentId ?? null,
           });
           this.logger.log(`Published orderCreated event for order ${order.id} with status pending`);
-          await this.orderRepository.save(order);
         }
 
         // Update food purchase count

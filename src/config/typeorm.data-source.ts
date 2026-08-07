@@ -1,6 +1,7 @@
-import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import * as path from 'path';
+import { DataSource } from 'typeorm';
+import { DATABASE_ENTITIES } from '../infra/database/entity-registry';
 
 config(); // Load environment variables
 
@@ -11,7 +12,7 @@ export default new DataSource({
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  entities: [path.join(__dirname, '..', 'entities', '*.entity{.ts,.js}')],
+  entities: DATABASE_ENTITIES,
   migrations: [path.join(__dirname, '..', 'migrations', '*{.ts,.js}')],
   migrationsTableName: 'migrations',
 });

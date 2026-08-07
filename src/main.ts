@@ -3,6 +3,8 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { ApiExceptionFilter } from './common/http-contract/api-exception.filter';
+import { ResponseEnvelopeInterceptor } from './common/http-contract/response-envelope.interceptor';
 import { RequestContextMiddleware } from './common/request-context/request-context.middleware';
 import { assertProductionConfiguration } from './config/production-config.guard';
 import { HttpRequestLoggingMiddleware } from './infra/logging/http-request-logging.middleware';
@@ -39,7 +41,7 @@ async function bootstrap(): Promise<void> {
         'X-Request-Id',
         'X-Correlation-Id',
       ],
-      exposedHeaders: ['X-Request-Id', 'X-Correlation-Id'],
+      exposedHeaders: ['X-Request-Id', 'X-Correlation-Id', 'X-Total-Count'],
       credentials: true,
       preflightContinue: false,
       optionsSuccessStatus: 204,
@@ -57,6 +59,7 @@ async function bootstrap(): Promise<void> {
   const httpRequestLoggingMiddleware = app.get(HttpRequestLoggingMiddleware);
   app.use(requestContextMiddleware.use.bind(requestContextMiddleware));
   app.use(httpRequestLoggingMiddleware.use.bind(httpRequestLoggingMiddleware));
+  app.useGlobalFilters(app.get(ApiExceptionFilter));
 
   // Optimized validation pipe
   app.useGlobalPipes(
@@ -67,7 +70,10 @@ async function bootstrap(): Promise<void> {
       disableErrorMessages: process.env.NODE_ENV === 'production',
     }),
   );
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  app.useGlobalInterceptors(
+    new ClassSerializerInterceptor(app.get(Reflector)),
+    app.get(ResponseEnvelopeInterceptor),
+  );
 
   // Only setup Swagger in development
   if (process.env.NODE_ENV !== 'production') {

@@ -12,20 +12,20 @@ import { Restaurant } from 'src/entities/restaurant.entity';
 import { Review } from 'src/entities/review.entity';
 import { Role } from 'src/entities/role.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import { SystemConstraint } from 'src/entities/systemConstaints.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { User } from 'src/entities/user.entity';
+import { SystemConstraintsModule } from 'src/features/system-constraints/public-api';
 import { MapsModule } from 'src/infra/maps/maps.module';
 import { QueueModule } from 'src/infra/queue/queue.module';
 import { StorageModule } from 'src/infra/storage/storage.module';
 import { PaymentModule } from 'src/payment/payment.module';
-import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { PromotionModule } from '../promotion/promotion.module';
 import { RestaurantModule } from '../restaurant/restaurant.module';
 import { UsersModule } from '../users/users.module';
 import { OrderController } from './order.controller';
 import { OrderResolver } from './order.resolver';
 import { OrderService } from './order.service';
+import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler';
 
 @Module({
   imports: [
@@ -42,7 +42,6 @@ import { OrderService } from './order.service';
       Review,
       Notification,
       ShippingDetail,
-      SystemConstraint,
       Topping,
     ]),
     JwtModule,
@@ -53,10 +52,11 @@ import { OrderService } from './order.service';
     MapsModule,
     StorageModule,
     UsersModule,
+    SystemConstraintsModule,
   ],
 
   controllers: [OrderController],
-  providers: [OrderService, OrderResolver, SystemConstraintsService],
+  providers: [OrderService, OrderResolver, PaymentSucceededOrderHandler],
   exports: [OrderService],
 })
 export class OrderModule {}

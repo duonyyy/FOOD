@@ -3,6 +3,7 @@ import eslint from '@eslint/js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import architectureBoundaryPlugin from './tools/eslint-rules/architecture-boundaries.cjs';
 
 export default tseslint.config(
   {
@@ -44,6 +45,26 @@ export default tseslint.config(
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/require-await': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+    },
+  },
+  {
+    files: ['src/**/*.ts'],
+    plugins: {
+      'foodee-boundaries': architectureBoundaryPlugin,
+    },
+    rules: {
+      'foodee-boundaries/no-forward-ref': 'error',
+      'foodee-boundaries/no-duplicate-module-providers': 'error',
+    },
+  },
+  {
+    files: ['src/features/**/*.ts'],
+    plugins: {
+      'foodee-boundaries': architectureBoundaryPlugin,
+    },
+    rules: {
+      'foodee-boundaries/feature-import-boundaries': 'error',
+      'foodee-boundaries/no-foreign-legacy-entity-import': 'error',
     },
   },
 );
