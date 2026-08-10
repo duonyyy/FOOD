@@ -8,5 +8,6 @@ export {
   LOCATION_READER,
   type AddressSnapshot,
   type LocationReaderPort,
+  type TemporaryAddressSnapshot,
 } from './contracts/location-reader.port';
 export { LocationsModule } from './locations.module';

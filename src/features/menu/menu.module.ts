@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
-import { CategoryModule } from '../../modules/category/category.module';
 import { FoodModule } from '../../modules/food/food.module';
+import { CategoryModule } from './categories/category.module';
 
-/** Compatibility shell for food, category and topping ownership. */
-@Module({ imports: [CategoryModule, FoodModule] })
+/** Catalog composition: migrated Category slice plus legacy Food/Topping compatibility. */
+@Module({
+  imports: [CategoryModule, FoodModule],
+  exports: [CategoryModule],
+})
 export class MenuModule {}

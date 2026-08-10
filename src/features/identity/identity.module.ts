@@ -7,5 +7,8 @@ import { UsersModule } from '../../modules/users/users.module';
  * Compatibility shell. Identity implementation still lives in legacy modules
  * until a later vertical slice moves it behind this feature boundary.
  */
-@Module({ imports: [AuthModule, RoleModule, UsersModule] })
+@Module({
+  imports: [AuthModule, RoleModule, UsersModule],
+  exports: [AuthModule],
+})
 export class IdentityModule {}

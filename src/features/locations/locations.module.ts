@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AddressModule } from '../../modules/address/address.module';
+import { AddressModule } from './addresses/address.module';
 
-/** Compatibility shell for address and geocoding ownership. */
-@Module({ imports: [AddressModule] })
+@Module({ imports: [AddressModule], exports: [AddressModule] })
 export class LocationsModule {}

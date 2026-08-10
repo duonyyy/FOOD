@@ -1,4 +1,9 @@
 export {
+  CATEGORY_READER,
+  type CategoryReaderPort,
+  type CategorySnapshot,
+} from './contracts/category-reader.port';
+export {
   MENU_READER,
   type GetOrderableItemsRequest,
   type MenuReaderPort,

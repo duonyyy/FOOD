@@ -2,6 +2,7 @@ export const LOCATION_READER = Symbol('LOCATION_READER');
 
 export interface LocationReaderPort {
   findAddress(addressId: string): Promise<AddressSnapshot | null>;
+  findTemporaryAddress(addressId: string): Promise<TemporaryAddressSnapshot | null>;
 }
 
 export interface AddressSnapshot {
@@ -12,4 +13,9 @@ export interface AddressSnapshot {
   city: string;
   latitude: number | null;
   longitude: number | null;
+  isTemporary: boolean;
+}
+
+export interface TemporaryAddressSnapshot extends AddressSnapshot {
+  isTemporary: true;
 }
