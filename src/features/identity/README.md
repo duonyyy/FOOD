@@ -1,5 +1,8 @@
 # identity
 
-Owner đích: User, Role, Permission, authentication và access policy. Compatibility implementation: `src/auth`, `src/modules/users`, `src/modules/role`.
+Owner đích: User, Role, Permission, authentication và access policy. T3.3 owns the safe
+User/Role/Permission read API and current actor boundary.
 
-Không thêm repository/provider chéo vào shell. T3.3 sẽ đưa query/current actor vào boundary này; public facade/ports được bổ sung ở T2.3.
+Compatibility implementation: `src/auth`, `src/modules/users`, `src/modules/role`. User profile
+address writes and shipper-specific operations remain legacy until Locations/Delivery command
+contracts are available.

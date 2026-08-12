@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DELIVERY_QUOTE_PORT } from './delivery/public-api';
+import { IDENTITY_READER, type IdentityReaderPort } from './identity/public-api';
 import { GEOCODING_PORT, LOCATION_READER, type LocationReaderPort } from './locations/public-api';
 import {
   CATEGORY_READER,
@@ -21,6 +22,7 @@ describe('feature public contracts', () => {
       GEOCODING_PORT,
       PROMOTION_REDEMPTION_PORT,
       DELIVERY_QUOTE_PORT,
+      IDENTITY_READER,
     ];
 
     expect(new Set(tokens).size).toBe(tokens.length);
@@ -52,12 +54,16 @@ describe('feature public contracts', () => {
       findAddress: () => Promise.resolve(null),
       findTemporaryAddress: () => Promise.resolve(null),
     };
+    const identityReader: IdentityReaderPort = {
+      findIdentityUser: () => Promise.resolve(null),
+    };
 
     expect(menuReader).toBeDefined();
     expect(categoryReader).toBeDefined();
     expect(restaurantReader).toBeDefined();
     expect(promotionRedemption).toBeDefined();
     expect(locationReader).toBeDefined();
+    expect(identityReader).toBeDefined();
 
     const contractPaths = [
       'src/features/menu/contracts/menu-reader.port.ts',
@@ -67,6 +73,7 @@ describe('feature public contracts', () => {
       'src/features/locations/contracts/geocoding.port.ts',
       'src/features/promotions/contracts/promotion-redemption.port.ts',
       'src/features/delivery/contracts/delivery-quote.port.ts',
+      'src/features/identity/contracts/identity-reader.port.ts',
     ];
 
     for (const contractPath of contractPaths) {

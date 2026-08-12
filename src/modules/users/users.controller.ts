@@ -3,116 +3,115 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   Param,
   Patch,
   Post,
   Put,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { log } from 'console';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Permission } from 'src/constants/permission.enum';
 import { CertificateStatus } from 'src/entities/shipperCertificateInfo.entity';
+import {
+  CurrentActor,
+  type CurrentActor as CurrentActorData,
+} from 'src/features/identity/contracts/current-actor.decorator';
 import { CreateUserDto } from './dto/create-users.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { UpdateUserDto } from './dto/update-users.dto';
-import { UserResponse } from './interface/user-response.interface';
 import { SafeUserResponse, toSafeUserResponse } from './mappers/safe-user-response.mapper';
 import { UsersService } from './users.service';
 
+/** Legacy command and Delivery-compatibility controller. Identity owns User queries. */
 @Controller('users')
 @ApiTags('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  private readonly logger = new Logger(UsersController.name);
 
-  @Get('me')
-  @UseGuards(AuthGuard) // Verify Firebase token
-  async getMe(@Req() req): Promise<SafeUserResponse> {
-    const id = req.user.uid;
-    return toSafeUserResponse(await this.usersService.getMe(id));
-  }
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('shippers')
   @UseGuards(RolesGuard)
   @Permissions(Permission.SHIPPER.READ)
-  getShippers(@Query('status') status?: CertificateStatus) {
-    return this.usersService.getShippersByStatus(status);
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'List shipper compatibility projections' })
+  @ApiResponse({ status: 200, description: 'Safe user projections for delivery compatibility' })
+  async getShippers(@Query('status') status?: CertificateStatus) {
+    const shippers = await this.usersService.getShippersByStatus(status);
+    return shippers.map((shipper) => ({
+      id: shipper.id,
+      status: shipper.status,
+      verifiedAt: shipper.verifiedAt,
+      user: shipper.user ? toSafeUserResponse(shipper.user) : null,
+    }));
   }
 
   @Put('me')
   @UseGuards(AuthGuard)
-  async updateMe(@Req() req, @Body() body: UpdateMeDto): Promise<SafeUserResponse> {
-    const id = req.user.uid;
-    const mappedUser: UpdateUserDto = {
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'Update the current user profile (legacy address compatibility)' })
+  @ApiResponse({ status: 200, description: 'Safe user response' })
+  async updateMe(
+    @CurrentActor() actor: CurrentActorData,
+    @Body() body: UpdateMeDto,
+  ): Promise<SafeUserResponse> {
+    const userUpdate: UpdateUserDto = {
       name: body.name,
       phone: body.phone,
       avatar: body.avatar,
       birthday: body.birthday,
       addresses: body.addresses ?? body.address,
     };
-    log('Updating user with ID:', id, 'Mapped user data:', mappedUser);
+    this.logger.debug(`User profile update requested for ${actor.userId}`);
 
-    return toSafeUserResponse(await this.usersService.updateMe(id, mappedUser));
+    return toSafeUserResponse(await this.usersService.updateMe(actor.userId, userUpdate));
   }
 
   @Post()
   @UseGuards(RolesGuard)
   @Permissions(Permission.USER.CREATE)
-  async create(@Body() createUserDto: CreateUserDto) {
+  @ApiBearerAuth('bearer')
+  async create(@Body() createUserDto: CreateUserDto): Promise<SafeUserResponse> {
     return toSafeUserResponse(await this.usersService.create(createUserDto));
-  }
-
-  @Get()
-  @UseGuards(RolesGuard)
-  @Permissions(Permission.USER.READ)
-  async findAll(): Promise<UserResponse[]> {
-    return await this.usersService.findAll();
-  }
-
-  @Get(':id')
-  @UseGuards(RolesGuard)
-  @Permissions(Permission.USER.READ)
-  async findOne(@Param('id') id: string) {
-    return toSafeUserResponse(await this.usersService.findOne(id));
   }
 
   @Put(':id')
   @UseGuards(RolesGuard)
   @Permissions(Permission.USER.WRITE)
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return toSafeUserResponse(await this.usersService.update(id, updateUserDto));
+  @ApiBearerAuth('bearer')
+  async update(
+    @Param('id') userId: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<SafeUserResponse> {
+    return toSafeUserResponse(await this.usersService.update(userId, updateUserDto));
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Permissions(Permission.USER.DELETE)
-  async remove(@Param('id') id: string) {
-    return await this.usersService.remove(id);
+  @ApiBearerAuth('bearer')
+  async remove(@Param('id') userId: string): Promise<void> {
+    await this.usersService.remove(userId);
   }
 
   @Patch('shippers/:userId/approve')
   @UseGuards(RolesGuard)
   @Permissions(Permission.SHIPPER.WRITE)
-  async approveShipper(@Param('userId') id: string) {
-    return this.usersService.updateShipperStatus(id, CertificateStatus.APPROVED);
+  @ApiBearerAuth('bearer')
+  approveShipper(@Param('userId') userId: string) {
+    return this.usersService.updateShipperStatus(userId, CertificateStatus.APPROVED);
   }
 
   @Patch('shippers/:userId/reject')
   @UseGuards(RolesGuard)
   @Permissions(Permission.SHIPPER.WRITE)
-  async rejectShipper(@Param('userId') id: string) {
-    return this.usersService.updateShipperStatus(id, CertificateStatus.REJECTED);
+  @ApiBearerAuth('bearer')
+  rejectShipper(@Param('userId') userId: string) {
+    return this.usersService.updateShipperStatus(userId, CertificateStatus.REJECTED);
   }
-
-  // @Patch('shippers/approve-myself')
-  // @UseGuards(AuthGuard)
-  // approveMyself(@Req() req) {
-  //   const userId = req.user.id;
-  //   return this.usersService.updateShipperStatus(userId, CertificateStatus.APPROVED);
-  // }
 }
