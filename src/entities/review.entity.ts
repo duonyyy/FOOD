@@ -1,15 +1,23 @@
-/* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
-import { User } from './user.entity';
+import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Food } from './food.entity';
-import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
+import { User } from './user.entity';
 
 // Define and register enum for review types
-enum ReviewType {
-  FOOD = 'food',
-  SHIPPER = 'shipper'
-}
+export const ReviewType = {
+  FOOD: 'food',
+  SHIPPER: 'shipper',
+} as const;
+
+export type ReviewType = (typeof ReviewType)[keyof typeof ReviewType];
 
 registerEnumType(ReviewType, {
   name: 'ReviewType',
@@ -18,42 +26,49 @@ registerEnumType(ReviewType, {
 @ObjectType() // Add ObjectType decorator for GraphQL
 @Entity({ name: 'reviews' })
 export class Review {
-    @Field(() => ID) // Add Field decorator for GraphQL
-    @PrimaryGeneratedColumn("uuid")
-    id: string;
+  @Field(() => ID) // Add Field decorator for GraphQL
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Field(() => User)
-    @ManyToOne(() => User) // Remove eager: true to avoid circular loading
-    @JoinColumn({ name: 'user_id' })
-    user: User;
+  @Field(() => User)
+  @ManyToOne(() => User) // Remove eager: true to avoid circular loading
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 
-    @Field(() => Food, { nullable: true })
-    @ManyToOne(() => Food) // Remove eager: true to avoid circular loading
-    @JoinColumn({ name: 'food_id' })
-    food: Food;
+  @Field(() => Food, { nullable: true })
+  @ManyToOne(() => Food) // Remove eager: true to avoid circular loading
+  @JoinColumn({ name: 'food_id' })
+  food: Food;
 
-    @Field({ nullable: true })
-    @Column({ nullable: true })
-    image: string;
+  /**
+   * Required by the Reviews API for every newly-created review. It remains nullable
+   * at persistence level only so historic reviews without an order reference remain readable.
+   */
+  @Column({ type: 'uuid', nullable: true, name: 'order_id' })
+  orderId: string | null;
 
-    @Field({ nullable: true })
-    @Column({ nullable: true })
-    comment: string;
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  image: string;
 
-    @Field({ nullable: true })
-    @Column({ nullable: true })
-    rating: number;
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  comment: string;
 
-    @Field(() => ReviewType)
-    @Column({ type: 'enum', enum: ['food', 'shipper'] })
-    type: 'food' | 'shipper';
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  rating: number;
 
-    @Field(() => User, { nullable: true })
-    @ManyToOne(() => User) // Remove eager: true to avoid circular loading
-    @JoinColumn({ name: 'shipper_id' })
-    shipper: User;
-    
-    @Field()
-    @CreateDateColumn()
-    createdAt: Date;
+  @Field(() => ReviewType)
+  @Column({ type: 'enum', enum: ['food', 'shipper'] })
+  type: ReviewType;
+
+  @Field(() => User, { nullable: true })
+  @ManyToOne(() => User) // Remove eager: true to avoid circular loading
+  @JoinColumn({ name: 'shipper_id' })
+  shipper: User;
+
+  @Field()
+  @CreateDateColumn()
+  createdAt: Date;
 }

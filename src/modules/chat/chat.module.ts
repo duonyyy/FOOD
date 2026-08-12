@@ -3,7 +3,7 @@ import { AuthModule } from 'src/auth/auth.module';
 import { AddressModule } from '../address/address.module';
 import { FoodModule } from '../food/food.module';
 import { OrderModule } from '../order/order.module';
-import { RestaurantModule } from '../restaurant/restaurant.module';
+import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { GeneralChatFlowService } from './flows/general-chat-flow.service';
@@ -15,7 +15,7 @@ import { ChatOrderValidationService } from './services/chat-order-validation.ser
 import { OrderCreatedPublisher } from './services/order-created-publisher.service';
 
 @Module({
-  imports: [AuthModule, FoodModule, OrderModule, AddressModule, RestaurantModule],
+  imports: [AuthModule, FoodModule, OrderModule, AddressModule, RestaurantsModule],
   controllers: [ChatController],
   providers: [
     ChatService,

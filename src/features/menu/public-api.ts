@@ -4,6 +4,16 @@ export {
   type CategorySnapshot,
 } from './contracts/category-reader.port';
 export {
+  FOOD_DISCOVERY_READER,
+  type FoodDiscoveryReaderPort,
+  type FoodPreviewSnapshot,
+} from './contracts/food-discovery-reader.port';
+export {
+  FOOD_REVIEW_TARGET_READER,
+  type FoodReviewTargetReaderPort,
+  type FoodReviewTargetSnapshot,
+} from './contracts/food-review-target-reader.port';
+export {
   MENU_READER,
   type GetOrderableItemsRequest,
   type MenuReaderPort,

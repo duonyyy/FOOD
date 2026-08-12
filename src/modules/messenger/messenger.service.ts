@@ -7,7 +7,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Conversation, ConversationType } from 'src/entities/conversation.entity';
 import { Message } from 'src/entities/message.entity';
-import { Notification } from 'src/entities/notification.entity';
+import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
+import {
+  NOTIFICATION_REQUESTED_EVENT,
+  NotificationRequestedEvent,
+} from 'src/common/events/notification-requested.event';
 import { Order } from 'src/entities/order.entity';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
@@ -32,8 +36,7 @@ export class MessengerService {
     private restaurantRepository: Repository<Restaurant>,
     @InjectRepository(ShippingDetail)
     private shippingDetailRepository: Repository<ShippingDetail>,
-    @InjectRepository(Notification)
-    private notificationRepository: Repository<Notification>,
+    private readonly eventBus: InProcessEventBus,
   ) {}
 
   /**
@@ -332,17 +335,16 @@ export class MessengerService {
         ? conversation.participant2.id
         : conversation.participant1.id;
 
-    // Create notification
-    const notification = await this.notificationRepository.save({
-      description: 'Bạn có tin nhắn mới',
-      content: message.content,
-      receiveUser: receiverId,
-      type: 'message',
-      isRead: false,
-    });
-
-    // Publish notification for real-time subscription
-    pubSub.publish('notificationAdded', { notificationAdded: notification });
+    // Publish notification event — Communications owns persistence
+    await this.eventBus.publish<NotificationRequestedEvent>(
+      NOTIFICATION_REQUESTED_EVENT,
+      {
+        recipientUserId: receiverId,
+        description: 'Bạn có tin nhắn mới',
+        content: message.content,
+        type: 'message',
+      },
+    );
 
     return message;
   }

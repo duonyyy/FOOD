@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Address } from 'src/entities/address.entity';
 import { Checkout } from 'src/entities/checkout.entity';
 import { Food } from 'src/entities/food.entity';
-import { Notification } from 'src/entities/notification.entity';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { Promotion } from 'src/entities/promotion.entity';
@@ -20,7 +19,7 @@ import { QueueModule } from 'src/infra/queue/queue.module';
 import { StorageModule } from 'src/infra/storage/storage.module';
 import { PaymentModule } from 'src/payment/payment.module';
 import { PromotionModule } from '../promotion/promotion.module';
-import { RestaurantModule } from '../restaurant/restaurant.module';
+import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
 import { UsersModule } from '../users/users.module';
 import { OrderController } from './order.controller';
 import { OrderResolver } from './order.resolver';
@@ -40,14 +39,14 @@ import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler'
       Promotion,
       Checkout,
       Review,
-      Notification,
       ShippingDetail,
       Topping,
     ]),
     JwtModule,
     PaymentModule,
     PromotionModule,
-    RestaurantModule,
+    UsersModule,
+    RestaurantsModule,
     QueueModule,
     MapsModule,
     StorageModule,

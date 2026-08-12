@@ -11,6 +11,7 @@ import minioConfig from '../../config/minio.config';
 import { AppCacheModule } from '../cache/cache.module';
 import { DatabaseModule } from '../database/database.module';
 import { LoggingModule } from '../logging/logging.module';
+import { StorageModule } from '../storage/storage.module';
 
 const graphqlSubscriptionLogger = new Logger('GraphQLSubscription');
 
@@ -45,6 +46,7 @@ function getConnectionAuthorization(
     LoggingModule,
     HttpContractModule,
     AppCacheModule,
+    StorageModule,
     ScheduleModule.forRoot(),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,

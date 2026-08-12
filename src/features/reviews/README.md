@@ -1,5 +1,7 @@
 # reviews
 
-Owner đích: food/shipper review, moderation và anti-duplicate rule. Compatibility implementation: `src/modules/review`.
+Owner: food/shipper review, moderation và anti-duplicate rule.
 
-Reviews validates food and purchaser eligibility through read contracts; it does not own Menu, Identity or Orders repositories.
+Reviews owns the `Review` repository and HTTP API. It validates completed purchaser orders through
+the Ordering eligibility reader and validates food targets through the Catalog reader; it does not
+inject Order, Food, Shipper or User repositories.

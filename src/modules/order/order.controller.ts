@@ -29,7 +29,7 @@ import { Order } from 'src/entities/order.entity';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { PaymentService } from 'src/payment/payment.service';
 import { pubSub } from 'src/pubsub'; // THÊM IMPORT NÀY
-import { RestaurantService } from '../restaurant/restaurant.service';
+import { RestaurantProfileService } from '../../features/restaurants/services/restaurant-profile.service';
 import { CreateOrderRequestDto } from './dto/create-order-request.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaymentDto } from './dto/payment.dto';
@@ -43,7 +43,7 @@ export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly paymentService: PaymentService,
-    private readonly restaurantService: RestaurantService,
+    private readonly restaurantService: RestaurantProfileService,
     private readonly pendingAssignmentService: PendingAssignmentService, // Inject the new service
   ) {}
 

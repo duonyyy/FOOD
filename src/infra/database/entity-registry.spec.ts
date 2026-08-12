@@ -26,6 +26,7 @@ describe('database entity registry', () => {
       'Permission',
       'Promotion',
       'Restaurant',
+      'RestaurantApprovalAudit',
       'Review',
       'Role',
       'ShipperCertificateInfo',

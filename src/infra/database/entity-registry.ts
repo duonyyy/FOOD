@@ -11,6 +11,7 @@ import { PendingShipperAssignment } from '../../entities/pendingShipperAssignmen
 import { Permission } from '../../entities/permission.entity';
 import { Promotion } from '../../entities/promotion.entity';
 import { Restaurant } from '../../entities/restaurant.entity';
+import { RestaurantApprovalAudit } from '../../entities/restaurantApprovalAudit.entity';
 import { Review } from '../../entities/review.entity';
 import { Role } from '../../entities/role.entity';
 import { ShipperCertificateInfo } from '../../entities/shipperCertificateInfo.entity';
@@ -33,6 +34,7 @@ export const DATABASE_ENTITIES = [
   Permission,
   Promotion,
   Restaurant,
+  RestaurantApprovalAudit,
   Review,
   Role,
   ShipperCertificateInfo,

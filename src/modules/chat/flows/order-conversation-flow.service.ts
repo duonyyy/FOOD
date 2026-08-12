@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AddressService } from 'src/modules/address/address.service';
 import { CreateOrderDetailDto } from 'src/modules/order/dto/create-order.dto';
 import { OrderService } from 'src/modules/order/order.service';
-import { RestaurantService } from 'src/modules/restaurant/restaurant.service';
+import { RestaurantDiscoveryService } from 'src/features/restaurants/services/restaurant-discovery.service';
 import { ChatLlmService } from '../services/chat-llm.service';
 import { ChatOrderValidationService } from '../services/chat-order-validation.service';
 
@@ -14,7 +14,7 @@ export class OrderConversationFlowService {
   constructor(
     private readonly addressService: AddressService,
     private readonly orderService: OrderService,
-    private readonly restaurantService: RestaurantService,
+    private readonly restaurantService: RestaurantDiscoveryService,
     private readonly orderValidationService: ChatOrderValidationService,
     private readonly llmService: ChatLlmService,
     private readonly orderCreatedPublisher: OrderCreatedPublisher,

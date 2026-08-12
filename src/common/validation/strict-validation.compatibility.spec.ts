@@ -1,6 +1,6 @@
 import { ArgumentMetadata, BadRequestException, ValidationPipe } from '@nestjs/common';
 import { CreateOrderRequestDto } from 'src/modules/order/dto/create-order-request.dto';
-import { RequestRestaurantDto } from 'src/modules/restaurant/dto/restaurant-request.dto';
+import { CreateRestaurantDto } from 'src/features/restaurants/dto/create-restaurant.dto';
 import { UpdateMeDto } from 'src/modules/users/dto/update-me.dto';
 import { PaymentWebhookDto } from 'src/payment/dto/payment-request.dto';
 
@@ -92,7 +92,7 @@ describe('Strict validation compatibility', () => {
           ownerId: 'attacker-controlled',
           status: 'approved',
         },
-        RequestRestaurantDto,
+        CreateRestaurantDto,
       ),
       'ownerId',
     );

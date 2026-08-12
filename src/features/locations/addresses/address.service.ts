@@ -7,13 +7,14 @@ import {
   type LocationReaderPort,
   type TemporaryAddressSnapshot,
 } from '../contracts/location-reader.port';
+import { type LocationWriterPort, type CreateAddressPayload } from '../contracts/location-writer.port';
 import { toAddressResponse } from './address.mapper';
 import { AddressResponseDto } from './dto/address-response.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 
 @Injectable()
-export class AddressService implements LocationReaderPort {
+export class AddressService implements LocationReaderPort, LocationWriterPort {
   constructor(
     @InjectRepository(Address)
     private readonly addressRepository: Repository<Address>,
@@ -23,6 +24,30 @@ export class AddressService implements LocationReaderPort {
     const address = this.addressRepository.create(this.toPersistence(data));
     return toAddressResponse(await this.addressRepository.save(address));
   }
+
+  // --- LocationWriterPort Implementation ---
+
+  async writeAddress(
+    data: CreateAddressPayload,
+    ownerUserId?: string,
+  ): Promise<{ addressId: string }> {
+    const address = this.addressRepository.create({
+      ...this.toPersistence(data as any),
+      ...(ownerUserId ? { user: { id: ownerUserId } } : {}),
+    });
+    const saved = await this.addressRepository.save(address);
+    return { addressId: saved.id };
+  }
+
+  async modifyAddress(id: string, data: Partial<CreateAddressPayload>): Promise<void> {
+    await this.addressRepository.update(id, this.toPersistence(data as any));
+  }
+
+  async removeAddress(id: string): Promise<void> {
+    await this.deleteAddress(id);
+  }
+
+  // --- Original Controller Methods ---
 
   async createAddressForUser(data: CreateAddressDto, userId: string): Promise<AddressResponseDto> {
     const address = this.addressRepository.create({

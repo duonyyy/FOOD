@@ -5,7 +5,11 @@ import { log } from 'console';
 import { Address } from 'src/entities/address.entity';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
 import { Food } from 'src/entities/food.entity';
-import { Notification } from 'src/entities/notification.entity';
+import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
+import {
+  NOTIFICATION_REQUESTED_EVENT,
+  NotificationRequestedEvent,
+} from 'src/common/events/notification-requested.event';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
@@ -49,8 +53,7 @@ export class OrderService {
     private pendingAssignmentService: PendingAssignmentService,
     @InjectRepository(Review) // Add Review repository
     private reviewRepository: Repository<Review>,
-    @InjectRepository(Notification)
-    private notificationRepository: Repository<Notification>,
+    private readonly eventBus: InProcessEventBus,
     @InjectRepository(ShippingDetail)
     private shippingDetailRepository: Repository<ShippingDetail>,
     @InjectRepository(Topping)
@@ -705,18 +708,16 @@ export class OrderService {
 
     this.logger.log(`Order ${id} status updated to ${status}`);
 
-    // Create notification
-    const notification = await this.notificationRepository.save({
-      description: 'Cập nhật trạng thái đơn hàng',
-      content: `Đơn hàng của bạn đã chuyển sang trạng thái: ${status}`,
-      receiveUser: order.user.id,
-      type: 'order',
-      isRead: false,
-    });
-
-    await pubSub.publish('notificationCreated', {
-      notificationCreated: notification,
-    });
+    // Publish notification event — Communications owns persistence
+    await this.eventBus.publish<NotificationRequestedEvent>(
+      NOTIFICATION_REQUESTED_EVENT,
+      {
+        recipientUserId: order.user.id,
+        description: 'Cập nhật trạng thái đơn hàng',
+        content: `Đơn hàng của bạn đã chuyển sang trạng thái: ${status}`,
+        type: 'order',
+      },
+    );
 
     return updatedOrder;
   }
@@ -1490,18 +1491,20 @@ export class OrderService {
     reason: string = 'No shipper available',
   ): Promise<void> {
     try {
-      this.logger.log(`📧 Order ${order.id} canceled: ${reason}`);
+      await this.eventBus.publish<NotificationRequestedEvent>(
+        NOTIFICATION_REQUESTED_EVENT,
+        {
+          recipientUserId: order.user?.id ?? '',
+          description: 'Đơn hàng đã bị hủy',
+          content: `Đơn hàng #${order.id} đã bị hủy: ${reason}`,
+          type: 'order',
+        },
+      );
 
-      // Add your notification logic here:
-      // - Email notifications
-      // - Push notifications
-      // - SMS notifications
-      // - In-app notifications
-
-      this.logger.log(`✅ Cancellation notifications processed for order ${order.id}`);
+      this.logger.log(`✅ Cancellation notification published for order ${order.id}`);
     } catch (error) {
       this.logger.error(
-        `❌ Failed to send cancellation notifications for order ${order.id}:`,
+        `❌ Failed to publish cancellation notification for order ${order.id}:`,
         error,
       );
     }

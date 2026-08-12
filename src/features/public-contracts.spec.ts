@@ -5,10 +5,17 @@ import { IDENTITY_READER, type IdentityReaderPort } from './identity/public-api'
 import { GEOCODING_PORT, LOCATION_READER, type LocationReaderPort } from './locations/public-api';
 import {
   CATEGORY_READER,
+  FOOD_DISCOVERY_READER,
+  FOOD_REVIEW_TARGET_READER,
   MENU_READER,
   type CategoryReaderPort,
+  type FoodReviewTargetReaderPort,
   type MenuReaderPort,
 } from './menu/public-api';
+import {
+  ORDER_REVIEW_ELIGIBILITY_READER,
+  type OrderReviewEligibilityReaderPort,
+} from './orders/public-api';
 import { PROMOTION_REDEMPTION_PORT, type PromotionRedemptionPort } from './promotions/public-api';
 import { RESTAURANT_READER, type RestaurantReaderPort } from './restaurants/public-api';
 
@@ -23,6 +30,9 @@ describe('feature public contracts', () => {
       PROMOTION_REDEMPTION_PORT,
       DELIVERY_QUOTE_PORT,
       IDENTITY_READER,
+      FOOD_REVIEW_TARGET_READER,
+      FOOD_DISCOVERY_READER,
+      ORDER_REVIEW_ELIGIBILITY_READER,
     ];
 
     expect(new Set(tokens).size).toBe(tokens.length);
@@ -57,6 +67,12 @@ describe('feature public contracts', () => {
     const identityReader: IdentityReaderPort = {
       findIdentityUser: () => Promise.resolve(null),
     };
+    const foodReviewTargetReader: FoodReviewTargetReaderPort = {
+      findFoodReviewTarget: () => Promise.resolve(null),
+    };
+    const orderReviewEligibilityReader: OrderReviewEligibilityReaderPort = {
+      findReviewEligibility: () => Promise.resolve(null),
+    };
 
     expect(menuReader).toBeDefined();
     expect(categoryReader).toBeDefined();
@@ -64,6 +80,8 @@ describe('feature public contracts', () => {
     expect(promotionRedemption).toBeDefined();
     expect(locationReader).toBeDefined();
     expect(identityReader).toBeDefined();
+    expect(foodReviewTargetReader).toBeDefined();
+    expect(orderReviewEligibilityReader).toBeDefined();
 
     const contractPaths = [
       'src/features/menu/contracts/menu-reader.port.ts',
@@ -74,6 +92,9 @@ describe('feature public contracts', () => {
       'src/features/promotions/contracts/promotion-redemption.port.ts',
       'src/features/delivery/contracts/delivery-quote.port.ts',
       'src/features/identity/contracts/identity-reader.port.ts',
+      'src/features/menu/contracts/food-review-target-reader.port.ts',
+      'src/features/menu/contracts/food-discovery-reader.port.ts',
+      'src/features/orders/contracts/order-review-eligibility-reader.port.ts',
     ];
 
     for (const contractPath of contractPaths) {
