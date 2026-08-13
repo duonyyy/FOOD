@@ -358,7 +358,6 @@ export class OrderCreateService {
       }
 
       const discountPercent = Number(food.discountPercent) || 0;
-      const discountedPrice = Number(food.price) - (Number(food.price) * discountPercent) / 100;
       const toppings: { id: string; unitPrice: number }[] = [];
       for (const selectedTopping of item.toppings || []) {
         const topping = await this.toppingRepository.findOne({

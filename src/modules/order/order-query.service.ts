@@ -196,6 +196,7 @@ export class OrderQueryService {
   async getOrderHistory(userId: string, page = 1, pageSize = 10) {
     const query = this.orderRepository
       .createQueryBuilder('order')
+      .leftJoinAndSelect('order.restaurant', 'restaurant')
       .leftJoinAndSelect('order.orderDetails', 'orderDetail')
       .leftJoinAndSelect('orderDetail.food', 'food')
       .where('order.user_id = :userId', { userId })

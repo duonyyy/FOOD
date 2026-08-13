@@ -111,15 +111,17 @@ Evidence: [T5.7 Order actor controllers](../evidence/phase-3-t5.7-order-actor-co
 
 ## Phase gate
 
-- [ ] State machine và pricing tests pass.
-- [ ] Query không gây mutation.
-- [ ] OrderItem snapshot hoạt động và migration smoke pass.
-- [ ] Order/promotion rollback và retry tests pass.
-- [ ] Event chỉ dispatch sau commit.
-- [ ] Không repository chéo Catalog/Merchant/Locations.
-- [ ] Role/ownership e2e pass.
-- [ ] Build/lint/unit/integration/e2e pass.
-- [ ] Handoff report cho Opus 4.6 hoàn tất.
+- [x] State machine và pricing tests pass.
+- [x] Query không gây mutation.
+- [ ] OrderItem snapshot hoạt động và migration smoke pass — migration unit smoke
+  pass, nhưng Docker/DB runtime hiện bị block bởi quyền truy cập Docker daemon.
+- [x] Order/promotion rollback và retry tests pass ở unit/migration level.
+- [x] Event chỉ dispatch sau commit.
+- [x] Không repository chéo Catalog/Merchant/Locations trong active Phase 3 paths.
+- [x] Role/ownership e2e pass.
+- [ ] Build/lint/unit/integration/e2e pass — build và e2e pass; repository-wide
+  lint còn baseline errors và aggregate unit command timeout.
+- [x] Handoff report cho Opus 4.6 hoàn tất: [final verification](../evidence/phase-3-final-verification.md).
 
 ## Handoff cho Phase 4
 
@@ -132,4 +134,5 @@ Evidence: [T5.7 Order actor controllers](../evidence/phase-3-t5.7-order-actor-co
 - Schema/migration changes và rollback plan.
 - Compatibility facade còn lại.
 
-Chỉ khi phase gate đạt mới mở [Phase 4](./phase-4-opus-payments-delivery.md).
+Có thể bắt đầu review chuẩn bị cho [Phase 4](./phase-4-opus-payments-delivery.md),
+nhưng chỉ đóng Phase 3 hoàn toàn sau khi hai mục gate còn lại được xử lý.
