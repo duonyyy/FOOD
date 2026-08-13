@@ -32,6 +32,10 @@ describe('Order pricing and state characterization', () => {
           promotion: { id: 'promotion-1', code: 'PROMO' },
         }),
       },
+      outboxService: {
+        enqueue: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
+        dispatchAfterCommit: jest.fn().mockResolvedValue(undefined),
+      },
       pendingAssignmentService: {},
       reviewRepository: {},
       eventBus: { publish: jest.fn().mockResolvedValue(undefined) },
@@ -59,6 +63,7 @@ describe('Order pricing and state characterization', () => {
       dependencies.dataSource as never,
       dependencies.promotionService as never,
       dependencies.promotionRedemptionService as never,
+      dependencies.outboxService as never,
       dependencies.systemConstraintsService as never,
       dependencies.mapboxService as never,
       dependencies.orderQueryService as never,

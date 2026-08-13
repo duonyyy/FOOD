@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { OutboxService } from 'src/common/events/outbox.service';
 import { Address } from 'src/entities/address.entity';
 import { Checkout } from 'src/entities/checkout.entity';
 import { Food } from 'src/entities/food.entity';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
+import { OutboxEvent } from 'src/entities/outbox-event.entity';
 import { PromotionRedemption } from 'src/entities/promotion-redemption.entity';
 import { Promotion } from 'src/entities/promotion.entity';
 import { Restaurant } from 'src/entities/restaurant.entity';
@@ -42,6 +44,7 @@ import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler'
       Address,
       Promotion,
       PromotionRedemption,
+      OutboxEvent,
       Checkout,
       Review,
       ShippingDetail,
@@ -65,6 +68,7 @@ import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler'
     OrderCommandService,
     OrderCreateService,
     OrderQueryService,
+    OutboxService,
     OrderResolver,
     PaymentSucceededOrderHandler,
   ],

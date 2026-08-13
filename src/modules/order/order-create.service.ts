@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ORDER_CREATED_EVENT } from 'src/common/events/order-events';
+import { OutboxService } from 'src/common/events/outbox.service';
 import { Address } from 'src/entities/address.entity';
 import { Food } from 'src/entities/food.entity';
 import { Order } from 'src/entities/order.entity';
@@ -34,6 +36,7 @@ export class OrderCreateService {
     private readonly dataSource: DataSource,
     private readonly promotionService: PromotionService,
     private readonly promotionRedemptionService: PromotionRedemptionService,
+    private readonly outboxService: OutboxService,
     private readonly systemConstraintsService: SystemConstraintsService,
     private readonly mapboxService: MapboxService,
     private readonly orderQueryService: OrderQueryService,
@@ -50,6 +53,7 @@ export class OrderCreateService {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
+    let outboxEventId: string | null = null;
 
     try {
       const user = await queryRunner.manager.findOne(User, { where: { id: data.userId } });
@@ -177,7 +181,30 @@ export class OrderCreateService {
         await queryRunner.manager.save(Order, order);
       }
 
+      const outboxEvent = await this.outboxService.enqueue(queryRunner.manager, {
+        eventType: ORDER_CREATED_EVENT,
+        aggregateType: 'Order',
+        aggregateId: savedOrder.id,
+        idempotencyKey: `Order:${savedOrder.id}:created`,
+        payload: {
+          orderId: savedOrder.id,
+          customerId: data.userId,
+          status: savedOrder.status,
+          occurredAt: new Date().toISOString(),
+        },
+      });
+      outboxEventId = outboxEvent.id;
+
       await queryRunner.commitTransaction();
+      if (outboxEventId) {
+        try {
+          await this.outboxService.dispatchAfterCommit(outboxEventId);
+        } catch (dispatchError) {
+          this.logger.warn(
+            `Order committed but outbox dispatch failed: ${(dispatchError as Error).message}`,
+          );
+        }
+      }
       if (data.promotionCode && orderCalculation.appliedPromotion) {
         try {
           await this.promotionService.clearPromotionCache();

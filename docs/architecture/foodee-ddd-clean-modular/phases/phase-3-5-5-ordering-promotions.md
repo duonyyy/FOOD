@@ -90,11 +90,13 @@ Evidence: [T5.5 Promotion redemption](../evidence/phase-3-t5.5-promotion-redempt
 
 ### P3.7 — T5.6 Outbox/after-commit events
 
-- [ ] Lưu Order event/outbox trong cùng transaction.
-- [ ] Dispatch chỉ sau commit.
-- [ ] Có retry/idempotency cho handler.
-- [ ] Định nghĩa OrderCreated, OrderConfirmed, OrderCancelled, OrderPaid contracts.
-- [ ] Không emit side effect bắt buộc giữa transaction trước commit.
+- [x] Lưu Order event/outbox trong cùng transaction.
+- [x] Dispatch chỉ sau commit.
+- [x] Có retry/idempotency cho handler.
+- [x] Định nghĩa OrderCreated, OrderConfirmed, OrderCancelled, OrderPaid contracts.
+- [x] Không emit side effect bắt buộc giữa transaction trước commit.
+
+Evidence: [T5.6 Outbox](../evidence/phase-3-t5.6-outbox-after-commit.md). Legacy pubSub paths remain only for compatibility and are documented as follow-up.
 
 ### P3.8 — T5.7 Role controllers
 
