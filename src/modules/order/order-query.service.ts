@@ -186,9 +186,9 @@ export class OrderQueryService {
       restaurantId: order.orderDetails?.[0]?.food?.restaurant?.id,
       totalAmount: order.total,
       orderDetails: order.orderDetails.map((detail) => ({
-        foodName: detail.food?.name,
+        foodName: detail.foodNameSnapshot ?? detail.food?.name,
         quantity: detail.quantity,
-        price: detail.price,
+        price: detail.unitPriceSnapshot ?? detail.price,
       })),
     }));
   }
@@ -213,10 +213,10 @@ export class OrderQueryService {
       status: order.status,
       date: order.createdAt,
       orderDetails: order.orderDetails.map((detail) => ({
-        foodName: detail.food.name,
+        foodName: detail.foodNameSnapshot ?? detail.food.name,
         quantity: detail.quantity,
-        price: detail.price,
-        totalPrice: (parseFloat(detail.price) * detail.quantity).toFixed(2),
+        price: detail.unitPriceSnapshot ?? detail.price,
+        totalPrice: (Number(detail.unitPriceSnapshot ?? detail.price) * detail.quantity).toFixed(2),
       })),
     }));
 

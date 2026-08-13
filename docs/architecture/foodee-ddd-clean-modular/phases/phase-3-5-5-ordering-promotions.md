@@ -68,11 +68,13 @@ Evidence: [T5.3 Pure pricing](../evidence/phase-3-t5.3-pure-pricing.md).
 
 ### P3.5 — T5.4 OrderItem snapshots
 
-- [ ] OrderItem lưu foodId, name, unit price, quantity và topping snapshots.
-- [ ] Order history không phụ thuộc live Food relation để dựng giá/tên.
-- [ ] Tạo migration/backfill nếu schema cần thay đổi.
-- [ ] Có rollback/data compatibility plan.
-- [ ] Test live Catalog thay đổi không làm đổi order cũ.
+- [x] OrderItem lưu foodId, name, unit price, quantity và topping snapshots.
+- [x] Order history không phụ thuộc live Food relation để dựng giá/tên.
+- [x] Tạo migration/backfill nếu schema cần thay đổi.
+- [x] Có rollback/data compatibility plan.
+- [x] Test live Catalog thay đổi không làm đổi order cũ.
+
+Evidence: [T5.4 OrderItem snapshots](../evidence/phase-3-t5.4-order-item-snapshots.md).
 
 ### P3.6 — T5.5 Promotion redemption
 

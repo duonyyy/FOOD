@@ -12,6 +12,7 @@ import {
   OrderPricingService,
   type OrderPricingItemSnapshot,
 } from 'src/features/orders/pricing/order-pricing.service';
+import { createOrderItemSnapshot } from 'src/features/orders/snapshots/order-item-snapshot';
 import { MapboxService } from 'src/infra/maps/mapbox.service';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { DataSource, Repository } from 'typeorm';
@@ -280,7 +281,16 @@ export class OrderCreateService {
       orderDetail.food = detail.food;
       orderDetail.quantity = detail.quantity;
       orderDetail.price = String(detail.discountedPrice);
-      orderDetail.selectedToppings = detail.selectedToppings || [];
+      const snapshot = createOrderItemSnapshot({
+        foodId: detail.food.id,
+        foodName: detail.food.name ?? '',
+        unitPrice: detail.discountedPrice,
+        quantity: detail.quantity,
+        toppings: detail.selectedToppings || [],
+      });
+      orderDetail.foodNameSnapshot = snapshot.foodName;
+      orderDetail.unitPriceSnapshot = snapshot.unitPrice;
+      orderDetail.selectedToppings = [...snapshot.toppings];
       orderDetail.toppingTotal = detail.toppingTotal;
       await queryRunner.manager.save(OrderDetail, orderDetail);
     }

@@ -12,3 +12,8 @@ export {
   type OrderPricingResult,
   type OrderPricingToppingSnapshot,
 } from './pricing/order-pricing.service';
+export {
+  createOrderItemSnapshot,
+  type OrderItemSnapshot,
+  type OrderItemToppingSnapshot,
+} from './snapshots/order-item-snapshot';
