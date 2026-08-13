@@ -58,11 +58,13 @@ Evidence: [T5.2 Order command/query](../evidence/phase-3-t5.2-order-command-quer
 
 ### P3.4 — T5.3 Pure pricing
 
-- [ ] Pricing nhận server-side snapshots, không nhận trusted total từ client.
-- [ ] Tính subtotal, topping, discount, shipping fee và total bằng pure function/service.
-- [ ] Rounding/currency rule rõ ràng.
-- [ ] Test table-driven cho edge cases.
-- [ ] Không gọi database/provider trong pure pricing.
+- [x] Pricing nhận server-side snapshots, không nhận trusted total từ client.
+- [x] Tính subtotal, topping, discount, shipping fee và total bằng pure function/service.
+- [x] Rounding/currency rule rõ ràng.
+- [x] Test table-driven cho edge cases.
+- [x] Không gọi database/provider trong pure pricing.
+
+Evidence: [T5.3 Pure pricing](../evidence/phase-3-t5.3-pure-pricing.md).
 
 ### P3.5 — T5.4 OrderItem snapshots
 

@@ -16,6 +16,10 @@ import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { User } from 'src/entities/user.entity';
 import {
+  OrderPricingService,
+  type OrderPricingItemSnapshot,
+} from 'src/features/orders/pricing/order-pricing.service';
+import {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
   OrderStateMachine,
@@ -36,6 +40,7 @@ import { OrderQueryService } from './order-query.service';
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
   private readonly orderStateMachine = new OrderStateMachine();
+  private readonly pricingService = new OrderPricingService();
 
   constructor(
     @InjectRepository(Order)
@@ -693,7 +698,7 @@ export class OrderService {
 
     // ... rest of the calculation logic using the Mapbox values
 
-    let foodTotal = 0;
+    const pricingItems: OrderPricingItemSnapshot[] = [];
     for (const item of items) {
       const food = await this.foodRepository.findOne({
         where: { id: item.foodId },
@@ -704,10 +709,8 @@ export class OrderService {
         throw new BadRequestException(`Food with ID ${item.foodId} is not orderable`);
       }
 
-      const basePrice = Number(food.price);
       const discountPercent = Number(food.discountPercent) || 0;
-      const discountedPrice = basePrice - (basePrice * discountPercent) / 100;
-      let toppingTotal = 0;
+      const toppings: { id: string; unitPrice: number }[] = [];
       for (const selectedTopping of item.toppings || []) {
         const topping = await this.toppingRepository.findOne({
           where: { id: selectedTopping.id, food: { id: item.foodId }, isAvailable: true },
@@ -715,10 +718,16 @@ export class OrderService {
         if (!topping) {
           throw new BadRequestException(`Topping ${selectedTopping.id} is not orderable`);
         }
-        toppingTotal += Number(topping.price);
+        toppings.push({ id: topping.id, unitPrice: Number(topping.price) });
       }
 
-      foodTotal += (discountedPrice + toppingTotal) * item.quantity;
+      pricingItems.push({
+        foodId: item.foodId,
+        unitPrice: Number(food.price),
+        discountPercent,
+        quantity: item.quantity,
+        toppings,
+      });
     }
 
     let promotionDiscount = 0;
@@ -730,7 +739,11 @@ export class OrderService {
       try {
         const validation = await this.promotionService.validatePromotion(
           promotionCode,
-          foodTotal + shippingFee,
+          this.pricingService.calculate({
+            items: pricingItems,
+            shippingFee,
+            promotionDiscount: 0,
+          }).subtotal,
         );
 
         if (validation.valid && validation.promotion) {
@@ -739,7 +752,11 @@ export class OrderService {
           if (appliedPromotion.type === PromotionType.FOOD_DISCOUNT) {
             promotionDiscount = this.promotionService.calculateDiscount(
               appliedPromotion,
-              foodTotal,
+              this.pricingService.calculate({
+                items: pricingItems,
+                shippingFee: 0,
+                promotionDiscount: 0,
+              }).foodTotal,
             );
           } else if (appliedPromotion.type === PromotionType.SHIPPING_DISCOUNT) {
             promotionDiscount = Math.min(
@@ -756,17 +773,16 @@ export class OrderService {
       }
     }
 
-    const subtotal = foodTotal + shippingFee;
-    const total = Math.max(0, subtotal - promotionDiscount);
+    const pricing = this.pricingService.calculate({
+      items: pricingItems,
+      shippingFee,
+      promotionDiscount,
+    });
 
     return {
-      foodTotal,
-      shippingFee,
+      ...pricing,
       distance,
       estimatedDeliveryTime,
-      subtotal,
-      promotionDiscount,
-      total,
       appliedPromotion: appliedPromotion
         ? {
             id: appliedPromotion.id,
@@ -806,7 +822,7 @@ export class OrderService {
     const shipperEarnings = Math.round(shippingFee * shipperCommissionRate);
     const platformFee = shippingFee - shipperEarnings;
 
-    let foodTotal = 0;
+    const pricingItems: OrderPricingItemSnapshot[] = [];
     for (const item of data.items) {
       const food = await this.foodRepository.findOne({
         where: { id: item.foodId },
@@ -818,8 +834,7 @@ export class OrderService {
       }
 
       const discountPercent = Number(food.discountPercent) || 0;
-      const discountedPrice = Number(food.price) - (Number(food.price) * discountPercent) / 100;
-      let toppingTotal = 0;
+      const toppings: { id: string; unitPrice: number }[] = [];
       for (const selectedTopping of item.toppings || []) {
         const topping = await this.toppingRepository.findOne({
           where: { id: selectedTopping.id, food: { id: item.foodId }, isAvailable: true },
@@ -827,16 +842,26 @@ export class OrderService {
         if (!topping) {
           throw new BadRequestException(`Topping ${selectedTopping.id} is not orderable`);
         }
-        toppingTotal += Number(topping.price);
+        toppings.push({ id: topping.id, unitPrice: Number(topping.price) });
       }
 
-      foodTotal += (discountedPrice + toppingTotal) * item.quantity;
+      pricingItems.push({
+        foodId: item.foodId,
+        unitPrice: Number(food.price),
+        discountPercent,
+        quantity: item.quantity,
+        toppings,
+      });
     }
 
     let appliedPromotion: Promotion | null = null;
     let promotionDiscount = 0;
     let promotionError: string | null = null;
-    const subtotal = foodTotal + shippingFee;
+    const subtotal = this.pricingService.calculate({
+      items: pricingItems,
+      shippingFee,
+      promotionDiscount: 0,
+    }).subtotal;
 
     if (data.promotionCode) {
       const validation = await this.promotionService.validatePromotion(
@@ -851,18 +876,18 @@ export class OrderService {
       }
     }
 
-    const total = Math.max(0, subtotal - promotionDiscount);
+    const pricing = this.pricingService.calculate({
+      items: pricingItems,
+      shippingFee,
+      promotionDiscount,
+    });
 
     return {
-      foodTotal,
-      shippingFee,
+      ...pricing,
       shipperEarnings,
       shipperCommissionRate,
       platformFee,
       distance: Number(deliveryDistance.toFixed(2)),
-      subtotal,
-      promotionDiscount,
-      total,
       estimatedDeliveryTime,
       appliedPromotion,
       promotionError,

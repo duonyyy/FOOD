@@ -5,3 +5,10 @@ export {
   type OrderReviewEligibilitySnapshot,
 } from './contracts/order-review-eligibility-reader.port';
 export { OrdersModule } from './orders.module';
+export {
+  OrderPricingService,
+  type OrderPricingInput,
+  type OrderPricingItemSnapshot,
+  type OrderPricingResult,
+  type OrderPricingToppingSnapshot,
+} from './pricing/order-pricing.service';

@@ -8,6 +8,10 @@ import { Promotion } from 'src/entities/promotion.entity';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { User } from 'src/entities/user.entity';
+import {
+  OrderPricingService,
+  type OrderPricingItemSnapshot,
+} from 'src/features/orders/pricing/order-pricing.service';
 import { MapboxService } from 'src/infra/maps/mapbox.service';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { DataSource, Repository } from 'typeorm';
@@ -18,6 +22,7 @@ import { OrderQueryService } from './order-query.service';
 @Injectable()
 export class OrderCreateService {
   private readonly logger = new Logger(OrderCreateService.name);
+  private readonly pricingService = new OrderPricingService();
 
   constructor(
     @InjectRepository(Food)
@@ -304,7 +309,7 @@ export class OrderCreateService {
     const shipperCommissionRate = 0.8;
     const shipperEarnings = Math.round(shippingFee * shipperCommissionRate);
     const platformFee = shippingFee - shipperEarnings;
-    let foodTotal = 0;
+    const pricingItems: OrderPricingItemSnapshot[] = [];
 
     for (const item of data.items) {
       const food = await this.foodRepository.findOne({
@@ -318,22 +323,32 @@ export class OrderCreateService {
 
       const discountPercent = Number(food.discountPercent) || 0;
       const discountedPrice = Number(food.price) - (Number(food.price) * discountPercent) / 100;
-      let toppingTotal = 0;
+      const toppings: { id: string; unitPrice: number }[] = [];
       for (const selectedTopping of item.toppings || []) {
         const topping = await this.toppingRepository.findOne({
           where: { id: selectedTopping.id, food: { id: item.foodId }, isAvailable: true },
         });
         if (!topping)
           throw new BadRequestException(`Topping ${selectedTopping.id} is not orderable`);
-        toppingTotal += Number(topping.price);
+        toppings.push({ id: topping.id, unitPrice: Number(topping.price) });
       }
-      foodTotal += (discountedPrice + toppingTotal) * item.quantity;
+      pricingItems.push({
+        foodId: item.foodId,
+        unitPrice: Number(food.price),
+        discountPercent,
+        quantity: item.quantity,
+        toppings,
+      });
     }
 
     let appliedPromotion: Promotion | null = null;
     let promotionDiscount = 0;
     let promotionError: string | null = null;
-    const subtotal = foodTotal + shippingFee;
+    const subtotal = this.pricingService.calculate({
+      items: pricingItems,
+      shippingFee,
+      promotionDiscount: 0,
+    }).subtotal;
     if (data.promotionCode) {
       const validation = await this.promotionService.validatePromotion(
         data.promotionCode,
@@ -347,16 +362,18 @@ export class OrderCreateService {
       }
     }
 
-    return {
-      foodTotal,
+    const pricing = this.pricingService.calculate({
+      items: pricingItems,
       shippingFee,
+      promotionDiscount,
+    });
+
+    return {
+      ...pricing,
       shipperEarnings,
       shipperCommissionRate,
       platformFee,
       distance: Number(data.deliveryDistance.toFixed(2)),
-      subtotal,
-      promotionDiscount,
-      total: Math.max(0, subtotal - promotionDiscount),
       estimatedDeliveryTime,
       appliedPromotion,
       promotionError,
