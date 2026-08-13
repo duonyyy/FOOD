@@ -1,37 +1,36 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { log } from 'console';
-import { Address } from 'src/entities/address.entity';
-import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
-import { Food } from 'src/entities/food.entity';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import {
   NOTIFICATION_REQUESTED_EVENT,
   NotificationRequestedEvent,
 } from 'src/common/events/notification-requested.event';
+import { Address } from 'src/entities/address.entity';
+import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
+import { Food } from 'src/entities/food.entity';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
-import { Review } from 'src/entities/review.entity';
-import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { User } from 'src/entities/user.entity';
-import { MapboxService } from 'src/infra/maps/mapbox.service';
-import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
-import { pubSub } from 'src/pubsub';
-import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
   OrderStateMachine,
-  OrderStatus,
 } from 'src/features/orders/state-machine/order-status';
-import { DataSource, In, LessThan, Repository } from 'typeorm';
+import { MapboxService } from 'src/infra/maps/mapbox.service';
+import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
+import { pubSub } from 'src/pubsub';
+import { SystemConstraintsService } from 'src/services/system-constraints.service';
+import { DataSource, LessThan, Repository } from 'typeorm';
 import { PromotionService } from '../promotion/promotion.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaymentDto } from './dto/payment.dto';
+import { OrderCommandService } from './order-command.service';
+import { OrderCreateService } from './order-create.service';
+import { OrderQueryService } from './order-query.service';
 
 @Injectable()
 export class OrderService {
@@ -58,15 +57,14 @@ export class OrderService {
     private checkoutRepository: Repository<Checkout>,
     private promotionService: PromotionService,
     private pendingAssignmentService: PendingAssignmentService,
-    @InjectRepository(Review) // Add Review repository
-    private reviewRepository: Repository<Review>,
     private readonly eventBus: InProcessEventBus,
-    @InjectRepository(ShippingDetail)
-    private shippingDetailRepository: Repository<ShippingDetail>,
     @InjectRepository(Topping)
     private toppingRepository: Repository<Topping>,
     private readonly systemConstraintsService: SystemConstraintsService, // Inject SystemConstraintsService
     private readonly mapboxService: MapboxService, // Add this
+    private readonly orderQueryService: OrderQueryService,
+    private readonly orderCommandService: OrderCommandService,
+    private readonly orderCreateService: OrderCreateService,
   ) {}
 
   private async validateAndCalculateOrderDetails(
@@ -269,6 +267,10 @@ export class OrderService {
   }
 
   async createOrder(data: CreateOrderDto) {
+    return this.orderCreateService.createOrder(data);
+  }
+
+  private async legacyCreateOrder(data: CreateOrderDto) {
     this.logger.log(`🚀 Starting enhanced order creation for user ${data.userId}`);
     this.logger.log(`📍 Using address ID: ${data.addressId}`);
 
@@ -484,112 +486,11 @@ export class OrderService {
   }
 
   async getAllOrders() {
-    const orders = await this.orderRepository.find({
-      relations: [
-        'user',
-        'restaurant',
-        'orderDetails',
-        'orderDetails.food',
-        'shippingDetail',
-        'shippingDetail.shipper', // Add this line to include shipper info
-        'promotionCode',
-        'address',
-      ],
-    });
-
-    // Clean sensitive data from all orders
-    const cleanedOrders = orders.map((order) => {
-      this.cleanSensitiveData(order);
-      return order;
-    });
-
-    return cleanedOrders;
+    return this.orderQueryService.getAllOrders();
   }
 
   async getOrderById(id: string, includeReviewInfo: boolean = false): Promise<Order> {
-    const order = await this.orderRepository.findOne({
-      where: { id },
-      relations: [
-        'user',
-        'user.role',
-        'user.address',
-        'restaurant',
-        'restaurant.owner',
-        'restaurant.address',
-        'orderDetails',
-        'orderDetails.food',
-        'shippingDetail',
-        'shippingDetail.shipper',
-        'promotionCode',
-        'address',
-      ],
-    });
-
-    if (!order) throw new NotFoundException('Order not found');
-
-    // The 'shippingDetail' relation from Order entity should already load this if it exists.
-    // This explicit find is redundant if the relation is set up correctly but safe to keep.
-    if (!order.shippingDetail) {
-      const shippingDetail = await this.shippingDetailRepository.findOne({
-        where: { order: { id: order.id } },
-        relations: ['shipper'],
-      });
-      if (shippingDetail) order.shippingDetail = shippingDetail;
-    }
-
-    // Add review information BEFORE cleaning sensitive data
-    if (includeReviewInfo) {
-      // Check if user has reviewed the food items in this order
-      const foodReviews = await this.reviewRepository.find({
-        where: {
-          user: { id: order.user.id },
-          food: { id: In(order.orderDetails.map((detail) => detail.food.id)) },
-          type: 'food',
-        },
-        relations: ['food'],
-      });
-
-      // Check if user has reviewed the shipper (if order has shipper)
-      let shipperReview: Review | null = null;
-      if (order.shippingDetail?.shipper) {
-        shipperReview = await this.reviewRepository.findOne({
-          where: {
-            user: { id: order.user.id },
-            shipper: { id: order.shippingDetail.shipper.id },
-            type: 'shipper',
-          },
-        });
-      }
-
-      // Add review information to the order object
-      (order as any).reviewInfo = {
-        hasReviewedFood: foodReviews.length > 0,
-        hasReviewedShipper: !!shipperReview,
-        foodReviews: foodReviews.map((review) => ({
-          id: review.id,
-          foodId: review.food.id,
-          rating: review.rating,
-          comment: review.comment,
-          createdAt: review.createdAt,
-        })),
-        shipperReview: shipperReview
-          ? {
-              id: shipperReview.id,
-              rating: shipperReview.rating,
-              comment: shipperReview.comment,
-              createdAt: shipperReview.createdAt,
-            }
-          : null,
-        canReviewFood: order.status === 'completed' && foodReviews.length === 0,
-        canReviewShipper:
-          order.status === 'completed' && order.shippingDetail?.shipper && !shipperReview,
-      };
-    }
-
-    // Clean sensitive data AFTER adding review info
-    this.cleanSensitiveData(order);
-
-    return order;
+    return this.orderQueryService.getOrderById(id, includeReviewInfo);
   }
 
   // Add a new method specifically for getting order with review info
@@ -598,35 +499,7 @@ export class OrderService {
   }
 
   async getOrdersByUser(userId: string, page: number = 1, pageSize: number = 10, status?: string) {
-    const query = this.orderRepository
-      .createQueryBuilder('order')
-      .leftJoin('order.restaurant', 'restaurant')
-      .select([
-        'order.id',
-        'order.status',
-        'order.total',
-        'order.createdAt',
-        'order.paymentMethod',
-        'restaurant.id',
-        'restaurant.name',
-      ])
-      .where('order.user = :userId', { userId });
-
-    if (status) {
-      query.andWhere('order.status = :status', { status });
-    }
-
-    query.skip((page - 1) * pageSize).take(pageSize);
-
-    const [items, totalItems] = await query.getManyAndCount();
-
-    return {
-      items,
-      totalItems,
-      page,
-      pageSize,
-      totalPages: Math.ceil(totalItems / pageSize),
-    };
+    return this.orderQueryService.getOrdersByUser(userId, page, pageSize, status);
   }
   async getOrdersByRestaurant(
     restaurantId: string,
@@ -634,128 +507,14 @@ export class OrderService {
     pageSize: number = 10,
     status?: string,
   ) {
-    const query = this.orderRepository
-      .createQueryBuilder('order')
-      .leftJoinAndSelect('order.user', 'user')
-      .leftJoinAndSelect('order.restaurant', 'restaurant')
-      .leftJoinAndSelect('order.address', 'address')
-      .leftJoinAndSelect('order.orderDetails', 'orderDetails')
-      .leftJoinAndSelect('orderDetails.food', 'food')
-      .leftJoinAndSelect('food.category', 'category')
-      .leftJoinAndSelect('order.shippingDetail', 'shippingDetail') // Add this line
-      .leftJoinAndSelect('shippingDetail.shipper', 'shipper') // Add this line to include shipper info
-      .where('order.restaurant.id = :restaurantId', { restaurantId })
-      .orderBy('order.createdAt', 'DESC');
-
-    if (status) {
-      query.andWhere('order.status = :status', { status });
-    }
-
-    const [items, totalItems] = await query
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
-
-    // Clean sensitive data from the results
-    const cleanedItems = items.map((order) => {
-      this.cleanSensitiveData(order);
-      return order;
-    });
-
-    return {
-      items: cleanedItems,
-      totalItems,
-      page,
-      pageSize,
-      totalPages: Math.ceil(totalItems / pageSize),
-    };
+    return this.orderQueryService.getOrdersByRestaurant(restaurantId, page, pageSize, status);
   }
   async updateOrderStatus(id: string, status: string) {
-    const order = await this.getOrderById(id);
-
-    let nextStatus: OrderStatus;
-    try {
-      nextStatus = this.orderStateMachine.transition(order.status, status);
-    } catch (error) {
-      if (error instanceof InvalidOrderStatusError) {
-        throw new BadRequestException(error.message);
-      }
-      if (error instanceof InvalidOrderTransitionError) {
-        throw new BadRequestException(error.message);
-      }
-      throw error;
-    }
-
-    order.status = nextStatus;
-    const updatedOrder = await this.orderRepository.save(order);
-
-    // Publish event for status changes (not just pending)
-    await pubSub.publish('orderStatusUpdated', {
-      orderStatusUpdated: updatedOrder,
-    });
-
-    this.logger.log(`Order ${id} status updated to ${nextStatus}`);
-
-    // Publish notification event — Communications owns persistence
-    await this.eventBus.publish<NotificationRequestedEvent>(
-      NOTIFICATION_REQUESTED_EVENT,
-      {
-        recipientUserId: order.user.id,
-        description: 'Cập nhật trạng thái đơn hàng',
-        content: `Đơn hàng của bạn đã chuyển sang trạng thái: ${nextStatus}`,
-        type: 'order',
-      },
-    );
-
-    return updatedOrder;
+    return this.orderCommandService.updateStatus(id, status);
   }
 
   async confirmOrder(orderId: string, restaurantOwnerId: string): Promise<Order> {
-    this.logger.log(`Confirming order ${orderId} for restaurant owner ${restaurantOwnerId}`);
-
-    const order = await this.getOrderById(orderId);
-
-    if (!order) {
-      throw new NotFoundException(`Order with ID ${orderId} not found`);
-    }
-
-    try {
-      order.status = this.orderStateMachine.confirm(order.status);
-    } catch (error) {
-      if (error instanceof InvalidOrderStatusError || error instanceof InvalidOrderTransitionError) {
-        throw new BadRequestException('Order is not in a confirmable state');
-      }
-      throw error;
-    }
-
-    const confirmedOrder = await this.orderRepository.save(order);
-
-    this.logger.log(`Order ${orderId} status updated to confirmed`);
-
-    try {
-      // Create pending shipper assignment - this will be picked up by the automated system
-      const pendingAssignment = await this.pendingAssignmentService.addPendingAssignment(
-        confirmedOrder.id,
-        1, // Priority: 1 = normal, higher numbers = higher priority
-      );
-
-      this.logger.log(
-        `Created pending shipper assignment ${pendingAssignment.id} for order ${orderId}`,
-      );
-      this.logger.log(`Automated system will find and notify nearby shippers for order ${orderId}`);
-
-      return confirmedOrder;
-    } catch (error) {
-      this.logger.error(`Failed to create pending shipper assignment for order ${orderId}:`, error);
-
-      // Don't fail the order confirmation, just log the error
-      // The assignment can be created manually or through retry mechanisms
-      this.logger.warn(
-        `Order ${orderId} confirmed but shipper assignment failed - manual intervention may be required`,
-      );
-
-      return confirmedOrder;
-    }
+    return this.orderCommandService.confirm(orderId, restaurantOwnerId);
   }
 
   // private async calculateOrderWithConstraints(data: {
@@ -1195,7 +954,10 @@ export class OrderService {
         try {
           order.status = this.orderStateMachine.startPayment(order.status);
         } catch (error) {
-          if (error instanceof InvalidOrderStatusError || error instanceof InvalidOrderTransitionError) {
+          if (
+            error instanceof InvalidOrderStatusError ||
+            error instanceof InvalidOrderTransitionError
+          ) {
             throw new BadRequestException(error.message);
           }
           throw error;
@@ -1226,8 +988,7 @@ export class OrderService {
   }
   // Get order details for a specific order
   async getOrderDetails(orderId: string) {
-    const order = await this.getOrderById(orderId);
-    return order.orderDetails;
+    return this.orderQueryService.getOrderDetails(orderId);
   }
   /**
    * Confirm payment for an order
@@ -1235,44 +996,7 @@ export class OrderService {
    * @returns The updated order
    */
   async confirmPayment(orderId: string): Promise<Order> {
-    log(`Confirming payment for order ${orderId}`);
-
-    const order = await this.getOrderById(orderId);
-
-    if (!order) {
-      throw new NotFoundException(`Order with ID ${orderId} not found`);
-    }
-
-    try {
-      order.status = this.orderStateMachine.markPaid(order.status);
-    } catch (error) {
-      if (error instanceof InvalidOrderStatusError || error instanceof InvalidOrderTransitionError) {
-        throw new BadRequestException(
-          `Cannot confirm payment for an order with status ${order.status}`,
-        );
-      }
-      throw error;
-    }
-
-    order.isPaid = true;
-    order.paymentDate = new Date().toISOString();
-
-    // Save the updated order
-    const updatedOrder = await this.orderRepository.save(order);
-
-    // 🔥 PUBLISH orderCreated EVENT when payment is confirmed
-    await pubSub.publish('orderCreated', {
-      orderCreated: updatedOrder,
-    });
-
-    // Also publish orderStatusUpdated for consistency
-    await pubSub.publish('orderStatusUpdated', {
-      orderStatusUpdated: updatedOrder,
-    });
-
-    log(`Payment confirmed for order ${orderId} - orderCreated event published`);
-
-    return updatedOrder;
+    return this.orderCommandService.markPaid(orderId);
   }
 
   // Runs every 10 minutes
@@ -1336,68 +1060,11 @@ export class OrderService {
   }
 
   async getMinimalOrderHistoryForQuickReorder(userId: string, limit = 3) {
-    const query = this.orderRepository
-      .createQueryBuilder('order')
-      .leftJoinAndSelect('order.orderDetails', 'orderDetail')
-      .leftJoinAndSelect('orderDetail.food', 'food')
-      .leftJoinAndSelect('food.restaurant', 'restaurant')
-      .where('order.user_id = :userId', { userId })
-      .orderBy('order.createdAt', 'DESC')
-      .take(limit);
-
-    const orders = await query.getMany();
-
-    const quickOrders = orders.map((order) => ({
-      orderId: order.id,
-      restaurantId: order.orderDetails?.[0]?.food?.restaurant?.id,
-      totalAmount: order.total,
-      orderDetails: order.orderDetails.map((detail) => ({
-        foodName: detail.food?.name,
-        quantity: detail.quantity,
-        price: detail.price,
-      })),
-    }));
-
-    return quickOrders;
+    return this.orderQueryService.getMinimalOrderHistoryForQuickReorder(userId, limit);
   }
 
   async getOrderHistory(userId: string, page: number = 1, pageSize: number = 10) {
-    // Tạo query để lấy các đơn hàng của người dùng
-    const query = this.orderRepository
-      .createQueryBuilder('order')
-      .leftJoinAndSelect('order.orderDetails', 'orderDetail') // Lấy thông tin chi tiết món ăn
-      .leftJoinAndSelect('orderDetail.food', 'food') // Lấy thông tin món ăn từ orderDetails
-      .where('order.user_id = :userId', { userId })
-      .orderBy('order.createdAt', 'DESC'); // Sắp xếp theo ngày tạo đơn hàng (mới nhất lên đầu)
-
-    // Áp dụng phân trang
-    const [orders, totalOrders] = await query
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
-
-    // Chuyển đổi và trả về dữ liệu
-    const ordersHistory = orders.map((order) => ({
-      orderId: order.id,
-      restaurantName: order.restaurant?.name,
-      totalAmount: order.total,
-      status: order.status,
-      date: order.createdAt,
-      orderDetails: order.orderDetails.map((orderDetail) => ({
-        foodName: orderDetail.food.name,
-        quantity: orderDetail.quantity,
-        price: orderDetail.price,
-        totalPrice: (parseFloat(orderDetail.price) * orderDetail.quantity).toFixed(2),
-      })),
-    }));
-
-    return {
-      items: ordersHistory,
-      totalItems: totalOrders,
-      page,
-      pageSize,
-      totalPages: Math.ceil(totalOrders / pageSize),
-    };
+    return this.orderQueryService.getOrderHistory(userId, page, pageSize);
   }
 
   // Add new cron job to auto-cancel orders without shippers
@@ -1484,15 +1151,12 @@ export class OrderService {
     reason: string = 'No shipper available',
   ): Promise<void> {
     try {
-      await this.eventBus.publish<NotificationRequestedEvent>(
-        NOTIFICATION_REQUESTED_EVENT,
-        {
-          recipientUserId: order.user?.id ?? '',
-          description: 'Đơn hàng đã bị hủy',
-          content: `Đơn hàng #${order.id} đã bị hủy: ${reason}`,
-          type: 'order',
-        },
-      );
+      await this.eventBus.publish<NotificationRequestedEvent>(NOTIFICATION_REQUESTED_EVENT, {
+        recipientUserId: order.user?.id ?? '',
+        description: 'Đơn hàng đã bị hủy',
+        content: `Đơn hàng #${order.id} đã bị hủy: ${reason}`,
+        type: 'order',
+      });
 
       this.logger.log(`✅ Cancellation notification published for order ${order.id}`);
     } catch (error) {
@@ -1502,81 +1166,6 @@ export class OrderService {
       );
     }
   }
-  /**
-   * Clean sensitive data from order and its relations
-   */
-  private cleanSensitiveData(order: Order): void {
-    // Clean user data
-    if (order.user) {
-      delete (order.user as any).password;
-      delete (order.user as any).resetPasswordToken;
-      delete (order.user as any).resetPasswordExpires;
-      delete (order.user as any).birthday;
-      delete (order.user as any).lastLoginAt;
-      delete (order.user as any).createdAt;
-      delete (order.user as any).googleId;
-
-      // Clean role data
-      if (order.user.role) {
-        delete (order.user.role as any).isSystem;
-        delete (order.user.role as any).description;
-        delete (order.user.role as any).createdAt;
-        delete (order.user.role as any).updatedAt;
-      }
-
-      // Clean address coordinates for privacy
-      if (order.user.address) {
-        order.user.address.forEach((addr) => {
-          delete (addr as any).latitude;
-          delete (addr as any).longitude;
-        });
-      }
-    }
-
-    // Clean restaurant data
-    if (order.restaurant) {
-      delete (order.restaurant as any).openTime;
-      delete (order.restaurant as any).closeTime;
-      delete (order.restaurant as any).licenseCode;
-      delete (order.restaurant as any).certificateImage;
-      delete (order.restaurant as any).updatedAt;
-      delete (order.restaurant as any).createdAt;
-    }
-
-    // Clean food business data
-    if (order.orderDetails) {
-      order.orderDetails.forEach((detail) => {
-        if (detail.food) {
-          delete (detail.food as any).soldCount;
-          delete (detail.food as any).purchasedNumber;
-        }
-      });
-    }
-
-    // Clean shipper sensitive data
-    if (order.shippingDetail?.shipper) {
-      const shipper = order.shippingDetail.shipper;
-      delete (shipper as any).password;
-      delete (shipper as any).resetPasswordToken;
-      delete (shipper as any).resetPasswordExpires;
-      delete (shipper as any).email;
-      delete (shipper as any).birthday;
-      delete (shipper as any).lastLoginAt;
-      delete (shipper as any).createdAt;
-      delete (shipper as any).googleId;
-      delete (shipper as any).address;
-      delete (shipper as any).role;
-    }
-
-    // Clean promotion sensitive data
-    if (order.promotionCode) {
-      delete (order.promotionCode as any).usageLimit;
-      delete (order.promotionCode as any).usageCount;
-      delete (order.promotionCode as any).createdAt;
-      delete (order.promotionCode as any).updatedAt;
-    }
-  }
-
   // Add this method to clean up old temporary addresses
   @Cron(CronExpression.EVERY_HOUR)
   async cleanupTemporaryAddresses() {

@@ -47,12 +47,14 @@ Evidence: [T5.1 Order state machine](../evidence/phase-3-t5.1-order-state-machin
 
 ### P3.3 — T5.2 Split commands/queries
 
-- [ ] Tách CreateOrder.
-- [ ] Tách Get/List orders.
-- [ ] Tách Confirm/Reject/Cancel.
-- [ ] Tách MarkPaid/Complete handlers nhưng chưa sở hữu payment gateway/delivery.
-- [ ] Service cũ chỉ là compatibility facade hoặc được xóa khi không còn caller.
-- [ ] Không copy business logic giữa customer/merchant/admin.
+- [x] Tách CreateOrder.
+- [x] Tách Get/List orders.
+- [x] Tách Confirm/Reject/Cancel.
+- [x] Tách MarkPaid/Complete handlers nhưng chưa sở hữu payment gateway/delivery.
+- [x] Service cũ chỉ là compatibility facade hoặc được xóa khi không còn caller.
+- [x] Không copy business logic giữa customer/merchant/admin.
+
+Evidence: [T5.2 Order command/query](../evidence/phase-3-t5.2-order-command-query-split.md). `OrderService.createOrder()` giữ public compatibility facade và delegate sang `OrderCreateService`; pricing/payment transaction boundary tiếp tục được xử lý ở các task chuyên biệt.
 
 ### P3.4 — T5.3 Pure pricing
 

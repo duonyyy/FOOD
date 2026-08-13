@@ -4,6 +4,7 @@ import { Order } from 'src/entities/order.entity';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { User } from 'src/entities/user.entity';
+import { OrderCreateService } from './order-create.service';
 import { OrderService } from './order.service';
 
 jest.mock('src/pubsub', () => ({ pubSub: { publish: jest.fn().mockResolvedValue(true) } }));
@@ -28,7 +29,6 @@ describe('Order pricing and state characterization', () => {
       },
       pendingAssignmentService: {},
       reviewRepository: {},
-      notificationRepository: { save: jest.fn(async (value) => value) },
       eventBus: { publish: jest.fn().mockResolvedValue(undefined) },
       shippingDetailRepository: {},
       toppingRepository: { findOne: jest.fn() },
@@ -39,8 +39,24 @@ describe('Order pricing and state characterization', () => {
       mapboxService: {
         calculateBikeRoute: jest.fn().mockResolvedValue({ distance: 5, duration: 1_200 }),
       },
+      orderQueryService: { getOrderById: jest.fn() },
+      orderCommandService: {
+        updateStatus: jest.fn(),
+        confirm: jest.fn(),
+        markPaid: jest.fn(),
+      },
       ...overrides,
     };
+
+    const orderCreateService = new OrderCreateService(
+      dependencies.foodRepository as never,
+      dependencies.toppingRepository as never,
+      dependencies.dataSource as never,
+      dependencies.promotionService as never,
+      dependencies.systemConstraintsService as never,
+      dependencies.mapboxService as never,
+      dependencies.orderQueryService as never,
+    );
 
     const service = new OrderService(
       dependencies.orderRepository as never,
@@ -54,12 +70,13 @@ describe('Order pricing and state characterization', () => {
       dependencies.checkoutRepository as never,
       dependencies.promotionService as never,
       dependencies.pendingAssignmentService as never,
-      dependencies.reviewRepository as never,
       dependencies.eventBus as never,
-      dependencies.shippingDetailRepository as never,
       dependencies.toppingRepository as never,
       dependencies.systemConstraintsService as never,
       dependencies.mapboxService as never,
+      dependencies.orderQueryService as never,
+      dependencies.orderCommandService as never,
+      orderCreateService,
     );
 
     return { service, dependencies };
@@ -155,21 +172,25 @@ describe('Order pricing and state characterization', () => {
 
   it('allows a valid pending -> confirmed transition', async () => {
     const { service, dependencies } = createService();
-    const order = { id: 'order-1', status: 'pending', user: { id: 'customer-1' } };
-    jest.spyOn(service, 'getOrderById').mockResolvedValue(order as Order);
+    dependencies.orderCommandService.updateStatus.mockResolvedValue({
+      id: 'order-1',
+      status: 'confirmed',
+    });
 
     await expect(service.updateOrderStatus('order-1', 'confirmed')).resolves.toMatchObject({
       status: 'confirmed',
     });
-    expect(dependencies.orderRepository.save).toHaveBeenCalled();
+    expect(dependencies.orderCommandService.updateStatus).toHaveBeenCalledWith(
+      'order-1',
+      'confirmed',
+    );
   });
 
   it('rejects an invalid pending -> completed transition and terminal transitions', async () => {
-    const { service } = createService();
-    jest
-      .spyOn(service, 'getOrderById')
-      .mockResolvedValueOnce({ id: 'order-1', status: 'pending' } as Order)
-      .mockResolvedValueOnce({ id: 'order-2', status: 'completed' } as Order);
+    const { service, dependencies } = createService();
+    dependencies.orderCommandService.updateStatus
+      .mockRejectedValueOnce(new BadRequestException('Cannot change status'))
+      .mockRejectedValueOnce(new BadRequestException('Cannot change status'));
 
     await expect(service.updateOrderStatus('order-1', 'completed')).rejects.toBeInstanceOf(
       BadRequestException,
@@ -261,7 +282,7 @@ describe('Order pricing and state characterization', () => {
         calculatedDiscount: 10_000,
       });
       dependencies.promotionService.usePromotion.mockResolvedValue({ id: 'promotion-1' });
-      jest.spyOn(service, 'getOrderById').mockImplementation(async () => {
+      dependencies.orderQueryService.getOrderById.mockImplementation(async () => {
         const savedCall = queryRunner.manager.save.mock.calls.find(([entity]) => entity === Order);
         return savedCall?.[1] as Order;
       });

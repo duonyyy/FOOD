@@ -18,9 +18,12 @@ import { MapsModule } from 'src/infra/maps/maps.module';
 import { QueueModule } from 'src/infra/queue/queue.module';
 import { StorageModule } from 'src/infra/storage/storage.module';
 import { PaymentModule } from 'src/payment/payment.module';
-import { PromotionModule } from '../promotion/promotion.module';
 import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
+import { PromotionModule } from '../promotion/promotion.module';
 import { UsersModule } from '../users/users.module';
+import { OrderCommandService } from './order-command.service';
+import { OrderCreateService } from './order-create.service';
+import { OrderQueryService } from './order-query.service';
 import { OrderController } from './order.controller';
 import { OrderResolver } from './order.resolver';
 import { OrderService } from './order.service';
@@ -55,7 +58,14 @@ import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler'
   ],
 
   controllers: [OrderController],
-  providers: [OrderService, OrderResolver, PaymentSucceededOrderHandler],
+  providers: [
+    OrderService,
+    OrderCommandService,
+    OrderCreateService,
+    OrderQueryService,
+    OrderResolver,
+    PaymentSucceededOrderHandler,
+  ],
   exports: [OrderService],
 })
 export class OrderModule {}
