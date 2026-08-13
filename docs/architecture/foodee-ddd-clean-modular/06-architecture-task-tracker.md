@@ -63,7 +63,7 @@ Phân công một model cho một phase nằm tại [07-model-task-allocation.md
 | T4.5 | Catalog | Owner/resource policies | 1.5d | T0.2, T4.3 | `DONE` | [T4.5 Policy evidence](./evidence/phase-2-t4.5-resource-policies.md) |
 | T4.6 | Catalog | `OrderableItemSnapshot` contract | 1.5d | T4.3, T4.4 | `DONE` | [T4.6 Snapshot evidence](./evidence/phase-2-t4.6-orderable-item-snapshot.md) |
 | P3.1 | Phase 3 | Ordering handoff và characterization | 0.5d | T4.6 | `DONE` | [P3.1 handoff evidence](./evidence/phase-3-p3.1-handoff-characterization.md); 6 suites/23 tests PASS; compatibility callers and status risks mapped |
-| T5.1 | Ordering | Order state machine | 2d | T0.4, T4.6 | `TODO` | — |
+| T5.1 | Ordering | Order state machine | 2d | T0.4, T4.6 | `DONE` | [T5.1 Order state machine evidence](./evidence/phase-3-t5.1-order-state-machine.md); 3 suites/30 tests PASS; build PASS |
 | T5.2 | Ordering | Split order commands/queries | 2d | T5.1 | `TODO` | — |
 | T5.3 | Ordering | Pure pricing service | 1.5d | T0.4, T5.1 | `TODO` | — |
 | T5.4 | Ordering | OrderItem immutable snapshots | 1d | T4.6, T5.1 | `TODO` | — |
@@ -252,7 +252,7 @@ Acceptance: Catalog không inject Order/Review repository; Merchants không inje
 
 ## T5 — Ordering và Promotions
 
-- [ ] **T5.1 State machine:** định nghĩa transition và invalid transition errors.
+- [x] **T5.1 State machine:** định nghĩa transition và invalid transition errors. Evidence: [T5.1 Order state machine](./evidence/phase-3-t5.1-order-state-machine.md).
 - [ ] **T5.2 Use cases:** tách create/read/confirm/reject/cancel/paid/complete.
 - [ ] **T5.3 Pricing:** pure pricing tests, không đọc client total.
 - [ ] **T5.4 OrderItem:** lưu price/name/topping snapshot.

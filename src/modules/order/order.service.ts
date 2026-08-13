@@ -22,6 +22,12 @@ import { MapboxService } from 'src/infra/maps/mapbox.service';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { pubSub } from 'src/pubsub';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
+import {
+  InvalidOrderStatusError,
+  InvalidOrderTransitionError,
+  OrderStateMachine,
+  OrderStatus,
+} from 'src/features/orders/state-machine/order-status';
 import { DataSource, In, LessThan, Repository } from 'typeorm';
 import { PromotionService } from '../promotion/promotion.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -30,6 +36,7 @@ import { PaymentDto } from './dto/payment.dto';
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
+  private readonly orderStateMachine = new OrderStateMachine();
 
   constructor(
     @InjectRepository(Order)
@@ -666,39 +673,20 @@ export class OrderService {
   async updateOrderStatus(id: string, status: string) {
     const order = await this.getOrderById(id);
 
-    // Validate status transitions
-    const validStatuses = [
-      'pending',
-      'confirmed',
-      'delivering',
-      'shipper_received',
-      'completed',
-      'canceled',
-      'processing_payment',
-    ];
-    if (!validStatuses.includes(status)) {
-      throw new BadRequestException(
-        `Invalid status. Valid values are: ${validStatuses.join(', ')}`,
-      );
+    let nextStatus: OrderStatus;
+    try {
+      nextStatus = this.orderStateMachine.transition(order.status, status);
+    } catch (error) {
+      if (error instanceof InvalidOrderStatusError) {
+        throw new BadRequestException(error.message);
+      }
+      if (error instanceof InvalidOrderTransitionError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
     }
 
-    // Check if status transition is valid
-    const currentStatus = order.status;
-    const validTransitions: Record<string, string[]> = {
-      pending: ['confirmed', 'canceled'],
-      confirmed: ['shipper_received', 'delivering', 'canceled'],
-      shipper_received: ['delivering', 'canceled'],
-      delivering: ['completed', 'canceled'],
-      processing_payment: ['pending', 'canceled'],
-      completed: [],
-      canceled: [],
-    };
-
-    if (!validTransitions[currentStatus]?.includes(status)) {
-      throw new BadRequestException(`Cannot change status from ${currentStatus} to ${status}`);
-    }
-
-    order.status = status;
+    order.status = nextStatus;
     const updatedOrder = await this.orderRepository.save(order);
 
     // Publish event for status changes (not just pending)
@@ -706,7 +694,7 @@ export class OrderService {
       orderStatusUpdated: updatedOrder,
     });
 
-    this.logger.log(`Order ${id} status updated to ${status}`);
+    this.logger.log(`Order ${id} status updated to ${nextStatus}`);
 
     // Publish notification event — Communications owns persistence
     await this.eventBus.publish<NotificationRequestedEvent>(
@@ -714,7 +702,7 @@ export class OrderService {
       {
         recipientUserId: order.user.id,
         description: 'Cập nhật trạng thái đơn hàng',
-        content: `Đơn hàng của bạn đã chuyển sang trạng thái: ${status}`,
+        content: `Đơn hàng của bạn đã chuyển sang trạng thái: ${nextStatus}`,
         type: 'order',
       },
     );
@@ -731,13 +719,15 @@ export class OrderService {
       throw new NotFoundException(`Order with ID ${orderId} not found`);
     }
 
-    // Only confirm if order is in pending state
-    if (order.status !== 'pending') {
-      throw new BadRequestException(`Order is not in a confirmable state`);
+    try {
+      order.status = this.orderStateMachine.confirm(order.status);
+    } catch (error) {
+      if (error instanceof InvalidOrderStatusError || error instanceof InvalidOrderTransitionError) {
+        throw new BadRequestException('Order is not in a confirmable state');
+      }
+      throw error;
     }
 
-    // Update order status
-    order.status = 'confirmed';
     const confirmedOrder = await this.orderRepository.save(order);
 
     this.logger.log(`Order ${orderId} status updated to confirmed`);
@@ -1202,12 +1192,13 @@ export class OrderService {
 
       // Update order status based on payment result
       if (paymentSuccess) {
-        // For cash payments, set to processing
-        if (paymentData.method === 'cash') {
-          order.status = 'processing_payment';
-        } else {
-          // For electronic payments, you might set to 'paid' or 'processing'
-          order.status = 'processing_payment';
+        try {
+          order.status = this.orderStateMachine.startPayment(order.status);
+        } catch (error) {
+          if (error instanceof InvalidOrderStatusError || error instanceof InvalidOrderTransitionError) {
+            throw new BadRequestException(error.message);
+          }
+          throw error;
         }
 
         // Store payment details (in a real system, this would be in a Payment entity)
@@ -1252,15 +1243,17 @@ export class OrderService {
       throw new NotFoundException(`Order with ID ${orderId} not found`);
     }
 
-    // Only confirm payment if order is in pending or processing status
-    if (order.status !== 'pending' && order.status !== 'processing') {
-      throw new BadRequestException(
-        `Cannot confirm payment for an order with status ${order.status}`,
-      );
+    try {
+      order.status = this.orderStateMachine.markPaid(order.status);
+    } catch (error) {
+      if (error instanceof InvalidOrderStatusError || error instanceof InvalidOrderTransitionError) {
+        throw new BadRequestException(
+          `Cannot confirm payment for an order with status ${order.status}`,
+        );
+      }
+      throw error;
     }
 
-    // Update order status and payment details
-    order.status = 'completed';
     order.isPaid = true;
     order.paymentDate = new Date().toISOString();
 

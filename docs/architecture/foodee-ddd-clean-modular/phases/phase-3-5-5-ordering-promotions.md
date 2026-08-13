@@ -36,12 +36,14 @@ Evidence: [P3.1 handoff và characterization](../evidence/phase-3-p3.1-handoff-c
 
 ### P3.2 — T5.1 Order state machine
 
-- [ ] Liệt kê toàn bộ status hiện tại và actor được transition.
-- [ ] Định nghĩa allowed transition table.
-- [ ] Tạo domain methods/transition service cho confirm, reject, cancel, paid, delivery states, complete.
-- [ ] Query không được mutate status.
-- [ ] Invalid transition trả domain/application error ổn định.
-- [ ] Test toàn bộ transition table.
+- [x] Liệt kê toàn bộ status hiện tại và actor được transition.
+- [x] Định nghĩa allowed transition table.
+- [x] Tạo domain methods/transition service cho confirm, reject, cancel, paid, delivery states, complete.
+- [x] Query không được mutate status.
+- [x] Invalid transition trả domain/application error ổn định.
+- [x] Test toàn bộ transition table.
+
+Evidence: [T5.1 Order state machine](../evidence/phase-3-t5.1-order-state-machine.md).
 
 ### P3.3 — T5.2 Split commands/queries
 
