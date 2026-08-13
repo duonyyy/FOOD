@@ -16,6 +16,7 @@ import { createOrderItemSnapshot } from 'src/features/orders/snapshots/order-ite
 import { MapboxService } from 'src/infra/maps/mapbox.service';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { DataSource, Repository } from 'typeorm';
+import { PromotionRedemptionService } from '../promotion/promotion-redemption.service';
 import { PromotionService } from '../promotion/promotion.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryService } from './order-query.service';
@@ -32,6 +33,7 @@ export class OrderCreateService {
     private readonly toppingRepository: Repository<Topping>,
     private readonly dataSource: DataSource,
     private readonly promotionService: PromotionService,
+    private readonly promotionRedemptionService: PromotionRedemptionService,
     private readonly systemConstraintsService: SystemConstraintsService,
     private readonly mapboxService: MapboxService,
     private readonly orderQueryService: OrderQueryService,
@@ -158,28 +160,25 @@ export class OrderCreateService {
       order.status =
         data.paymentMethod && data.paymentMethod !== 'cod' ? 'processing_payment' : 'pending';
 
-      if (data.promotionCode && orderCalculation.appliedPromotion) {
-        const promotion = await queryRunner.manager.findOne(Promotion, {
-          where: { code: data.promotionCode },
-        });
-        if (!promotion) {
-          throw new NotFoundException(`Promotion with code ${data.promotionCode} not found`);
-        }
-        order.promotionCode = promotion;
-      }
-
       const savedOrder = await queryRunner.manager.save(Order, order);
       await this.createOrderDetails(savedOrder, foodDetails, queryRunner);
-      if (order.promotionCode) {
-        await this.promotionService.usePromotion(
-          order.promotionCode.code,
-          orderCalculation.subtotal,
+      if (data.promotionCode && orderCalculation.appliedPromotion) {
+        const redemption = await this.promotionRedemptionService.redeemInTransaction(
+          {
+            orderId: savedOrder.id,
+            promotionCode: data.promotionCode,
+            customerId: data.userId,
+            subtotal: orderCalculation.subtotal,
+            discountAmount: orderCalculation.promotionDiscount,
+          },
           queryRunner.manager,
         );
+        order.promotionCode = redemption.promotion;
+        await queryRunner.manager.save(Order, order);
       }
 
       await queryRunner.commitTransaction();
-      if (order.promotionCode) {
+      if (data.promotionCode && orderCalculation.appliedPromotion) {
         try {
           await this.promotionService.clearPromotionCache();
         } catch (cacheError) {

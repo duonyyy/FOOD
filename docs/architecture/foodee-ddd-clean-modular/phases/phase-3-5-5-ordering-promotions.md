@@ -78,13 +78,15 @@ Evidence: [T5.4 OrderItem snapshots](../evidence/phase-3-t5.4-order-item-snapsho
 
 ### P3.6 — T5.5 Promotion redemption
 
-- [ ] Định nghĩa reservation/redemption status và owner.
-- [ ] Unique `orderId`/idempotency constraint.
-- [ ] Order + items + redemption dùng cùng Unit of Work/EntityManager.
-- [ ] Không mở transaction phụ khi outer transaction đang chạy.
-- [ ] Rollback order kéo theo rollback redemption.
-- [ ] Retry không tăng usage hai lần.
-- [ ] Loại promotion usage duplicate khỏi call sites cũ trong phạm vi Ordering.
+- [x] Định nghĩa reservation/redemption status và owner.
+- [x] Unique `orderId`/idempotency constraint.
+- [x] Order + items + redemption dùng cùng Unit of Work/EntityManager.
+- [x] Không mở transaction phụ khi outer transaction đang chạy.
+- [x] Rollback order kéo theo rollback redemption.
+- [x] Retry không tăng usage hai lần.
+- [x] Loại promotion usage duplicate khỏi call sites cũ trong phạm vi Ordering.
+
+Evidence: [T5.5 Promotion redemption](../evidence/phase-3-t5.5-promotion-redemption.md). Private legacy create implementation remains for cleanup only; active public path uses `OrderCreateService`.
 
 ### P3.7 — T5.6 Outbox/after-commit events
 

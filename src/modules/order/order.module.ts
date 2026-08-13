@@ -6,6 +6,7 @@ import { Checkout } from 'src/entities/checkout.entity';
 import { Food } from 'src/entities/food.entity';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
+import { PromotionRedemption } from 'src/entities/promotion-redemption.entity';
 import { Promotion } from 'src/entities/promotion.entity';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Review } from 'src/entities/review.entity';
@@ -40,6 +41,7 @@ import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler'
       Food,
       Address,
       Promotion,
+      PromotionRedemption,
       Checkout,
       Review,
       ShippingDetail,

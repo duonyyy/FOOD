@@ -67,7 +67,7 @@ Phân công một model cho một phase nằm tại [07-model-task-allocation.md
 | T5.2 | Ordering | Split order commands/queries | 2d | T5.1 | `DONE` | [T5.2 Order command/query evidence](./evidence/phase-3-t5.2-order-command-query-split.md); 4 suites/34 tests PASS; build PASS |
 | T5.3 | Ordering | Pure pricing service | 1.5d | T0.4, T5.1 | `DONE` | [T5.3 Pure pricing evidence](./evidence/phase-3-t5.3-pure-pricing.md); 2 suites/13 tests PASS; build PASS |
 | T5.4 | Ordering | OrderItem immutable snapshots | 1d | T4.6, T5.1 | `DONE` | [T5.4 OrderItem snapshots evidence](./evidence/phase-3-t5.4-order-item-snapshots.md); 3 suites/12 tests PASS; build PASS |
-| T5.5 | Promotions | Redemption transaction/idempotency | 2.5d | T0.5, T5.1 | `TODO` | — |
+| T5.5 | Promotions | Redemption transaction/idempotency | 2.5d | T0.5, T5.1 | `DONE` | [T5.5 Promotion redemption evidence](./evidence/phase-3-t5.5-promotion-redemption.md); 3 suites/14 tests PASS; build PASS |
 | T5.6 | Ordering | Outbox/after-commit event contract | 2d | T5.5 | `TODO` | — |
 | T5.7 | Ordering | Customer/merchant/admin controllers | 1.5d | T0.2, T5.2 | `TODO` | — |
 | T6.1 | Payments | Payment ownership model | 1d | T2.1, T5.1 | `TODO` | — |
@@ -256,7 +256,7 @@ Acceptance: Catalog không inject Order/Review repository; Merchants không inje
 - [x] **T5.2 Use cases:** tách CreateOrder/read/confirm/reject/cancel/paid/complete; payment transaction vẫn tiếp tục là compatibility facade để tách ở T5.5. Evidence: [T5.2 Order command/query](./evidence/phase-3-t5.2-order-command-query-split.md).
 - [x] **T5.3 Pricing:** pure pricing tests, không đọc client total. Evidence: [T5.3 Pure pricing](./evidence/phase-3-t5.3-pure-pricing.md).
 - [x] **T5.4 OrderItem:** lưu price/name/topping snapshot. Evidence: [T5.4 OrderItem snapshots](./evidence/phase-3-t5.4-order-item-snapshots.md).
-- [ ] **T5.5 Redemption:** cùng Unit of Work, unique order redemption, locking/idempotency.
+- [x] **T5.5 Redemption:** cùng Unit of Work, unique order redemption, locking/idempotency. Evidence: [T5.5 Promotion redemption](./evidence/phase-3-t5.5-promotion-redemption.md).
 - [ ] **T5.6 Outbox:** event chỉ được dispatch sau commit và có retry.
 - [ ] **T5.7 Controllers:** customer/merchant/admin API, actor lấy từ JWT.
 

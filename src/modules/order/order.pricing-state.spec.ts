@@ -27,6 +27,11 @@ describe('Order pricing and state characterization', () => {
         usePromotion: jest.fn(),
         clearPromotionCache: jest.fn(),
       },
+      promotionRedemptionService: {
+        redeemInTransaction: jest.fn().mockResolvedValue({
+          promotion: { id: 'promotion-1', code: 'PROMO' },
+        }),
+      },
       pendingAssignmentService: {},
       reviewRepository: {},
       eventBus: { publish: jest.fn().mockResolvedValue(undefined) },
@@ -53,6 +58,7 @@ describe('Order pricing and state characterization', () => {
       dependencies.toppingRepository as never,
       dependencies.dataSource as never,
       dependencies.promotionService as never,
+      dependencies.promotionRedemptionService as never,
       dependencies.systemConstraintsService as never,
       dependencies.mapboxService as never,
       dependencies.orderQueryService as never,
@@ -308,10 +314,15 @@ describe('Order pricing and state characterization', () => {
       expect(result.total).toBe(expectedTotal);
       expect(queryRunner.commitTransaction).toHaveBeenCalled();
       if (promotionCode) {
-        expect(dependencies.promotionService.usePromotion).toHaveBeenCalledTimes(1);
-        expect(dependencies.promotionService.usePromotion).toHaveBeenCalledWith(
-          'PROMO',
-          200_000,
+        expect(dependencies.promotionRedemptionService.redeemInTransaction).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(dependencies.promotionRedemptionService.redeemInTransaction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            orderId: 'order-1',
+            promotionCode: 'PROMO',
+            customerId: 'customer-1',
+          }),
           queryRunner.manager,
         );
       }
@@ -394,6 +405,6 @@ describe('Order pricing and state characterization', () => {
 
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
-    expect(dependencies.promotionService.usePromotion).not.toHaveBeenCalled();
+    expect(dependencies.promotionRedemptionService.redeemInTransaction).not.toHaveBeenCalled();
   });
 });
