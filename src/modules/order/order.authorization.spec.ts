@@ -1,6 +1,9 @@
 import { ForbiddenException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { PERMISSIONS_KEY } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Permission } from 'src/constants/permission.enum';
 import { OrderController } from './order.controller';
 
 describe('Order authorization characterization', () => {
@@ -43,6 +46,18 @@ describe('Order authorization characterization', () => {
     expect(guards).toContain(AuthGuard);
   });
 
+  it('protects the admin status route with the order write capability', () => {
+    const method = Object.getOwnPropertyDescriptor(
+      OrderController.prototype,
+      'adminUpdateOrderStatus',
+    )?.value as object;
+    const guards = Reflect.getMetadata(GUARDS_METADATA, method) as unknown[];
+    const permissions = Reflect.getMetadata(PERMISSIONS_KEY, method) as string[];
+
+    expect(guards).toContain(RolesGuard);
+    expect(permissions).toEqual([Permission.ORDER.WRITE]);
+  });
+
   it("returns 403 when Customer A reads Customer B's order", async () => {
     orderService.getOrderById.mockResolvedValue({
       id: 'order-b',
@@ -51,7 +66,7 @@ describe('Order authorization characterization', () => {
     });
 
     await expect(
-      controller.getOrderById('order-b', { headers: {}, user: { id: 'customer-a' } }),
+      controller.getOrderById('order-b', { userId: 'customer-a' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -63,9 +78,7 @@ describe('Order authorization characterization', () => {
     };
     orderService.getOrderById.mockResolvedValue(order);
 
-    await expect(
-      controller.getOrderById('order-1', { headers: {}, user: { id: 'owner-a' } }),
-    ).resolves.toBe(order);
+    await expect(controller.getOrderById('order-1', { userId: 'owner-a' })).resolves.toBe(order);
   });
 
   it('does not trust body.userId when creating an order', async () => {
@@ -78,7 +91,7 @@ describe('Order authorization characterization', () => {
       orderDetails: [],
     };
 
-    await controller.createOrder(body, { headers: {}, user: { id: 'customer-a' } });
+    await controller.createOrder(body, { userId: 'customer-a' });
 
     expect(orderService.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'customer-a' }),

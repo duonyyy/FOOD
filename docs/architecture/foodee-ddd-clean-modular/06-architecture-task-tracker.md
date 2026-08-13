@@ -69,7 +69,7 @@ Phân công một model cho một phase nằm tại [07-model-task-allocation.md
 | T5.4 | Ordering | OrderItem immutable snapshots | 1d | T4.6, T5.1 | `DONE` | [T5.4 OrderItem snapshots evidence](./evidence/phase-3-t5.4-order-item-snapshots.md); 3 suites/12 tests PASS; build PASS |
 | T5.5 | Promotions | Redemption transaction/idempotency | 2.5d | T0.5, T5.1 | `DONE` | [T5.5 Promotion redemption evidence](./evidence/phase-3-t5.5-promotion-redemption.md); 3 suites/14 tests PASS; build PASS |
 | T5.6 | Ordering | Outbox/after-commit event contract | 2d | T5.5 | `DONE` | [T5.6 Outbox evidence](./evidence/phase-3-t5.6-outbox-after-commit.md); 3 suites/12 tests PASS; build PASS |
-| T5.7 | Ordering | Customer/merchant/admin controllers | 1.5d | T0.2, T5.2 | `TODO` | — |
+| T5.7 | Ordering | Customer/merchant/admin controllers | 1.5d | T0.2, T5.2 | `DONE` | [T5.7 Order actor controllers evidence](./evidence/phase-3-t5.7-order-actor-controllers.md); 4 suites/16 tests PASS; build PASS |
 | T6.1 | Payments | Payment ownership model | 1d | T2.1, T5.1 | `TODO` | — |
 | T6.2 | Payments | Gateway port/adapters | 2d | T6.1 | `TODO` | — |
 | T6.3 | Payments | Webhook signature/amount/idempotency | 2d | T0.5, T6.2 | `TODO` | — |
@@ -258,7 +258,7 @@ Acceptance: Catalog không inject Order/Review repository; Merchants không inje
 - [x] **T5.4 OrderItem:** lưu price/name/topping snapshot. Evidence: [T5.4 OrderItem snapshots](./evidence/phase-3-t5.4-order-item-snapshots.md).
 - [x] **T5.5 Redemption:** cùng Unit of Work, unique order redemption, locking/idempotency. Evidence: [T5.5 Promotion redemption](./evidence/phase-3-t5.5-promotion-redemption.md).
 - [x] **T5.6 Outbox:** event chỉ được dispatch sau commit và có retry. Evidence: [T5.6 Outbox](./evidence/phase-3-t5.6-outbox-after-commit.md).
-- [ ] **T5.7 Controllers:** customer/merchant/admin API, actor lấy từ JWT.
+- [x] **T5.7 Controllers:** customer/merchant/admin API, actor lấy từ JWT. Evidence: [T5.7 Order actor controllers](./evidence/phase-3-t5.7-order-actor-controllers.md).
 
 Acceptance: rollback, retry, concurrent promotion và invalid status transition đều có test pass.
 

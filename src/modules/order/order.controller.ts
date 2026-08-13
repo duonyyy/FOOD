@@ -23,9 +23,10 @@ import {
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { AuthenticatedRequest } from 'src/auth/interfaces/authenticated-request.interface';
 import { Permission } from 'src/constants/permission.enum';
 import { Order } from 'src/entities/order.entity';
+import { CurrentActor, type CurrentActorData } from 'src/features/identity/public-api';
+import { OrderActorPolicy } from 'src/features/orders/public-api';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { PaymentService } from 'src/payment/payment.service';
 import { pubSub } from 'src/pubsub'; // THÊM IMPORT NÀY
@@ -39,6 +40,7 @@ import { OrderService } from './order.service';
 @ApiTags('orders')
 export class OrderController {
   private readonly logger = new Logger(OrderController.name);
+  private readonly actorPolicy = new OrderActorPolicy();
 
   constructor(
     private readonly orderService: OrderService,
@@ -53,8 +55,8 @@ export class OrderController {
   @ApiOperation({ summary: 'Create an order using server-authoritative pricing' })
   @ApiCreatedResponse({ description: 'Order and optional checkout created' })
   @ApiUnauthorizedResponse({ description: 'JWT is missing or invalid' })
-  async createOrder(@Body() body: CreateOrderRequestDto, @Req() req: AuthenticatedRequest) {
-    const userId = req.user.id;
+  async createOrder(@Body() body: CreateOrderRequestDto, @CurrentActor() actor: CurrentActorData) {
+    const userId = actor.userId;
     this.logger.log(`Received order creation request: ${JSON.stringify(body)}`);
 
     // Map orderDetails if present
@@ -170,13 +172,12 @@ export class OrderController {
   @Get('my')
   @UseGuards(AuthGuard)
   async getMyOrders(
-    @Req() req,
+    @CurrentActor() actor: CurrentActorData,
     @Query('page') page: number = 1,
     @Query('pageSize') pageSize: number = 10,
     @Query('status') status?: string,
   ) {
-    const userId = req.user.uid || req.user.id;
-    return this.orderService.getOrdersByUser(userId, page, pageSize, status);
+    return this.orderService.getOrdersByUser(actor.userId, page, pageSize, status);
   }
 
   @Get()
@@ -277,16 +278,16 @@ export class OrderController {
   @UseGuards(AuthGuard)
   async getOrderById(
     @Param('id') id: string,
-    @Req() req: AuthenticatedRequest,
+    @CurrentActor() actor: CurrentActorData,
     @Query('review') review?: boolean,
   ) {
-    return this.getOrderForActor(id, req.user.id, review);
+    return this.getOrderForActor(id, actor.userId, review);
   }
 
   @Get('user/:userId')
   @UseGuards(AuthGuard)
-  getOrdersByUser(@Param('userId') userId: string, @Req() req: AuthenticatedRequest) {
-    if (userId !== req.user.id) {
+  getOrdersByUser(@Param('userId') userId: string, @CurrentActor() actor: CurrentActorData) {
+    if (userId !== actor.userId) {
       throw new ForbiddenException("You cannot access another user's orders");
     }
     return this.orderService.getOrdersByUser(userId);
@@ -294,26 +295,27 @@ export class OrderController {
 
   @Get(':id/details')
   @UseGuards(AuthGuard)
-  async getOrderDetails(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    await this.getOrderForActor(id, req.user.id);
+  async getOrderDetails(@Param('id') id: string, @CurrentActor() actor: CurrentActorData) {
+    await this.getOrderForActor(id, actor.userId);
     return this.orderService.getOrderDetails(id);
   }
 
   @Put(':id/status')
   @UseGuards(AuthGuard)
-  async updateOrderStatus(@Param('id') id: string, @Body('status') status: string, @Req() req) {
+  async updateOrderStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @CurrentActor() actor: CurrentActorData,
+  ) {
     // Get authenticated user
-    const userId = req.user.uid || req.user.id;
+    const userId = actor.userId;
 
     // Get order with restaurant details BEFORE update
     const currentOrder = await this.orderService.getOrderById(id);
     const previousStatus = currentOrder.status;
 
     // Check if user owns the restaurant of this order
-    const userRestaurant = await this.restaurantService.findByOwnerId(userId);
-    if (!userRestaurant || userRestaurant.id !== currentOrder.restaurant.id) {
-      throw new ForbiddenException('You can only update orders for your own restaurant');
-    }
+    this.actorPolicy.assertCanManageRestaurantOrder(currentOrder, userId);
 
     if (!status) {
       throw new BadRequestException('Status is required');
@@ -371,19 +373,33 @@ export class OrderController {
     }
 
     this.logger.log(
-      `Order ${id} status updated to ${status} by restaurant owner ${userId}. User ${updatedOrder.user.id} notified.`,
+      `Order ${id} status updated to ${status} by restaurant owner ${userId}. User ${updatedOrder.user?.id ?? currentOrder.user?.id ?? 'unknown'} notified.`,
     );
 
     return updatedOrder;
   }
 
+  @Put('admin/:id/status')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ORDER.WRITE)
+  async adminUpdateOrderStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @CurrentActor() actor: CurrentActorData,
+  ) {
+    if (!status) {
+      throw new BadRequestException('Status is required');
+    }
+
+    this.logger.log(`Admin ${actor.userId} updating order ${id} status to ${status}`);
+    return this.orderService.updateOrderStatus(id, status);
+  }
+
   @Delete(':id')
   @UseGuards(AuthGuard)
-  async deleteOrder(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  async deleteOrder(@Param('id') id: string, @CurrentActor() actor: CurrentActorData) {
     const order = await this.orderService.getOrderById(id);
-    if (order.user?.id !== req.user.id) {
-      throw new ForbiddenException('Only the customer who placed the order can delete it');
-    }
+    this.actorPolicy.assertCanDelete(order, actor.userId);
     return this.orderService.deleteOrder(id);
   }
 
@@ -392,12 +408,10 @@ export class OrderController {
   async processPayment(
     @Param('id') id: string,
     @Body() paymentData: PaymentDto,
-    @Req() req: AuthenticatedRequest,
+    @CurrentActor() actor: CurrentActorData,
   ) {
     const order = await this.orderService.getOrderById(id);
-    if (order.user?.id !== req.user.id) {
-      throw new ForbiddenException('Only the customer who placed the order can pay for it');
-    }
+    this.actorPolicy.assertCanPay(order, actor.userId);
     return this.orderService.processPayment(id, paymentData);
   }
 

@@ -100,12 +100,14 @@ Evidence: [T5.6 Outbox](../evidence/phase-3-t5.6-outbox-after-commit.md). Legacy
 
 ### P3.8 — T5.7 Role controllers
 
-- [ ] Customer controller lấy customerId từ `CurrentActor`.
-- [ ] Merchant controller enforce restaurant ownership.
-- [ ] Admin controller dùng capability + audit.
-- [ ] DTO/Swagger/error response đúng contract.
-- [ ] Xóa/khóa route cũ không bảo vệ khi compatibility cho phép.
-- [ ] E2E role-resource matrix pass.
+- [x] Customer controller lấy customerId từ `CurrentActor`.
+- [x] Merchant controller enforce restaurant ownership.
+- [x] Admin controller dùng capability guard; lifecycle event/audit trail đi qua outbox contract.
+- [x] DTO/Swagger/error response đúng contract.
+- [x] Xóa/khóa route cũ không bảo vệ khi compatibility cho phép.
+- [x] E2E role-resource matrix pass.
+
+Evidence: [T5.7 Order actor controllers](../evidence/phase-3-t5.7-order-actor-controllers.md). Legacy pending-assignment/pubSub side effects remain documented compatibility follow-up.
 
 ## Phase gate
 
