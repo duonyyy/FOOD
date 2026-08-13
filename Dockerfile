@@ -30,7 +30,10 @@ ENV NODE_ENV=development
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --omit=dev && npm cache clean --force
+# The runtime uses PostgreSQL. TypeORM declares SQLite drivers as optional peer
+# dependencies; omit optional packages so the Alpine image does not compile an
+# unused native sqlite3 driver through node-gyp.
+RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 
 # Copy build files from builder
 COPY --from=builder /app/dist ./dist
@@ -45,4 +48,3 @@ USER nestjs
 EXPOSE 3000
 
 CMD ["node", "dist/main"]
-

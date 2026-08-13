@@ -29,6 +29,7 @@ describe('Order pricing and state characterization', () => {
       pendingAssignmentService: {},
       reviewRepository: {},
       notificationRepository: { save: jest.fn(async (value) => value) },
+      eventBus: { publish: jest.fn().mockResolvedValue(undefined) },
       shippingDetailRepository: {},
       toppingRepository: { findOne: jest.fn() },
       systemConstraintsService: {
@@ -54,7 +55,7 @@ describe('Order pricing and state characterization', () => {
       dependencies.promotionService as never,
       dependencies.pendingAssignmentService as never,
       dependencies.reviewRepository as never,
-      dependencies.notificationRepository as never,
+      dependencies.eventBus as never,
       dependencies.shippingDetailRepository as never,
       dependencies.toppingRepository as never,
       dependencies.systemConstraintsService as never,

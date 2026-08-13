@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -28,6 +29,7 @@ export class CategoryService implements CategoryReaderPort {
 
   async create(createCategoryDto: CreateCategoryDto): Promise<CategoryResponseDto> {
     try {
+      await this.assertUniqueName(createCategoryDto.name);
       const category = this.categoryRepository.create({
         name: createCategoryDto.name.trim(),
         image: createCategoryDto.image?.trim(),
@@ -36,6 +38,9 @@ export class CategoryService implements CategoryReaderPort {
       await this.clearCategoryCache();
       return toCategoryResponse(savedCategory);
     } catch (error) {
+      if (error instanceof ConflictException || isUniqueViolation(error)) {
+        throw new ConflictException('A category with this name already exists');
+      }
       throw new InternalServerErrorException(
         `Failed to create category: ${error instanceof Error ? error.message : 'unknown error'}`,
       );
@@ -98,13 +103,22 @@ export class CategoryService implements CategoryReaderPort {
     }
 
     if (updateCategoryDto.name !== undefined) {
+      await this.assertUniqueName(updateCategoryDto.name, categoryId);
       category.name = updateCategoryDto.name.trim();
     }
     if (updateCategoryDto.image !== undefined) {
       category.image = updateCategoryDto.image.trim();
     }
 
-    const updatedCategory = await this.categoryRepository.save(category);
+    let updatedCategory: Category;
+    try {
+      updatedCategory = await this.categoryRepository.save(category);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException('A category with this name already exists');
+      }
+      throw error;
+    }
     await this.clearCategoryCache();
     return toCategoryResponse(updatedCategory);
   }
@@ -137,4 +151,21 @@ export class CategoryService implements CategoryReaderPort {
       return category ? toCategoryResponse(category) : null;
     });
   }
+
+  private async assertUniqueName(name: string, exceptId?: string): Promise<void> {
+    const queryBuilder = this.categoryRepository.createQueryBuilder?.('category');
+    if (!queryBuilder) return;
+
+    const existing = await queryBuilder
+      .where('LOWER(TRIM(category.name)) = LOWER(TRIM(:name))', { name: name.trim() })
+      .andWhere(exceptId ? 'category.id <> :exceptId' : '1 = 1', { exceptId })
+      .getOne();
+    if (existing) {
+      throw new ConflictException('A category with this name already exists');
+    }
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 }

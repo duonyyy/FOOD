@@ -21,4 +21,11 @@ export {
   type OrderableToppingSnapshot,
   type RequestedMenuItem,
 } from './contracts/menu-reader.port';
+export { FoodQueryService } from './foods/food-query.service';
+export { CatalogFoodModule } from './foods/food.module';
 export { MenuModule } from './menu.module';
+export { MenuReaderModule } from './orderable/menu-reader.module';
+export { MenuReaderService } from './orderable/menu-reader.service';
+export { FoodCommandService } from './services/food-command.service';
+export { ToppingCommandService } from './toppings/topping-command.service';
+export { ToppingModule } from './toppings/topping.module';

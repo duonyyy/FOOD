@@ -6,6 +6,7 @@ import { RestaurantApprovalAudit } from '../../entities/restaurantApprovalAudit.
 import { IdentityModule } from '../identity/public-api';
 import { LocationsModule } from '../locations/public-api';
 import { MenuModule } from '../menu/public-api';
+import { MerchantCatalogModule } from './merchant-catalog.module';
 
 import { RESTAURANT_READER } from './contracts/restaurant-reader.port';
 import { RestaurantAdminController } from './controllers/admin-restaurants.controller';
@@ -23,6 +24,7 @@ import { RestaurantReaderService } from './services/restaurant-reader.service';
     LocationsModule,
     IdentityModule,
     MenuModule,
+    MerchantCatalogModule,
   ],
   controllers: [
     RestaurantAdminController,
@@ -41,6 +43,7 @@ import { RestaurantReaderService } from './services/restaurant-reader.service';
     RestaurantProfileService,
     RestaurantApprovalService,
     RESTAURANT_READER,
+    MerchantCatalogModule,
   ],
 })
 export class RestaurantsModule {}

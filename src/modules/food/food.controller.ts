@@ -5,7 +5,6 @@ import {
   DefaultValuePipe,
   Delete,
   Get,
-  NotFoundException,
   Param,
   ParseFloatPipe,
   ParseIntPipe,
@@ -23,16 +22,22 @@ import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Permission } from 'src/constants/permission.enum';
 import { Food } from 'src/entities/food.entity';
+import { FoodQueryService } from '../../features/menu/foods/food-query.service';
+import { FoodCommandService } from '../../features/menu/services/food-command.service';
+import { ToppingCommandService } from '../../features/menu/toppings/topping-command.service';
 import { CreateFoodDto } from './dto/create-food.dto';
 import { CreateToppingDto } from './dto/create-topping.dto';
 import { UpdateFoodDto } from './dto/update-food.dto';
 import { UpdateToppingDto } from './dto/update-topping.dto';
-import { FoodService } from './food.service';
 
 @Controller('foods')
 @ApiTags('foods')
 export class FoodController {
-  constructor(private readonly foodService: FoodService) {}
+  constructor(
+    private readonly foodService: FoodQueryService,
+    private readonly foodCommandService: FoodCommandService,
+    private readonly toppingCommandService: ToppingCommandService,
+  ) {}
 
   @Post()
   @UseGuards(AuthGuard)
@@ -45,7 +50,7 @@ export class FoodController {
       categoryId: createFoodDto.categoryId === '' ? undefined : createFoodDto.categoryId,
     };
     const dto = plainToInstance(CreateFoodDto, cleanedDto);
-    return await this.foodService.createIfOwner(dto, userId);
+    return await this.foodCommandService.create(dto, userId);
   }
   @Get('all')
   @UseGuards(RolesGuard)
@@ -406,7 +411,7 @@ export class FoodController {
     if (!userId) throw new UnauthorizedException('Not authenticated');
     // Convert to DTO instance for validation and transformation
     const dto = plainToInstance(UpdateFoodDto, updateFoodDto);
-    return await this.foodService.updateIfOwner(id, dto, userId);
+    return await this.foodCommandService.update(id, dto, userId);
   }
 
   @Delete(':id')
@@ -414,7 +419,7 @@ export class FoodController {
   async remove(@Param('id') id: string, @Req() req: any) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
-    return await this.foodService.removeIfOwner(id, userId);
+    return await this.foodCommandService.remove(id, userId);
   }
 
   @Put(':id/status')
@@ -425,58 +430,16 @@ export class FoodController {
     if (status !== 'available' && status !== 'hidden') {
       throw new BadRequestException('Status must be either "available" or "hidden"');
     }
-    return await this.foodService.updateStatusIfOwner(id, status, userId);
+    return await this.foodCommandService.updateStatus(id, status, userId);
   }
 
-  @Get(':id/reviews')
-  async getReviewsByFood(
-    @Param('id') foodId: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
-    @Query('sortBy', new DefaultValuePipe('createdAt')) sortBy: string,
-    @Query('sortOrder', new DefaultValuePipe('DESC')) sortOrder: 'ASC' | 'DESC',
-    @Query('minRating') minRating?: number,
-    @Query('maxRating') maxRating?: number,
-  ) {
-    console.log('=== Controller getReviewsByFood ===');
-    console.log('Request parameters:', {
-      foodId,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      minRating,
-      maxRating,
-    });
-
-    const result = await this.foodService.getReviewsByFood(
-      foodId,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      minRating ? Number(minRating) : undefined,
-      maxRating ? Number(maxRating) : undefined,
-    );
-
-    console.log('Service returned:', {
-      totalItems: result.totalItems,
-      itemsCount: result.items.length,
-      page: result.page,
-      totalPages: result.totalPages,
-    });
-    console.log('=== End Controller getReviewsByFood ===');
-
-    return result;
-  }
-
-  @Delete(':id')
+  @Delete(':id/admin')
   @UseGuards(RolesGuard)
   @Permissions(Permission.FOOD.DELETE)
   async deleteFood(@Param('id') id: string, @Req() req: any) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
-    return await this.foodService.delete(id);
+    return await this.foodCommandService.delete(id);
   }
 
   @Post(':id/toppings')
@@ -489,16 +452,7 @@ export class FoodController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 
-    // Verify user owns the restaurant that owns this food
-    const food = await this.foodService.findOne(foodId);
-    if (!food || !food.restaurant) {
-      throw new NotFoundException('Food or restaurant not found');
-    }
-
-    // You might want to add a check to ensure user owns the restaurant
-    // For now, we'll trust the auth guard handles this
-
-    return await this.foodService.addTopping(foodId, createToppingDto);
+    return await this.toppingCommandService.create(foodId, createToppingDto, userId);
   }
 
   @Put('toppings/:toppingId')
@@ -511,7 +465,7 @@ export class FoodController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 
-    return await this.foodService.updateTopping(toppingId, updateToppingDto);
+    return await this.toppingCommandService.update(toppingId, updateToppingDto, userId);
   }
 
   @Delete('toppings/:toppingId')
@@ -520,7 +474,7 @@ export class FoodController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 
-    return await this.foodService.removeTopping(toppingId);
+    return await this.toppingCommandService.remove(toppingId, userId);
   }
 
   @Get(':id/toppings')

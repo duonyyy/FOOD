@@ -104,6 +104,65 @@ export class ReviewService {
     return reviews.map(toReviewResponse);
   }
 
+  async getReviewsByFood(
+    foodId: string,
+    page = 1,
+    pageSize = 10,
+    sortBy = 'createdAt',
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
+    minRating?: number,
+    maxRating?: number,
+  ) {
+    const food = await this.foodReviewTargetReader.findFoodReviewTarget(foodId);
+    if (!food) throw new NotFoundException(`Food with id ${foodId} not found`);
+
+    const query = this.reviewRepository
+      .createQueryBuilder('review')
+      .leftJoinAndSelect('review.user', 'user')
+      .where('review.food_id = :foodId', { foodId })
+      .andWhere('review.type = :type', { type: ReviewType.FOOD });
+    if (minRating !== undefined) query.andWhere('review.rating >= :minRating', { minRating });
+    if (maxRating !== undefined) query.andWhere('review.rating <= :maxRating', { maxRating });
+
+    const safeSort = ['rating', 'createdAt'].includes(sortBy) ? sortBy : 'createdAt';
+    query.orderBy(`review.${safeSort}`, sortOrder === 'ASC' ? 'ASC' : 'DESC');
+    const totalItems = await query.getCount();
+    const items = await query
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getMany();
+    const stats = await this.reviewRepository
+      .createQueryBuilder('review')
+      .select('AVG(review.rating)', 'average')
+      .addSelect('review.rating', 'rating')
+      .addSelect('COUNT(*)', 'count')
+      .where('review.food_id = :foodId', { foodId })
+      .andWhere('review.type = :type', { type: ReviewType.FOOD })
+      .andWhere('review.rating IS NOT NULL')
+      .groupBy('review.rating')
+      .getRawMany();
+    const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const row of stats) ratingDistribution[Number(row.rating)] = Number(row.count);
+    const averageRating = stats.length
+      ? Number(
+          (
+            stats.reduce((sum, row) => sum + Number(row.rating) * Number(row.count), 0) /
+            stats.reduce((sum, row) => sum + Number(row.count), 0)
+          ).toFixed(1),
+        )
+      : null;
+
+    return {
+      items: items.map(toReviewResponse),
+      totalItems,
+      page,
+      pageSize,
+      totalPages: Math.ceil(totalItems / pageSize),
+      averageRating,
+      ratingDistribution,
+    };
+  }
+
   async getReviewsForShipper(shipperId: string): Promise<ReviewResponseDto[]> {
     const reviews = await this.reviewRepository.find({
       where: { shipper: { id: shipperId }, type: ReviewType.SHIPPER },

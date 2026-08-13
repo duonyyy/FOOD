@@ -14,17 +14,18 @@ export interface RequestedMenuItem {
 }
 
 export interface OrderableItemSnapshot {
-  foodId: string;
-  restaurantId: string;
-  name: string;
-  unitPrice: number;
-  isAvailable: boolean;
-  toppings: OrderableToppingSnapshot[];
+  readonly foodId: string;
+  readonly restaurantId: string;
+  readonly name: string;
+  readonly unitPrice: number;
+  readonly status: string | null;
+  readonly isAvailable: boolean;
+  readonly toppings: readonly OrderableToppingSnapshot[];
 }
 
 export interface OrderableToppingSnapshot {
-  toppingId: string;
-  name: string;
-  unitPrice: number;
-  isAvailable: boolean;
+  readonly toppingId: string;
+  readonly name: string;
+  readonly unitPrice: number;
+  readonly isAvailable: boolean;
 }

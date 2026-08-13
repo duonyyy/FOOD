@@ -114,7 +114,9 @@ module.exports = {
           }
 
           const targetFeature = getFeatureName(targetPath);
-          const isPublicApi = targetPath === `src/features/${targetFeature}/public-api`;
+          const isPublicApi =
+            targetPath === `src/features/${targetFeature}/public-api` ||
+            targetPath === `src/features/${targetFeature}/merchant-catalog.public-api`;
           if (targetFeature && targetFeature !== sourceFeature && !isPublicApi) {
             context.report({ node: node.source, messageId: 'deepFeatureImport' });
           }

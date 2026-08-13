@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { CachePort } from 'src/infra/contracts/cache.port';
 import { CategoryService } from './category.service';
 
@@ -82,5 +82,22 @@ describe('CategoryService', () => {
 
     expect(cache.deleteByPattern).toHaveBeenCalledWith('category:*');
     expect(cache.deleteByPattern).toHaveBeenCalledWith('food:*');
+  });
+
+  it('rejects a duplicate category name before saving', async () => {
+    const queryBuilder = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue({ id: 'existing' }),
+    };
+    const repository = {
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = new CategoryService(repository as never, cache);
+
+    await expect(service.create({ name: ' Món Việt ' })).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.save).not.toHaveBeenCalled();
   });
 });

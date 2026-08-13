@@ -1,4 +1,6 @@
 import { ESLint } from 'eslint';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import architectureBoundaryPlugin = require('../tools/eslint-rules/architecture-boundaries.cjs');
 
@@ -50,6 +52,31 @@ describe('architecture boundary lint rules', () => {
       'foodee-boundaries/feature-import-boundaries',
       'foodee-boundaries/feature-import-boundaries',
     ]);
+  });
+
+  it('allows the narrow Merchant Catalog public entrypoint without loading RestaurantsModule', async () => {
+    await expect(
+      architectureRuleIds(
+        "import { MerchantCatalogModule } from 'src/features/restaurants/merchant-catalog.public-api';",
+        'src/features/menu/foods/food.module.ts',
+      ),
+    ).resolves.toEqual([]);
+  });
+
+  it('keeps Catalog consumers off the broad Restaurants public barrel', () => {
+    const catalogConsumers = [
+      'src/features/menu/foods/food.module.ts',
+      'src/features/menu/foods/food-query.service.ts',
+      'src/features/menu/services/food-command.service.ts',
+      'src/features/menu/toppings/topping.module.ts',
+      'src/features/menu/toppings/topping-command.service.ts',
+    ];
+
+    for (const file of catalogConsumers) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
+      expect(source).not.toContain('restaurants/public-api');
+      expect(source).toContain('restaurants/merchant-catalog.public-api');
+    }
   });
 
   it('rejects a feature repository entity import owned by another feature', async () => {

@@ -10,7 +10,6 @@ import { User } from 'src/entities/user.entity';
 import { MailModule } from 'src/infra/mail/mail.module';
 import { RoleModule } from 'src/modules/role/role.module';
 import { UsersModule } from 'src/modules/users/users.module';
-import { UsersService } from 'src/modules/users/users.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
@@ -45,6 +44,6 @@ import { SocialAuthService } from './services/social-auth.service';
     AuthGuard,
     RolesGuard,
   ],
-  exports: [AuthService, AuthGuard, RolesGuard, JwtModule, UsersService],
+  exports: [AuthService, AuthGuard, RolesGuard, JwtModule, UsersModule],
 })
 export class AuthModule {}
