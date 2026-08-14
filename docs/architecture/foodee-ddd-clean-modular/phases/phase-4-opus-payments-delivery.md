@@ -61,12 +61,14 @@ Evidence: [T6.2 Gateway ports/adapters](../evidence/phase-4-t6.2-payment-gateway
 
 ### P4.4 — T6.3 Webhook integrity/idempotency
 
-- [ ] Verify signature trước side effect.
-- [ ] Verify amount, currency, provider reference và order reference.
-- [ ] Unique provider transaction/reference và idempotency key.
-- [ ] Concurrent/replayed callbacks chỉ tạo một transition.
-- [ ] Response callback ổn định cho retry provider.
-- [ ] Không tin status/amount từ client.
+- [x] Verify signature trước side effect.
+- [x] Verify amount, currency, provider reference và order reference.
+- [x] Unique provider transaction/reference và idempotency key.
+- [x] Concurrent/replayed callbacks chỉ tạo một transition.
+- [x] Response callback ổn định cho retry provider.
+- [x] Không tin status/amount từ client.
+
+Evidence: [T6.3 Webhook integrity](../evidence/phase-4-t6.3-payment-webhook-integrity.md).
 
 ### P4.5 — T6.4 Payment events
 

@@ -105,6 +105,8 @@ describe('Strict validation compatibility', () => {
       requestId: 'request-1',
       amount: '100000',
       resultCode: '0',
+      transId: 'provider-transaction-1',
+      orderInfo: 'order-1',
     };
     const accepted = await validate(payload, PaymentWebhookDto);
     expect(accepted.amount).toBe(100000);

@@ -80,20 +80,20 @@ export class PaymentWebhookDto {
   @IsString()
   message?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ description: 'Signed internal order reference supplied by the payment provider' })
   @IsString()
-  orderInfo?: string;
+  @IsNotEmpty()
+  orderInfo: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   orderType?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ description: 'Provider transaction reference used for database idempotency' })
   @IsString()
-  transId?: string;
+  @IsNotEmpty()
+  transId: string;
 
   @ApiPropertyOptional()
   @IsOptional()

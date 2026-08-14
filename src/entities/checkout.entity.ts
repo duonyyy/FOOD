@@ -47,6 +47,14 @@ export class Checkout {
   @Column({ type: 'varchar', nullable: true })
   paymentIntentId: string;
 
+  /** Provider transaction id from a verified callback; never client supplied. */
+  @Column({ type: 'varchar', nullable: true })
+  providerTransactionId?: string;
+
+  /** Internal key used to make a replayed provider callback a no-op. */
+  @Column({ type: 'varchar', nullable: true })
+  webhookIdempotencyKey?: string;
+
   @Field({ nullable: true })
   // Redirect URLs are returned to the caller but are never persisted because
   // provider URLs can contain signed, short-lived secrets.

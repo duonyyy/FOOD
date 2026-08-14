@@ -4,6 +4,8 @@ import {
   Controller,
   Get,
   Headers,
+  HttpCode,
+  Logger,
   Param,
   Post,
   Query,
@@ -19,7 +21,6 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
-import { VnpayPaymentGateway } from 'src/infra/payment-gateways/vnpay-payment.gateway';
 import { CheckoutStatus } from '../entities/checkout.entity';
 import {
   MomoResultQueryDto,
@@ -32,9 +33,10 @@ import { PaymentService } from './payment.service';
 @Controller('payment')
 @ApiTags('payments')
 export class PaymentController {
+  private readonly logger = new Logger(PaymentController.name);
+
   constructor(
     private readonly paymentService: PaymentService,
-    private readonly vnpayPaymentGateway: VnpayPaymentGateway,
     private readonly configService: ConfigService,
   ) {}
 
@@ -58,8 +60,9 @@ export class PaymentController {
   }
 
   @Post('webhook')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Receive a signed payment provider webhook' })
-  @ApiResponse({ status: 201, description: 'Webhook accepted or idempotently replayed' })
+  @ApiResponse({ status: 200, description: 'Webhook accepted or idempotently replayed' })
   @ApiResponse({ status: 400, description: 'Signature, amount, currency or payload is invalid' })
   async handleWebhook(
     @Body() payload: PaymentWebhookDto,
@@ -96,9 +99,10 @@ export class PaymentController {
 
     // Redirect to the frontend with the result
     return {
-      success: resultCode === '0' || resultCode === '9000',
+      success: result.success,
+      verificationPending: true,
       orderId,
-      message,
+      message: result.message,
     };
   }
 
@@ -121,27 +125,19 @@ export class PaymentController {
   @Redirect()
   async handleVnpayResult(@Query() query: Record<string, string>) {
     try {
-      // Process the return URL parameters
-      const result = this.vnpayPaymentGateway.processReturnUrl(query);
-      if (!result.paymentIntentId) {
-        throw new BadRequestException('Invalid VNPAY result');
-      }
+      const result = await this.paymentService.handleVnpayWebhook(query);
+      const providerReference = query.vnp_TxnRef;
 
-      // Update order status based on payment result
-      if (result.success) {
-        await this.paymentService.handlePaymentSuccess(result.paymentIntentId);
+      if (result.outcome === 'succeeded') {
         return {
-          url: `${this.configService.get<string>('FRONTEND_URL')}/payment-success?orderId=${result.paymentIntentId}`,
-        };
-      } else {
-        await this.paymentService.handlePaymentFailure(result.paymentIntentId);
-        const errorMessage = encodeURIComponent(result.error || 'Payment failed');
-        return {
-          url: `${this.configService.get<string>('FRONTEND_URL')}/payment-failed?orderId=${result.paymentIntentId}&message=${errorMessage}`,
+          url: `${this.configService.get<string>('FRONTEND_URL')}/payment-success?orderId=${providerReference}`,
         };
       }
+      return {
+        url: `${this.configService.get<string>('FRONTEND_URL')}/payment-failed?orderId=${providerReference}&message=Payment%20failed`,
+      };
     } catch (error) {
-      error(`VNPAY result error: ${error.message}`);
+      this.logger.error(`VNPAY result error: ${(error as Error).message}`);
       return {
         url: `${this.configService.get<string>('FRONTEND_URL')}/payment-failed?message=${encodeURIComponent('An error occurred during payment processing')}`,
       };
@@ -156,11 +152,16 @@ export class PaymentController {
   @Get('webhook/vnpay')
   async handleVnpayIpn(@Query() query: Record<string, string>) {
     try {
-      // Process the IPN notification
-      return this.vnpayPaymentGateway.processIpnNotification(query);
+      const acknowledgement = await this.paymentService.handleVnpayWebhook(query);
+      return {
+        RspCode: '00',
+        Message: acknowledgement.duplicate ? 'duplicate' : 'success',
+      };
     } catch (error) {
-      error(`VNPAY IPN error: ${error.message}`);
-      return { RspCode: '99', Message: 'Internal server error' };
+      this.logger.error(`VNPAY IPN error: ${(error as Error).message}`);
+      return error instanceof BadRequestException
+        ? { RspCode: '97', Message: 'Fail checksum or invalid callback' }
+        : { RspCode: '99', Message: 'Internal server error' };
     }
   }
 

@@ -12,6 +12,10 @@ import {
 } from 'src/features/payments/domain/payment-status-machine';
 import type { PaymentOrderSnapshot } from 'src/features/payments/contracts/payment-order-snapshot.contract';
 import type { PaymentGatewayPort } from 'src/features/payments/contracts/payment-gateway.port';
+import type {
+  PaymentWebhookAcknowledgement,
+  VerifiedPaymentOutcome,
+} from 'src/features/payments/contracts/payment-webhook.contract';
 import { PaymentGatewayRouter } from 'src/infra/payment-gateways/payment-gateway.router';
 import { Repository } from 'typeorm';
 import {
@@ -58,11 +62,13 @@ export class PaymentService {
     const gateway = this.selectGateway(paymentMethod);
     try {
       const paymentIntent = await gateway.createPaymentIntent(
-        order.orderId,
+        checkout.id,
         order.amount,
         order.currency,
         {
           orderId: order.orderId,
+          providerReference: checkout.id,
+          orderInfo: order.orderId,
           checkoutId: checkout.id,
           redirectUrl: `${this.configService.get<string>('API_URL')}/payment/${paymentMethod}/result`,
           ipnUrl: `${this.configService.get<string>('API_URL')}/payment/webhook`,
@@ -97,8 +103,9 @@ export class PaymentService {
       );
       if (result.success) {
         checkout.providerMetadata = sanitizeProviderMetadata(paymentDetails);
-        await this.transition(checkout, CheckoutStatus.COMPLETED);
-        await this.publishSucceeded(checkout);
+        // Redirect providers confirm payment asynchronously. Only a verified
+        // provider callback may transition a checkout to COMPLETED.
+        await this.checkoutRepository.save(checkout);
       } else {
         await this.transition(checkout, CheckoutStatus.FAILED);
       }
@@ -133,7 +140,10 @@ export class PaymentService {
     return checkout;
   }
 
-  async handleWebhookEvent(payload: object, signature: string): Promise<void> {
+  async handleWebhookEvent(
+    payload: object,
+    signature: string,
+  ): Promise<PaymentWebhookAcknowledgement> {
     const callback = payload as Record<string, unknown>;
     if (callback.partnerCode !== 'MOMO') {
       throw new BadRequestException(`Unsupported payment gateway: ${String(callback.partnerCode)}`);
@@ -143,77 +153,79 @@ export class PaymentService {
     if (!gateway.verifyWebhookSignature(callback, signature)) {
       throw new BadRequestException('Invalid webhook signature');
     }
-    if (callback.currency && String(callback.currency).toUpperCase() !== 'VND') {
-      throw new BadRequestException('Payment currency does not match checkout currency');
-    }
-
     await gateway.handleWebhookEvent(callback);
     const eventType = String(callback.type || 'payment_intent.succeeded');
     const resultCode = callback.resultCode === undefined ? undefined : String(callback.resultCode);
-    const isSuccess = eventType === 'payment_intent.succeeded' || resultCode === '0' || resultCode === '9000';
-    if (eventType === 'payment_intent.succeeded' && resultCode && resultCode !== '0' && resultCode !== '9000') {
+    const isSuccess =
+      eventType === 'payment_intent.succeeded' || resultCode === '0' || resultCode === '9000';
+    if (
+      eventType === 'payment_intent.succeeded' &&
+      resultCode &&
+      resultCode !== '0' &&
+      resultCode !== '9000'
+    ) {
       throw new BadRequestException('Payment callback status is inconsistent');
     }
-
-    const providerReference = String(callback.orderId || '');
-    if (!providerReference) {
-      throw new BadRequestException('Missing provider payment reference');
-    }
-    if (isSuccess) {
-      await this.handlePaymentSuccess(providerReference, callback.amount as string | number | undefined);
-    } else {
-      await this.handlePaymentFailure(providerReference);
-    }
-  }
-
-  public async handlePaymentSuccess(
-    paymentIntentId: string,
-    callbackAmount?: string | number,
-  ): Promise<void> {
-    const checkout = await this.checkoutRepository.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(Checkout);
-      const current = await repository.findOne({
-        where: { paymentIntentId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!current) {
-        throw new BadRequestException(`Checkout with payment intent ${paymentIntentId} not found`);
-      }
-      if (
-        callbackAmount !== undefined &&
-        Math.abs(Number(current.amount) - Number(callbackAmount)) > 0.01
-      ) {
-        throw new BadRequestException('Payment amount does not match checkout snapshot');
-      }
-      if (current.status === CheckoutStatus.COMPLETED) {
-        return null;
-      }
-      assertPaymentStatusTransition(current.status, CheckoutStatus.COMPLETED);
-      current.status = CheckoutStatus.COMPLETED;
-      return repository.save(current);
+    return this.applyVerifiedCallback({
+      paymentMethod: 'momo',
+      providerReference: this.requiredCallbackString(callback.orderId, 'provider payment reference'),
+      orderReference: this.requiredCallbackString(callback.orderInfo, 'order reference'),
+      providerTransactionId: this.requiredCallbackString(callback.transId, 'provider transaction id'),
+      idempotencyKey: `momo:${this.requiredCallbackString(callback.transId, 'provider transaction id')}`,
+      amount: this.callbackAmount(callback.amount),
+      currency: this.callbackCurrency(callback.currency),
+      outcome: isSuccess ? 'succeeded' : 'failed',
     });
-
-    if (checkout) {
-      await this.publishSucceeded(checkout);
-    }
   }
 
-  public async handlePaymentFailure(paymentIntentId: string): Promise<void> {
-    const checkout = await this.checkoutRepository.findOne({ where: { paymentIntentId } });
-    if (!checkout || checkout.status !== CheckoutStatus.PENDING) {
-      return;
+  async handleVnpayWebhook(
+    query: Record<string, string>,
+  ): Promise<PaymentWebhookAcknowledgement> {
+    const signature = query.vnp_SecureHash;
+    if (!signature) {
+      throw new BadRequestException('Missing VNPAY signature');
     }
-    await this.transition(checkout, CheckoutStatus.FAILED);
+    const signedPayload = { ...query };
+    delete signedPayload.vnp_SecureHash;
+    delete signedPayload.vnp_SecureHashType;
+    const gateway = this.selectGateway('vnpay');
+    if (!gateway.verifyWebhookSignature(signedPayload, signature)) {
+      throw new BadRequestException('Invalid VNPAY signature');
+    }
+    await gateway.handleWebhookEvent(signedPayload);
+
+    const responseCode = query.vnp_ResponseCode;
+    const transactionStatus = query.vnp_TransactionStatus;
+    return this.applyVerifiedCallback({
+      paymentMethod: 'vnpay',
+      providerReference: this.requiredCallbackString(query.vnp_TxnRef, 'provider payment reference'),
+      orderReference: this.requiredCallbackString(query.vnp_OrderInfo, 'order reference'),
+      providerTransactionId: this.requiredCallbackString(
+        query.vnp_TransactionNo,
+        'provider transaction id',
+      ),
+      idempotencyKey: `vnpay:${this.requiredCallbackString(
+        query.vnp_TransactionNo,
+        'provider transaction id',
+      )}`,
+      amount: this.callbackAmount(Number(query.vnp_Amount) / 100),
+      currency: this.callbackCurrency(query.vnp_CurrCode),
+      outcome: responseCode === '00' && transactionStatus === '00' ? 'succeeded' : 'failed',
+    });
   }
 
-  async handleMomoResult(orderId: string, resultCode: string, message: string): Promise<{ success: boolean; message: string }> {
-    const checkout = await this.findCheckoutByOrderId(orderId);
-    if (resultCode === '0' || resultCode === '9000') {
-      await this.handlePaymentSuccess(checkout.paymentIntentId);
-      return { success: true, message: 'Payment successful' };
-    }
-    await this.handlePaymentFailure(checkout.paymentIntentId);
-    return { success: false, message: message || 'Payment failed' };
+  async handleMomoResult(
+    orderId: string,
+    _resultCode: string,
+    message: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Browser redirects are not authoritative: provider webhooks are the only
+    // callback path permitted to mutate a checkout.
+    this.logger.log(`Received non-authoritative MoMo redirect for reference ${orderId}`);
+    return {
+      success: false,
+      message: message || 'Awaiting verified payment callback',
+    };
   }
 
   async checkMomoStatus(orderId: string): Promise<Record<string, unknown>> {
@@ -262,6 +274,102 @@ export class PaymentService {
       throw new BadRequestException(`Checkout for order ${orderId} not found`);
     }
     return checkout;
+  }
+
+  private async applyVerifiedCallback(
+    callback: VerifiedPaymentCallback,
+  ): Promise<PaymentWebhookAcknowledgement> {
+    const persisted = await this.checkoutRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(Checkout);
+      const checkout = await repository.findOne({
+        where: { paymentIntentId: callback.providerReference },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!checkout) {
+        throw new BadRequestException(
+          `Checkout with provider reference ${callback.providerReference} not found`,
+        );
+      }
+      if (checkout.paymentMethod !== callback.paymentMethod) {
+        throw new BadRequestException('Provider does not match checkout payment method');
+      }
+      if (!checkout.orderId) {
+        throw new BadRequestException('Checkout has no internal order reference');
+      }
+      if (checkout.orderId !== callback.orderReference) {
+        throw new BadRequestException('Payment order reference does not match checkout');
+      }
+      if (Math.abs(Number(checkout.amount) - callback.amount) > 0.01) {
+        throw new BadRequestException('Payment amount does not match checkout snapshot');
+      }
+      if (checkout.currency.toUpperCase() !== callback.currency) {
+        throw new BadRequestException('Payment currency does not match checkout snapshot');
+      }
+
+      if (
+        checkout.providerTransactionId === callback.providerTransactionId ||
+        checkout.webhookIdempotencyKey === callback.idempotencyKey
+      ) {
+        return { checkout: null, duplicate: true, outcome: this.outcomeFor(checkout.status) };
+      }
+      if (checkout.providerTransactionId || checkout.webhookIdempotencyKey) {
+        throw new BadRequestException('Checkout already has a different verified provider callback');
+      }
+      if (checkout.status !== CheckoutStatus.PENDING) {
+        return { checkout: null, duplicate: true, outcome: this.outcomeFor(checkout.status) };
+      }
+
+      const nextStatus =
+        callback.outcome === 'succeeded' ? CheckoutStatus.COMPLETED : CheckoutStatus.FAILED;
+      assertPaymentStatusTransition(checkout.status, nextStatus);
+      checkout.status = nextStatus;
+      checkout.providerTransactionId = callback.providerTransactionId;
+      checkout.webhookIdempotencyKey = callback.idempotencyKey;
+      const saved = await repository.save(checkout);
+      return { checkout: saved, duplicate: false, outcome: callback.outcome };
+    });
+
+    if (persisted.checkout && persisted.outcome === 'succeeded') {
+      await this.publishSucceeded(persisted.checkout);
+    }
+    return {
+      acknowledged: true,
+      duplicate: persisted.duplicate,
+      outcome: persisted.outcome,
+    };
+  }
+
+  private outcomeFor(status: CheckoutStatus): VerifiedPaymentOutcome {
+    if (status === CheckoutStatus.COMPLETED) {
+      return 'succeeded';
+    }
+    if (status === CheckoutStatus.FAILED) {
+      return 'failed';
+    }
+    throw new BadRequestException(`Checkout cannot acknowledge callback in ${status} state`);
+  }
+
+  private requiredCallbackString(value: unknown, label: string): string {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new BadRequestException(`Missing ${label}`);
+    }
+    return value.trim();
+  }
+
+  private callbackAmount(value: unknown): number {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw new BadRequestException('Invalid provider payment amount');
+    }
+    return amount;
+  }
+
+  private callbackCurrency(value: unknown): string {
+    const currency = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'VND';
+    if (currency.length !== 3) {
+      throw new BadRequestException('Invalid provider payment currency');
+    }
+    return currency;
   }
 
   private selectGateway(method: string): PaymentGatewayPort {
@@ -322,4 +430,15 @@ function sanitizeProviderMetadata(input: Record<string, unknown>): Record<string
 
 function isSafeMetadataValue(value: unknown): value is string | number | boolean | null {
   return value === null || ['string', 'number', 'boolean'].includes(typeof value);
+}
+
+interface VerifiedPaymentCallback {
+  paymentMethod: 'momo' | 'vnpay';
+  providerReference: string;
+  orderReference: string;
+  providerTransactionId: string;
+  idempotencyKey: string;
+  amount: number;
+  currency: string;
+  outcome: VerifiedPaymentOutcome;
 }
