@@ -1,6 +1,6 @@
 # Phase 3 — Final verification and handoff
 
-Date: 2026-08-13
+Date: 2026-08-14
 
 ## Scope
 
@@ -18,7 +18,7 @@ promotion redemption, outbox sau commit và controller actor policies.
 | Remaining split unit suites | PASS | 12 suites / 25 tests PASS |
 | Changed-files lint | PASS with warnings | 0 errors, 85 warnings; chủ yếu `any`/compatibility code |
 | Repository-wide lint | NOT PASS | Baseline hiện tại có khoảng 1.550+ lỗi format/Prettier ngoài phạm vi Phase 3 |
-| Docker/DB runtime smoke | BLOCKED | `docker compose ps` bị từ chối tại `//./pipe/docker_engine` trong terminal hiện tại |
+| Docker/DB runtime smoke | PASS | Rebuilt current images; migration exit 0, 29 migrations applied, Phase 3 tables exist, API `/health` returns 200 |
 
 Full aggregate Jest command đã được chạy hai lần với timeout 180s và 300s;
 nó không trả summary trước timeout. Các suite quan sát được và toàn bộ phần
@@ -28,9 +28,11 @@ còn lại khi chạy tách đều PASS, nhưng không ghi nhận aggregate comm
 
 - Cần sửa baseline lint toàn repository hoặc giới hạn lint gate theo phạm vi
   package/module đã chuẩn hóa; không nên chạy format toàn repo trong commit Phase 3.
-- Cần mở lại quyền Docker daemon rồi chạy migration smoke, database constraint,
-  API smoke và log kiểm tra trong container. Đây là bằng chứng runtime còn thiếu,
-  không thể suy ra chỉ từ việc code build được.
+- Runtime smoke đã phát hiện và sửa hai blocker: `promotion_redemptions.customer_id`
+  phải là `varchar(28)` để khớp `users.id`, và `OrderController` không được import
+  policy qua Orders public barrel vì tạo circular module import khi boot Nest.
+- Cần sửa baseline lint toàn repository hoặc giới hạn lint gate theo phạm vi
+  package/module đã chuẩn hóa; không nên chạy format toàn repo trong commit Phase 3.
 - Một số legacy `OrderService` private implementation và pub/sub compatibility
   paths vẫn còn. Active public create path đã đi qua `OrderCreateService`, còn
   việc xóa hẳn compatibility code nên làm sau khi xác nhận không còn caller.
@@ -41,7 +43,5 @@ còn lại khi chạy tách đều PASS, nhưng không ghi nhận aggregate comm
 
 Implementation Phase 3: **DONE**.
 
-Phase gate: **CONDITIONAL / NOT FULLY CLEARED**. Có thể review và handoff code
-cho Phase 4, nhưng chỉ nên đánh dấu Phase 3 hoàn toàn đóng sau khi Docker runtime
-smoke và repository lint gate được xử lý.
-
+Phase gate: **CONDITIONAL / NOT FULLY CLEARED**. Docker runtime đã pass; chỉ còn
+repository-wide lint baseline và aggregate Jest timeout chưa được đóng.

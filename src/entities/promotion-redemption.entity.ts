@@ -24,7 +24,7 @@ export class PromotionRedemption {
   @Column({ name: 'order_id', type: 'uuid' })
   orderId: string;
 
-  @Column({ name: 'customer_id', type: 'uuid' })
+  @Column({ name: 'customer_id', type: 'varchar', length: 28 })
   customerId: string;
 
   @ManyToOne(() => Promotion, { nullable: false, onDelete: 'RESTRICT' })

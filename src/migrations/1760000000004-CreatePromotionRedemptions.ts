@@ -8,7 +8,7 @@ export class CreatePromotionRedemptions1760000000004 implements MigrationInterfa
       CREATE TABLE "promotion_redemptions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "order_id" uuid NOT NULL,
-        "customer_id" uuid NOT NULL,
+        "customer_id" character varying(28) NOT NULL,
         "promotion_id" uuid NOT NULL,
         "promotion_code" character varying(100) NOT NULL,
         "discount_amount" numeric(12,2) NOT NULL DEFAULT 0,

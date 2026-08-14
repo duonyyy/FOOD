@@ -26,9 +26,9 @@ Tách Payment và Delivery thành hai feature có ownership rõ ràng, idempoten
 
 ### P4.1 — Nhận handoff và risk review
 
-- [ ] Xác nhận Phase 3 `DONE` — implementation DONE nhưng final gate còn
-  `CONDITIONAL` do repository-wide lint, aggregate Jest timeout và thiếu Docker/
-  DB smoke evidence.
+- [ ] Xác nhận Phase 3 `DONE` — implementation DONE và Docker/DB smoke đã PASS,
+  nhưng final gate còn `CONDITIONAL` do repository-wide lint và aggregate Jest
+  timeout.
 - [x] Đọc Order state/event/Unit of Work contracts.
 - [x] Chạy payment/promotion/delivery characterization tests: 8 suites / 44 tests PASS.
 - [x] Map gateway callback, assignment job và status callers.

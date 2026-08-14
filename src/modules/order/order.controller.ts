@@ -26,7 +26,7 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Permission } from 'src/constants/permission.enum';
 import { Order } from 'src/entities/order.entity';
 import { CurrentActor, type CurrentActorData } from 'src/features/identity/public-api';
-import { OrderActorPolicy } from 'src/features/orders/public-api';
+import { OrderActorPolicy } from 'src/features/orders/policy/order-actor.policy';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { PaymentService } from 'src/payment/payment.service';
 import { pubSub } from 'src/pubsub'; // THÊM IMPORT NÀY

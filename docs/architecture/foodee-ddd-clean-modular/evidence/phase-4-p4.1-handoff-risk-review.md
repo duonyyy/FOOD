@@ -5,10 +5,10 @@ Date: 2026-08-14
 ## Handoff status
 
 Phase 3 implementation is **DONE**, but its final gate is still
-**CONDITIONAL**. Repository-wide lint has baseline errors, aggregate Jest did
-not finish within the previous 180s/300s runs, and Docker/DB migration smoke
-was not yet recorded in the Phase 3 evidence. Therefore P4.1 cannot honestly
-mark the Phase 3 prerequisite as fully cleared.
+**CONDITIONAL**. Docker/DB migration smoke now passes; repository-wide lint has
+baseline errors and aggregate Jest did not finish within the previous
+180s/300s runs. Therefore P4.1 still cannot honestly mark the Phase 3
+prerequisite as fully cleared.
 
 ## Contracts reviewed
 
@@ -72,9 +72,10 @@ handler behavior.
 - Payment status is currently an enum on `Checkout`, while the Phase 4 model
   needs explicit processing, succeeded, failed, canceled and refunded states.
   Migration must preserve old rows and provide a rollback path.
-- There is no recorded PostgreSQL migration smoke for the Phase 3 handoff yet;
-  schema changes must be tested against the actual container database before
-  being treated as complete.
+- PostgreSQL migration smoke has now run against the actual container database:
+  29 migrations are applied and the Phase 3 tables exist. The smoke caught a
+  `varchar(28)` versus `uuid` customer key mismatch, which was corrected before
+  the successful rerun.
 
 ### Concurrency and idempotency risks
 
@@ -109,5 +110,5 @@ handler behavior.
 P4.1 handoff/risk review: **DONE WITH CONDITIONAL PREREQUISITE**.
 
 The evidence and caller/risk map are ready. T6.1 may now proceed only with the
-above constraints visible; it should not silently assume that Phase 3's global
-quality/runtime gate is fully closed.
+above constraints visible; Docker runtime is verified, but Phase 3's global
+lint/aggregate-test gate is not fully closed.

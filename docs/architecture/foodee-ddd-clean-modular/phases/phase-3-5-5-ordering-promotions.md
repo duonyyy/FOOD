@@ -113,14 +113,14 @@ Evidence: [T5.7 Order actor controllers](../evidence/phase-3-t5.7-order-actor-co
 
 - [x] State machine và pricing tests pass.
 - [x] Query không gây mutation.
-- [ ] OrderItem snapshot hoạt động và migration smoke pass — migration unit smoke
-  pass, nhưng Docker/DB runtime hiện bị block bởi quyền truy cập Docker daemon.
+- [x] OrderItem snapshot hoạt động và migration smoke pass — Docker migration
+  chạy thành công; database có 29 migrations và snapshot schema đã được áp dụng.
 - [x] Order/promotion rollback và retry tests pass ở unit/migration level.
 - [x] Event chỉ dispatch sau commit.
 - [x] Không repository chéo Catalog/Merchant/Locations trong active Phase 3 paths.
 - [x] Role/ownership e2e pass.
-- [ ] Build/lint/unit/integration/e2e pass — build và e2e pass; repository-wide
-  lint còn baseline errors và aggregate unit command timeout.
+- [ ] Build/lint/unit/integration/e2e pass — build, targeted unit và e2e pass;
+  repository-wide lint còn baseline errors và aggregate unit command timeout.
 - [x] Handoff report cho Opus 4.6 hoàn tất: [final verification](../evidence/phase-3-final-verification.md).
 
 ## Handoff cho Phase 4
