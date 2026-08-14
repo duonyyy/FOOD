@@ -71,6 +71,7 @@ Phân công một model cho một phase nằm tại [07-model-task-allocation.md
 | T5.6 | Ordering | Outbox/after-commit event contract | 2d | T5.5 | `DONE` | [T5.6 Outbox evidence](./evidence/phase-3-t5.6-outbox-after-commit.md); 3 suites/12 tests PASS; build PASS |
 | T5.7 | Ordering | Customer/merchant/admin controllers | 1.5d | T0.2, T5.2 | `DONE` | [T5.7 Order actor controllers evidence](./evidence/phase-3-t5.7-order-actor-controllers.md); 4 suites/16 tests PASS; build PASS |
 | P3.GATE | Phase 3 | Final verification and handoff | 0.5d | T5.1–T5.7 | `CONDITIONAL` | [Phase 3 final verification](./evidence/phase-3-final-verification.md); implementation DONE, Docker runtime smoke and repository-wide lint remain open |
+| P4.1 | Phase 4 | Payments/Delivery handoff và risk review | 0.5d | P3.GATE | `CONDITIONAL` | [P4.1 handoff and risk review](./evidence/phase-4-p4.1-handoff-risk-review.md); 8 suites/44 characterization tests PASS; Phase 3 prerequisite not fully cleared |
 | T6.1 | Payments | Payment ownership model | 1d | T2.1, T5.1 | `TODO` | — |
 | T6.2 | Payments | Gateway port/adapters | 2d | T6.1 | `TODO` | — |
 | T6.3 | Payments | Webhook signature/amount/idempotency | 2d | T0.5, T6.2 | `TODO` | — |
