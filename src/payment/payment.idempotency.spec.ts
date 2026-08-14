@@ -10,10 +10,10 @@ describe('Payment callback idempotency characterization', () => {
   };
   let eventBus: { publish: jest.Mock };
   let momoGateway: {
-    initialize: jest.Mock;
     verifyWebhookSignature: jest.Mock;
     handleWebhookEvent: jest.Mock;
   };
+  let gatewayRouter: { get: jest.Mock };
   let service: PaymentService;
 
   beforeEach(() => {
@@ -47,15 +47,14 @@ describe('Payment callback idempotency characterization', () => {
     };
     eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
     momoGateway = {
-      initialize: jest.fn(),
       verifyWebhookSignature: jest.fn().mockReturnValue(true),
       handleWebhookEvent: jest.fn(),
     };
+    gatewayRouter = { get: jest.fn().mockReturnValue(momoGateway) };
     service = new PaymentService(
       checkoutRepository as never,
       { get: jest.fn() } as never,
-      momoGateway as never,
-      {} as never,
+      gatewayRouter as never,
       eventBus as never,
     );
   });

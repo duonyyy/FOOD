@@ -1,15 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import {
-  IPaymentGateway,
-  PaymentGatewayConfig,
-  PaymentIntent,
-  PaymentResult,
+  mapPaymentGatewayError,
+  missingPaymentGatewayConfiguration,
+} from 'src/features/payments/contracts/payment-gateway.error';
+import {
+  type PaymentGatewayConfig,
+  type PaymentGatewayPort,
+  type PaymentIntent,
+  type PaymentResult,
   PaymentStatus,
-} from 'src/payment/interfaces/payment-gateway.interface';
+} from 'src/features/payments/contracts/payment-gateway.port';
 
 /**
  * Momo Payment Gateway Implementation
@@ -18,7 +22,8 @@ import {
  * It handles payment creation, confirmation, cancellation, and status checking.
  */
 @Injectable()
-export class MomoPaymentGateway implements IPaymentGateway {
+export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
+  readonly provider = 'momo' as const;
   private readonly logger = new Logger(MomoPaymentGateway.name);
   private config: PaymentGatewayConfig;
   private baseUrl: string;
@@ -34,6 +39,12 @@ export class MomoPaymentGateway implements IPaymentGateway {
 
   constructor(private readonly configService: ConfigService) {}
 
+  onModuleInit(): void {
+    this.initialize({
+      environment: this.configService.get<string>('NODE_ENV') === 'production' ? 'production' : 'sandbox',
+    });
+  }
+
   /**
    * Initialize the Momo payment gateway with configuration
    * @param config Payment gateway configuration
@@ -43,19 +54,15 @@ export class MomoPaymentGateway implements IPaymentGateway {
 
     // Credentials must come from environment; never ship provider sample secrets.
     this.momoConfig = {
-      accessKey: this.configService.get<string>('MOMO_ACCESS_KEY') || '',
-      secretKey: this.configService.get<string>('MOMO_SECRET_KEY') || '',
-      partnerCode: this.configService.get<string>('MOMO_PARTNER_CODE') || 'MOMO',
-      redirectUrl:
-        this.configService.get<string>('MOMO_REDIRECT_URL') ||
-        'http://localhost:5000/views/home.html',
-      ipnUrl:
-        this.configService.get<string>('MOMO_IPN_URL') ||
-        'https://0778-14-178-58-205.ngrok-free.app/callback',
+      accessKey: this.configService.get<string>('MOMO_ACCESS_KEY') || config.apiKey || '',
+      secretKey: this.configService.get<string>('MOMO_SECRET_KEY') || config.secretKey || '',
+      partnerCode: this.configService.get<string>('MOMO_PARTNER_CODE') || '',
+      redirectUrl: this.configService.get<string>('MOMO_REDIRECT_URL') || '',
+      ipnUrl: this.configService.get<string>('MOMO_IPN_URL') || '',
       requestType: this.configService.get<string>('MOMO_REQUEST_TYPE') || 'payWithMethod',
       lang: this.configService.get<string>('MOMO_LANG') || 'vi',
     };
-    if (!this.momoConfig.accessKey || !this.momoConfig.secretKey) {
+    if (!this.hasRequiredConfiguration()) {
       if (config.environment === 'production') {
         throw new Error('MOMO_ACCESS_KEY and MOMO_SECRET_KEY are required in production');
       }
@@ -86,17 +93,27 @@ export class MomoPaymentGateway implements IPaymentGateway {
     orderId: string,
     amount: number,
     currency: string,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): Promise<PaymentIntent> {
     try {
+      this.assertConfigured('create_payment_intent');
       // Extract configuration values
-      const { accessKey, secretKey, partnerCode, redirectUrl, ipnUrl, requestType, lang } =
-        this.momoConfig;
+      const {
+        accessKey,
+        secretKey,
+        partnerCode,
+        redirectUrl: redirectUrlFromConfig,
+        ipnUrl: ipnUrlFromConfig,
+        requestType,
+        lang,
+      } = this.momoConfig;
 
       // Set default values for optional parameters
-      const orderInfo = metadata?.orderInfo || 'pay with MoMo';
-      const extraData = metadata?.extraData || '';
-      const orderGroupId = metadata?.orderGroupId || '';
+      const orderInfo = metadataString(metadata, 'orderInfo', 'pay with MoMo');
+      const extraData = metadataString(metadata, 'extraData', '');
+      const orderGroupId = metadataString(metadata, 'orderGroupId', '');
+      const redirectUrl = metadataString(metadata, 'redirectUrl', redirectUrlFromConfig);
+      const callbackUrl = metadataString(metadata, 'ipnUrl', ipnUrlFromConfig);
       const autoCapture = true;
 
       // Set request ID to order ID
@@ -107,7 +124,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
         accessKey,
         amount,
         extraData,
-        ipnUrl,
+        ipnUrl: callbackUrl,
         orderId,
         orderInfo,
         partnerCode,
@@ -129,7 +146,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
         orderId,
         orderInfo,
         redirectUrl,
-        ipnUrl,
+        ipnUrl: callbackUrl,
         lang,
         requestType,
         autoCapture,
@@ -147,6 +164,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
           'Content-Length': Buffer.byteLength(requestBody),
         },
         data: requestBody,
+        timeout: this.timeoutMs,
       };
 
       // Send request to Momo
@@ -163,12 +181,12 @@ export class MomoPaymentGateway implements IPaymentGateway {
         metadata: {
           ...metadata,
           momoRequestId,
-          payUrl,
         },
       };
     } catch (error) {
-      this.logProviderError('create_payment_intent', error);
-      throw error;
+      const mapped = mapPaymentGatewayError('momo', 'create_payment_intent', error);
+      this.logProviderError('create_payment_intent', mapped);
+      throw mapped;
     }
   }
 
@@ -186,10 +204,11 @@ export class MomoPaymentGateway implements IPaymentGateway {
         paymentIntentId,
       };
     } catch (error) {
-      this.logProviderError('confirm_payment_intent', error);
+      const mapped = mapPaymentGatewayError('momo', 'confirm_payment_intent', error);
+      this.logProviderError('confirm_payment_intent', mapped);
       return {
         success: false,
-        error: error.message,
+        error: mapped.code,
       };
     }
   }
@@ -217,10 +236,11 @@ export class MomoPaymentGateway implements IPaymentGateway {
         };
       }
     } catch (error) {
-      this.logProviderError('cancel_payment_intent', error);
+      const mapped = mapPaymentGatewayError('momo', 'cancel_payment_intent', error);
+      this.logProviderError('cancel_payment_intent', mapped);
       return {
         success: false,
-        error: error.message,
+        error: mapped.code,
       };
     }
   }
@@ -258,8 +278,9 @@ export class MomoPaymentGateway implements IPaymentGateway {
         },
       };
     } catch (error) {
-      this.logProviderError('get_payment_intent', error);
-      throw error;
+      const mapped = mapPaymentGatewayError('momo', 'get_payment_intent', error);
+      this.logProviderError('get_payment_intent', mapped);
+      throw mapped;
     }
   }
 
@@ -269,19 +290,23 @@ export class MomoPaymentGateway implements IPaymentGateway {
    * @param signature Webhook signature
    * @returns Whether the signature is valid
    */
-  verifyWebhookSignature(payload: any, signature: string): boolean {
+  verifyWebhookSignature(payload: Record<string, unknown>, signature: string): boolean {
     try {
+      if (!this.hasRequiredConfiguration()) {
+        this.logProviderError('verify_webhook_signature', missingPaymentGatewayConfiguration('momo', 'verify_webhook_signature'));
+        return false;
+      }
       // For Momo, we need to verify the signature from the webhook
       // The signature is created using the same method as the request
       const rawSignature =
         'accessKey=' +
         this.momoConfig.accessKey +
         '&orderId=' +
-        payload.orderId +
+        String(payload.orderId || '') +
         '&partnerCode=' +
-        payload.partnerCode +
+        String(payload.partnerCode || '') +
         '&requestId=' +
-        payload.requestId;
+        String(payload.requestId || '');
 
       const expectedSignature = this.generateHmacSignature(rawSignature, this.momoConfig.secretKey);
 
@@ -296,7 +321,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
    * Handle webhook event
    * @param payload Webhook payload
    */
-  async handleWebhookEvent(_payload: any): Promise<void> {
+  async handleWebhookEvent(_payload: Record<string, unknown>): Promise<void> {
     // Momo webhook handling is done in the PaymentService
     // This method is just a placeholder
   }
@@ -308,6 +333,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
    */
   private async checkTransactionStatus(orderId: string): Promise<PaymentStatus> {
     try {
+      this.assertConfigured('check_transaction_status');
       const { accessKey, secretKey, partnerCode, lang } = this.momoConfig;
       const requestId = orderId;
 
@@ -338,6 +364,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
         headers: {
           'Content-Type': 'application/json',
         },
+        timeout: this.timeoutMs,
       });
 
       const { resultCode } = response.data;
@@ -349,8 +376,26 @@ export class MomoPaymentGateway implements IPaymentGateway {
         return PaymentStatus.FAILED;
       }
     } catch (error) {
-      this.logProviderError('check_transaction_status', error);
-      return PaymentStatus.FAILED;
+      const mapped = mapPaymentGatewayError('momo', 'check_transaction_status', error);
+      this.logProviderError('check_transaction_status', mapped);
+      throw mapped;
+    }
+  }
+
+  private get timeoutMs(): number {
+    const configured = Number(this.configService.get<string>('PAYMENT_GATEWAY_TIMEOUT_MS', '10000'));
+    return Number.isFinite(configured) && configured > 0 ? configured : 10000;
+  }
+
+  private hasRequiredConfiguration(): boolean {
+    return Boolean(
+      this.momoConfig?.accessKey && this.momoConfig?.secretKey && this.momoConfig?.partnerCode,
+    );
+  }
+
+  private assertConfigured(operation: string): void {
+    if (!this.hasRequiredConfiguration()) {
+      throw missingPaymentGatewayConfiguration('momo', operation);
     }
   }
 
@@ -361,6 +406,7 @@ export class MomoPaymentGateway implements IPaymentGateway {
       operation,
       errorCode: getProviderErrorCode(error),
       errorType: getProviderErrorType(error),
+      retryable: error instanceof Error && 'retryable' in error ? error.retryable : false,
     });
   }
 
@@ -427,4 +473,12 @@ export class MomoPaymentGateway implements IPaymentGateway {
   private generateHmacSignature(rawSignature: string, secretKey: string): string {
     return crypto.createHmac('sha256', secretKey).update(rawSignature).digest('hex');
   }
+}
+
+function metadataString(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+  fallback: string,
+): string {
+  return typeof metadata?.[key] === 'string' ? metadata[key] : fallback;
 }

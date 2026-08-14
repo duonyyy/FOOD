@@ -4,12 +4,16 @@ import * as crypto from 'crypto';
 import * as qs from 'qs'; // Replace querystring with qs to match VNPAY exactly
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import {
-  IPaymentGateway,
-  PaymentGatewayConfig,
-  PaymentIntent,
-  PaymentResult,
+  mapPaymentGatewayError,
+  missingPaymentGatewayConfiguration,
+} from 'src/features/payments/contracts/payment-gateway.error';
+import {
+  type PaymentGatewayConfig,
+  type PaymentGatewayPort,
+  type PaymentIntent,
+  type PaymentResult,
   PaymentStatus,
-} from 'src/payment/interfaces/payment-gateway.interface';
+} from 'src/features/payments/contracts/payment-gateway.port';
 
 /**
  * VNPAY Payment Gateway Implementation
@@ -18,7 +22,8 @@ import {
  * It handles payment creation, confirmation, cancellation, and status checking.
  */
 @Injectable()
-export class VnpayPaymentGateway implements IPaymentGateway {
+export class VnpayPaymentGateway implements PaymentGatewayPort {
+  readonly provider = 'vnpay' as const;
   private readonly logger = new Logger(VnpayPaymentGateway.name);
   private config: PaymentGatewayConfig;
   private baseUrl: string;
@@ -130,8 +135,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
     metadata?: Record<string, any>,
   ): Promise<PaymentIntent> {
     try {
-      // Set timezone to match VNPAY's requirements
-      process.env.TZ = 'Asia/Ho_Chi_Minh';
+      this.assertConfigured('create_payment_intent');
 
       const { tmnCode, secretKey, version, locale } = this.vnpayConfig;
 
@@ -202,15 +206,14 @@ export class VnpayPaymentGateway implements IPaymentGateway {
         status: PaymentStatus.PENDING,
         clientSecret: paymentUrl,
         metadata: {
-          ...metadata,
           vnp_TxnRef: orderId,
           vnp_CreateDate: createDateFormat,
-          paymentUrl,
         },
       };
     } catch (error) {
-      this.logProviderError('create_payment_intent', error);
-      throw error;
+      const mapped = mapPaymentGatewayError('vnpay', 'create_payment_intent', error);
+      this.logProviderError('create_payment_intent', mapped);
+      throw mapped;
     }
   }
 
@@ -416,7 +419,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
    * @param signature Signature to verify
    * @returns Whether the signature is valid
    */
-  verifyWebhookSignature(payload: Record<string, any>, signature: string): boolean {
+  verifyWebhookSignature(payload: Record<string, unknown>, signature: string): boolean {
     try {
       if (!payload || !signature) {
         this.logger.warn('Missing payload or signature');
@@ -425,12 +428,11 @@ export class VnpayPaymentGateway implements IPaymentGateway {
 
       // Ensure config is initialized
       if (!this.vnpayConfig?.secretKey) {
-      this.logger.error({
-        event: 'provider_configuration_missing',
-        provider: 'vnpay',
-        errorCode: 'CONFIGURATION_MISSING',
-      });
-        this.initializeDefaults();
+        this.logProviderError(
+          'verify_webhook_signature',
+          missingPaymentGatewayConfiguration('vnpay', 'verify_webhook_signature'),
+        );
+        return false;
       }
 
       const secretKey = this.vnpayConfig.secretKey;
@@ -456,7 +458,7 @@ export class VnpayPaymentGateway implements IPaymentGateway {
    * Handle webhook event
    * @param payload Webhook payload
    */
-  async handleWebhookEvent(_payload: any): Promise<void> {
+  async handleWebhookEvent(_payload: Record<string, unknown>): Promise<void> {
     // VNPAY webhook handling is typically done in the payment service
     // This method is a placeholder for interface implementation
     this.logger.debug({ event: 'webhook_event_received', provider: 'vnpay' });
@@ -469,7 +471,14 @@ export class VnpayPaymentGateway implements IPaymentGateway {
       operation,
       errorCode: getProviderErrorCode(error),
       errorType: getProviderErrorType(error),
+      retryable: error instanceof Error && 'retryable' in error ? error.retryable : false,
     });
+  }
+
+  private assertConfigured(operation: string): void {
+    if (!this.vnpayConfig?.tmnCode || !this.vnpayConfig?.secretKey) {
+      throw missingPaymentGatewayConfiguration('vnpay', operation);
+    }
   }
 
   /**

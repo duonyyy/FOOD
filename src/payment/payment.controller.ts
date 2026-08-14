@@ -121,9 +121,6 @@ export class PaymentController {
   @Redirect()
   async handleVnpayResult(@Query() query: Record<string, string>) {
     try {
-      // Set the VNPAY payment gateway
-      this.paymentService.setPaymentGateway(this.vnpayPaymentGateway);
-
       // Process the return URL parameters
       const result = this.vnpayPaymentGateway.processReturnUrl(query);
       if (!result.paymentIntentId) {
@@ -159,9 +156,6 @@ export class PaymentController {
   @Get('webhook/vnpay')
   async handleVnpayIpn(@Query() query: Record<string, string>) {
     try {
-      // Set the VNPAY payment gateway
-      this.paymentService.setPaymentGateway(this.vnpayPaymentGateway);
-
       // Process the IPN notification
       return this.vnpayPaymentGateway.processIpnNotification(query);
     } catch (error) {

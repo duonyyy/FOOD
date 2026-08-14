@@ -50,12 +50,14 @@ Evidence: [T6.1 Payment ownership](../evidence/phase-4-t6.1-payment-ownership.md
 
 ### P4.3 — T6.2 Gateway ports/adapters
 
-- [ ] Định nghĩa `PaymentGatewayPort`.
-- [ ] Momo adapter implement port.
-- [ ] VNPay adapter implement port.
-- [ ] Timeout, retryable/non-retryable error mapping rõ ràng.
-- [ ] Config fail-fast; không fallback secret mẫu.
-- [ ] Contract tests cho signature/request mapping.
+- [x] Định nghĩa `PaymentGatewayPort`.
+- [x] Momo adapter implement port.
+- [x] VNPay adapter implement port.
+- [x] Timeout, retryable/non-retryable error mapping rõ ràng.
+- [x] Config fail-fast; không fallback secret mẫu.
+- [x] Contract tests cho signature/request mapping.
+
+Evidence: [T6.2 Gateway ports/adapters](../evidence/phase-4-t6.2-payment-gateway-ports.md).
 
 ### P4.4 — T6.3 Webhook integrity/idempotency
 

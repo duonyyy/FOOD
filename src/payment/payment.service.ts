@@ -11,12 +11,10 @@ import {
   assertPaymentStatusTransition,
 } from 'src/features/payments/domain/payment-status-machine';
 import type { PaymentOrderSnapshot } from 'src/features/payments/contracts/payment-order-snapshot.contract';
-import { MomoPaymentGateway } from 'src/infra/payment-gateways/momo-payment.gateway';
-import { VnpayPaymentGateway } from 'src/infra/payment-gateways/vnpay-payment.gateway';
+import type { PaymentGatewayPort } from 'src/features/payments/contracts/payment-gateway.port';
+import { PaymentGatewayRouter } from 'src/infra/payment-gateways/payment-gateway.router';
 import { Repository } from 'typeorm';
 import {
-  IPaymentGateway,
-  type PaymentGatewayConfig,
   type PaymentResult,
 } from './interfaces/payment-gateway.interface';
 import type { PaymentStatusResponse } from './interfaces/payment-status.interface';
@@ -24,28 +22,14 @@ import type { PaymentStatusResponse } from './interfaces/payment-status.interfac
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
-  private paymentGateway: IPaymentGateway;
 
   constructor(
     @InjectRepository(Checkout)
     private readonly checkoutRepository: Repository<Checkout>,
     private readonly configService: ConfigService,
-    private readonly momoPaymentGateway: MomoPaymentGateway,
-    private readonly vnpayPaymentGateway: VnpayPaymentGateway,
+    private readonly paymentGateways: PaymentGatewayRouter,
     private readonly eventBus: InProcessEventBus,
   ) {}
-
-  /** Select and initialize the provider. Provider credentials are never persisted. */
-  setPaymentGateway(gateway: IPaymentGateway): void {
-    this.paymentGateway = gateway;
-    const config: PaymentGatewayConfig = {
-      apiKey: this.configService.get<string>('PAYMENT_API_KEY') || '',
-      secretKey: this.configService.get<string>('PAYMENT_SECRET_KEY') || '',
-      environment: this.configService.get<'sandbox' | 'production'>('PAYMENT_ENVIRONMENT', 'sandbox'),
-      webhookSecret: this.configService.get<string>('PAYMENT_WEBHOOK_SECRET'),
-    };
-    this.paymentGateway.initialize(config);
-  }
 
   /**
    * Ordering supplies its already-calculated snapshot. Payments never reads the
@@ -280,15 +264,11 @@ export class PaymentService {
     return checkout;
   }
 
-  private selectGateway(method: string): IPaymentGateway {
-    if (method === 'momo') {
-      this.setPaymentGateway(this.momoPaymentGateway);
-    } else if (method === 'vnpay') {
-      this.setPaymentGateway(this.vnpayPaymentGateway);
-    } else {
+  private selectGateway(method: string): PaymentGatewayPort {
+    if (method !== 'momo' && method !== 'vnpay') {
       throw new BadRequestException(`Unsupported payment method: ${method}`);
     }
-    return this.paymentGateway;
+    return this.paymentGateways.get(method);
   }
 
   private async transition(checkout: Checkout, next: CheckoutStatus): Promise<void> {

@@ -73,7 +73,7 @@ Phân công một model cho một phase nằm tại [07-model-task-allocation.md
 | P3.GATE | Phase 3 | Final verification and handoff | 0.5d | T5.1–T5.7 | `CONDITIONAL` | [Phase 3 final verification](./evidence/phase-3-final-verification.md); implementation and Docker runtime DONE, repository-wide lint and aggregate Jest gate remain open |
 | P4.1 | Phase 4 | Payments/Delivery handoff và risk review | 0.5d | P3.GATE | `CONDITIONAL` | [P4.1 handoff and risk review](./evidence/phase-4-p4.1-handoff-risk-review.md); 8 suites/44 characterization tests PASS; Docker smoke PASS, Phase 3 lint/aggregate prerequisite remains open |
 | T6.1 | Payments | Payment ownership model | 1d | T2.1, T5.1 | `DONE` | [T6.1 Payment ownership evidence](./evidence/phase-4-t6.1-payment-ownership.md); build PASS; 3 suites/11 tests PASS; Docker migration/runtime smoke PASS |
-| T6.2 | Payments | Gateway port/adapters | 2d | T6.1 | `TODO` | — |
+| T6.2 | Payments | Gateway port/adapters | 2d | T6.1 | `DONE` | [T6.2 Gateway ports/adapters evidence](./evidence/phase-4-t6.2-payment-gateway-ports.md); build PASS; 5 suites/19 tests PASS; Docker health PASS |
 | T6.3 | Payments | Webhook signature/amount/idempotency | 2d | T0.5, T6.2 | `TODO` | — |
 | T6.4 | Payments | Payment events và Ordering handler | 1.5d | T5.6, T6.3 | `TODO` | — |
 | T6.5 | Payments | Remove direct cross-feature mutations | 1.5d | T6.4 | `TODO` | — |
