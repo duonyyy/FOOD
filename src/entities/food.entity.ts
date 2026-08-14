@@ -4,7 +4,6 @@ import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, ManyToMany, OneTo
 import { Category } from './category.entity';
 import { Restaurant } from './restaurant.entity';
 import { OrderDetail } from './orderDetail.entity';
-import { Checkout } from './checkout.entity';
 import { Review } from './review.entity'; // Add this import
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 import { Topping } from './topping.entity';

@@ -15,7 +15,6 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 import { Address } from './address.entity';
-import { Checkout } from './checkout.entity';
 import { Conversation } from './conversation.entity';
 import { Message } from './message.entity';
 import { Order } from './order.entity';
@@ -116,10 +115,6 @@ export class User {
   @ApiHideProperty()
   @Column({ nullable: true, name: 'reset_password_expires' })
   resetPasswordExpires?: Date;
-
-  @Field(() => [Checkout], { nullable: true })
-  @OneToMany(() => Checkout, (checkout) => checkout.user)
-  checkouts: Checkout[];
 
   @Field(() => [Order], { nullable: true })
   @OneToMany(() => Order, (order) => order.user)

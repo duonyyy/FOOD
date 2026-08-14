@@ -4,12 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
-import { User } from './user.entity';
-import { Food } from './food.entity';
-import { Order } from './order.entity';
 import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
 import GraphQLJSON from 'graphql-type-json'; // Bạn cần cài package này
 
@@ -32,10 +27,6 @@ export class Checkout {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field()
-  @Column({ type: 'uuid' })
-  userId: string;
-
   @Field({ nullable: true })
   @Column({ type: 'uuid', nullable: true })
   orderId: string;
@@ -45,15 +36,20 @@ export class Checkout {
   amount: number;
 
   @Field()
+  @Column({ type: 'varchar', length: 3, default: 'VND' })
+  currency: string;
+
+  @Field()
   @Column({ type: 'varchar', length: 50 })
   paymentMethod: string;
 
   @Field({ nullable: true })
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   paymentIntentId: string;
 
   @Field({ nullable: true })
-  @Column({ type: 'varchar', nullable: true })
+  // Redirect URLs are returned to the caller but are never persisted because
+  // provider URLs can contain signed, short-lived secrets.
   paymentUrl: string;
 
   @Field(() => CheckoutStatus)
@@ -65,8 +61,8 @@ export class Checkout {
   status: CheckoutStatus;
 
   @Field(() => GraphQLJSON, { nullable: true })
-  @Column({ type: 'jsonb', nullable: true })
-  paymentDetails: Record<string, any>;
+  @Column({ type: 'jsonb', nullable: true, name: 'paymentDetails' })
+  providerMetadata: Record<string, unknown>;
 
   @Field()
   @CreateDateColumn()
@@ -76,13 +72,4 @@ export class Checkout {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
-  user: User;
-
-  @Field(() => Order, { nullable: true })
-  @ManyToOne(() => Order)
-  @JoinColumn({ name: 'orderId' })
-  order: Order;
 }

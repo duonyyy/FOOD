@@ -119,7 +119,14 @@ export class OrderController {
       let paymentUrl: string | undefined = undefined;
       let checkoutId: string | undefined = undefined;
       if (body.paymentMethod && body.paymentMethod !== 'cod') {
-        const checkout = await this.paymentService.createCheckout(order.id, body.paymentMethod);
+        const checkout = await this.paymentService.createCheckout(
+          {
+            orderId: order.id,
+            amount: Number(order.total),
+            currency: 'VND',
+          },
+          body.paymentMethod,
+        );
         paymentUrl = checkout.paymentUrl;
         checkoutId = checkout.id;
 

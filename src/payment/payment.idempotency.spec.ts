@@ -1,21 +1,14 @@
 import { BadRequestException } from '@nestjs/common';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
-import { Order } from 'src/entities/order.entity';
-import { pubSub } from 'src/pubsub';
 import { PaymentService } from './payment.service';
 
-jest.mock('src/pubsub', () => ({ pubSub: { publish: jest.fn().mockResolvedValue(true) } }));
-
 describe('Payment callback idempotency characterization', () => {
-  const mockedPubSub = pubSub as unknown as { publish: jest.Mock };
   let checkout: Checkout;
-  let order: Order;
   let transactionalCheckoutRepository: { findOne: jest.Mock; save: jest.Mock };
-  let transactionalOrderRepository: { findOne: jest.Mock; save: jest.Mock };
-  let orderRepository: { findOne: jest.Mock };
   let checkoutRepository: {
     manager: { transaction: jest.Mock };
   };
+  let eventBus: { publish: jest.Mock };
   let momoGateway: {
     initialize: jest.Mock;
     verifyWebhookSignature: jest.Mock;
@@ -32,24 +25,12 @@ describe('Payment callback idempotency characterization', () => {
       amount: 100_000,
       status: CheckoutStatus.PENDING,
     });
-    order = Object.assign(new Order(), {
-      id: 'order-1',
-      total: 100_000,
-      status: 'processing_payment',
-      orderDetails: [],
-    });
     transactionalCheckoutRepository = {
       findOne: jest.fn(async () => checkout),
       save: jest.fn(async (value) => value),
     };
-    transactionalOrderRepository = {
-      findOne: jest.fn(async () => order),
-      save: jest.fn(async (value) => value),
-    };
     const transactionManager = {
-      getRepository: jest.fn((entity) =>
-        entity === Checkout ? transactionalCheckoutRepository : transactionalOrderRepository,
-      ),
+      getRepository: jest.fn(() => transactionalCheckoutRepository),
     };
     let transactionTail: Promise<unknown> = Promise.resolve();
     checkoutRepository = {
@@ -64,25 +45,18 @@ describe('Payment callback idempotency characterization', () => {
         }),
       },
     };
-    orderRepository = {
-      findOne: jest.fn(async () => ({ ...order, orderDetails: [] })),
-    };
+    eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
     momoGateway = {
       initialize: jest.fn(),
       verifyWebhookSignature: jest.fn().mockReturnValue(true),
       handleWebhookEvent: jest.fn(),
     };
     service = new PaymentService(
-      orderRepository as never,
-      {} as never,
       checkoutRepository as never,
-      {} as never,
-      {} as never,
-      {} as never,
       { get: jest.fn() } as never,
       momoGateway as never,
       {} as never,
-      {} as never,
+      eventBus as never,
     );
   });
 
@@ -93,9 +67,7 @@ describe('Payment callback idempotency characterization', () => {
     ]);
 
     expect(transactionalCheckoutRepository.save).toHaveBeenCalledTimes(1);
-    expect(transactionalOrderRepository.save).toHaveBeenCalledTimes(1);
-    expect(orderRepository.findOne).toHaveBeenCalledTimes(1);
-    expect(mockedPubSub.publish).toHaveBeenCalledTimes(2);
+    expect(eventBus.publish).toHaveBeenCalledTimes(1);
   });
 
   it('does not replay side effects when a completed callback is retried', async () => {
@@ -104,9 +76,7 @@ describe('Payment callback idempotency characterization', () => {
     await service.handlePaymentSuccess('provider-reference-1', 100_000);
 
     expect(transactionalCheckoutRepository.save).not.toHaveBeenCalled();
-    expect(transactionalOrderRepository.save).not.toHaveBeenCalled();
-    expect(orderRepository.findOne).not.toHaveBeenCalled();
-    expect(mockedPubSub.publish).not.toHaveBeenCalled();
+    expect(eventBus.publish).not.toHaveBeenCalled();
   });
 
   it('rejects a callback amount that differs from checkout/order amount', async () => {

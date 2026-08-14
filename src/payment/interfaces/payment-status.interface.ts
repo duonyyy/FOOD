@@ -5,9 +5,9 @@
 export interface PaymentStatusResponse {
   /** Order identifier */
   orderId: string;
-  /** Status of the order (pending, completed, failed, etc.) */
+  /** Payment status from the checkout state machine */
   status: string;
-  /** Total amount of the order */
+  /** Server-authoritative amount snapshot captured at checkout creation */
   amount: number;
   /** Currency code (VND, USD, etc.) */
   currency: string;
@@ -19,6 +19,4 @@ export interface PaymentStatusResponse {
   paymentIntentStatus?: string;
   /** Payment method used */
   paymentMethod: string;
-  /** Additional metadata related to the payment */
-  metadata?: Record<string, any>;
 }

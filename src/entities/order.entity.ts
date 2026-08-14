@@ -6,7 +6,6 @@ import { Address } from './address.entity';
 import { OrderDetail } from './orderDetail.entity';
 import { ShippingDetail } from './shippingDetail.entity';
 import { Promotion } from './promotion.entity';
-import { Checkout } from './checkout.entity';
 import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
 
 @ObjectType()
@@ -85,10 +84,6 @@ export class Order {
     @Field()
     @Column({ default: false })
     isPaid: boolean;
-
-    @Field(() => [Checkout], { nullable: true })
-    @OneToMany(() => Checkout, checkout => checkout.order)
-    checkout: Checkout[];
 
     // Add these new fields
     @Field(() => Float, { nullable: true })

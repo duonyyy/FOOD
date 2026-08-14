@@ -4,24 +4,22 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import {
   PAYMENT_SUCCEEDED_EVENT,
-  PaymentSucceededEvent,
+  type PaymentSucceededEvent,
 } from 'src/common/events/payment-succeeded.event';
-import { Food } from 'src/entities/food.entity';
-import { Promotion } from 'src/entities/promotion.entity';
-import { User } from 'src/entities/user.entity';
+import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
+import {
+  assertPaymentStatusTransition,
+} from 'src/features/payments/domain/payment-status-machine';
+import type { PaymentOrderSnapshot } from 'src/features/payments/contracts/payment-order-snapshot.contract';
 import { MomoPaymentGateway } from 'src/infra/payment-gateways/momo-payment.gateway';
 import { VnpayPaymentGateway } from 'src/infra/payment-gateways/vnpay-payment.gateway';
-import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
-import { Checkout, CheckoutStatus } from '../entities/checkout.entity';
-import { Order } from '../entities/order.entity';
-import { OrderDetail } from '../entities/orderDetail.entity';
 import {
   IPaymentGateway,
-  PaymentGatewayConfig,
-  PaymentResult,
+  type PaymentGatewayConfig,
+  type PaymentResult,
 } from './interfaces/payment-gateway.interface';
-import { PaymentStatusResponse } from './interfaces/payment-status.interface';
+import type { PaymentStatusResponse } from './interfaces/payment-status.interface';
 
 @Injectable()
 export class PaymentService {
@@ -29,490 +27,214 @@ export class PaymentService {
   private paymentGateway: IPaymentGateway;
 
   constructor(
-    @InjectRepository(Order)
-    private orderRepository: Repository<Order>,
-    @InjectRepository(OrderDetail)
-    private orderDetailRepository: Repository<OrderDetail>,
     @InjectRepository(Checkout)
-    private checkoutRepository: Repository<Checkout>,
-    @InjectRepository(Food)
-    private foodRepository: Repository<Food>,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(Promotion)
-    private promotionRepository: Repository<Promotion>,
-
-    private configService: ConfigService,
-    private momoPaymentGateway: MomoPaymentGateway,
-    private vnpayPaymentGateway: VnpayPaymentGateway,
+    private readonly checkoutRepository: Repository<Checkout>,
+    private readonly configService: ConfigService,
+    private readonly momoPaymentGateway: MomoPaymentGateway,
+    private readonly vnpayPaymentGateway: VnpayPaymentGateway,
     private readonly eventBus: InProcessEventBus,
   ) {}
 
-  /**
-   * Set the payment gateway implementation
-   */
-  setPaymentGateway(gateway: IPaymentGateway) {
+  /** Select and initialize the provider. Provider credentials are never persisted. */
+  setPaymentGateway(gateway: IPaymentGateway): void {
     this.paymentGateway = gateway;
-
-    // Initialize the gateway with configuration
     const config: PaymentGatewayConfig = {
       apiKey: this.configService.get<string>('PAYMENT_API_KEY') || '',
       secretKey: this.configService.get<string>('PAYMENT_SECRET_KEY') || '',
-      environment: this.configService.get<'sandbox' | 'production'>(
-        'PAYMENT_ENVIRONMENT',
-        'sandbox',
-      ),
+      environment: this.configService.get<'sandbox' | 'production'>('PAYMENT_ENVIRONMENT', 'sandbox'),
       webhookSecret: this.configService.get<string>('PAYMENT_WEBHOOK_SECRET'),
     };
-
     this.paymentGateway.initialize(config);
   }
 
   /**
-   * Create a checkout session for an order, or auto-complete if order is free
-   * @param orderId Order ID to create checkout for
-   * @param paymentMethod Payment method (only used for paid orders)
-   * @returns Checkout record (completed immediately for free orders)
+   * Ordering supplies its already-calculated snapshot. Payments never reads the
+   * Order, User, Catalog or Promotion repositories to create a checkout.
    */
-  async createCheckout(orderId: string, paymentMethod: string): Promise<Checkout> {
-    // Get the order with details including promotion
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['orderDetails', 'user', 'orderDetails.food', 'promotionCode'],
+  async createCheckout(
+    order: PaymentOrderSnapshot,
+    paymentMethod: string,
+  ): Promise<Checkout> {
+    this.assertSnapshot(order);
+
+    const checkout = this.checkoutRepository.create({
+      orderId: order.orderId,
+      amount: order.amount,
+      currency: order.currency,
+      paymentMethod,
+      status: order.amount === 0 ? CheckoutStatus.COMPLETED : CheckoutStatus.PENDING,
     });
+    await this.checkoutRepository.save(checkout);
 
-    if (!order) {
-      throw new BadRequestException(`Order with ID ${orderId} not found`);
-    }
-
-    // Handle free orders (price = 0) differently
-    if (order.total === 0) {
-      this.logger.log(`Order ${orderId} has zero price - processing as free order`);
-      const checkout = this.checkoutRepository.create({
-        user: order.user,
-        amount: 0,
-        paymentMethod: 'free',
-        status: CheckoutStatus.COMPLETED,
-        orderId: orderId,
-      });
-      await this.checkoutRepository.save(checkout);
-
-      // Update order status to completed
-      order.status = 'completed';
-      await this.orderRepository.save(order);
-
-      // Update food purchase count
-      await this.updateFoodPurchaseCount(orderId);
-
-      this.logger.log(`Free order ${orderId} processed automatically without payment`);
+    if (order.amount === 0) {
+      await this.publishSucceeded(checkout);
       return checkout;
     }
 
-    // Regular flow for paid orders
-    const checkout = this.checkoutRepository.create({
-      user: order.user,
-      amount: order.total,
-      paymentMethod,
-      status: CheckoutStatus.PENDING,
-      orderId: orderId,
-    });
+    const gateway = this.selectGateway(paymentMethod);
+    try {
+      const paymentIntent = await gateway.createPaymentIntent(
+        order.orderId,
+        order.amount,
+        order.currency,
+        {
+          orderId: order.orderId,
+          checkoutId: checkout.id,
+          redirectUrl: `${this.configService.get<string>('API_URL')}/payment/${paymentMethod}/result`,
+          ipnUrl: `${this.configService.get<string>('API_URL')}/payment/webhook`,
+        },
+      );
+      checkout.paymentIntentId = paymentIntent.id;
+      await this.checkoutRepository.save(checkout);
 
-    await this.checkoutRepository.save(checkout);
-
-    // Include promotion information in metadata
-    const promotionMetadata = order.promotionCode
-      ? {
-          promotionId: order.promotionCode.id,
-          promotionCode: order.promotionCode.code,
-          promotionType: order.promotionCode.type,
-        }
-      : {};
-
-    if (paymentMethod === 'momo') {
-      this.setPaymentGateway(this.momoPaymentGateway);
-    } else if (paymentMethod === 'vnpay') {
-      this.setPaymentGateway(this.vnpayPaymentGateway);
-    } else {
-      throw new BadRequestException(`Unsupported payment method: ${paymentMethod}`);
-    }
-
-    switch (paymentMethod) {
-      case 'momo':
-        try {
-          const paymentIntent = await this.paymentGateway.createPaymentIntent(
-            orderId,
-            order.total,
-            'VND', // Default currency for Momo
-            {
-              orderId,
-              checkoutId: checkout.id,
-              userId: order.user.id,
-              redirectUrl: `${this.configService.get<string>('API_URL')}/payment/momo/result`,
-              ipnUrl: `${this.configService.get<string>('API_URL')}/payment/webhook`,
-              ...promotionMetadata, // Include promotion data
-            },
-          );
-
-          // Update checkout with payment intent ID
-          checkout.paymentIntentId = paymentIntent.id;
-          await this.checkoutRepository.save(checkout);
-
-          // For Momo, we need to return the payment URL
-          if (paymentMethod === 'momo' && paymentIntent.clientSecret) {
-            return {
-              ...checkout,
-              paymentUrl: paymentIntent.clientSecret,
-            };
-          }
-
-          return checkout;
-        } catch (error) {
-          this.logger.error(`Failed to create payment intent: ${error.message}`);
-          checkout.status = CheckoutStatus.FAILED;
-          await this.checkoutRepository.save(checkout);
-          throw new BadRequestException(`Payment processing failed: ${error.message}`);
-        }
-        break;
-      case 'vnpay':
-        try {
-          const paymentIntent = await this.paymentGateway.createPaymentIntent(
-            orderId,
-            order.total,
-            'VND', // Default currency for VNPAY
-            {
-              orderId,
-              checkoutId: checkout.id,
-              userId: order.user.id,
-              redirectUrl: `${this.configService.get<string>('VNPAY_URL')}`,
-              ipnUrl: `${this.configService.get<string>('API_URL')}/payment/webhook`,
-              ...promotionMetadata, // Include promotion data
-            },
-          );
-
-          // Update checkout with payment intent ID
-          checkout.paymentIntentId = paymentIntent.id;
-          await this.checkoutRepository.save(checkout);
-
-          // For VNPAY, we need to return the payment URL
-          if (paymentMethod === 'vnpay' && paymentIntent.clientSecret) {
-            return {
-              ...checkout,
-              paymentUrl: paymentIntent.clientSecret,
-            };
-          }
-
-          return checkout;
-        } catch (error) {
-          this.logger.error(`Failed to create payment intent: ${error.message}`);
-          checkout.status = CheckoutStatus.FAILED;
-          await this.checkoutRepository.save(checkout);
-          throw new BadRequestException(`Payment processing failed: ${error.message}`);
-        }
-        break;
-      default:
-        throw new BadRequestException(`Unsupported payment method: ${String(paymentMethod)}`);
+      // paymentUrl is intentionally transient: signed provider URLs are secrets.
+      return Object.assign(checkout, { paymentUrl: paymentIntent.clientSecret });
+    } catch (error) {
+      await this.transition(checkout, CheckoutStatus.FAILED);
+      const message = this.errorMessage(error);
+      this.logger.error(`Failed to create payment intent for checkout ${checkout.id}: ${message}`);
+      throw new BadRequestException(`Payment processing failed: ${message}`);
     }
   }
 
-  /**
-   * Process a payment for a checkout
-   */
   async processPayment(
     checkoutId: string,
-    paymentDetails: Record<string, any>,
+    paymentDetails: Record<string, unknown>,
   ): Promise<PaymentResult> {
-    const checkout = await this.checkoutRepository.findOne({
-      where: { id: checkoutId },
-      relations: ['user', 'food'],
-    });
-
+    const checkout = await this.checkoutRepository.findOne({ where: { id: checkoutId } });
     if (!checkout) {
       throw new BadRequestException(`Checkout with ID ${checkoutId} not found`);
     }
-
-    if (checkout.status !== CheckoutStatus.PENDING) {
-      throw new BadRequestException(`Checkout is not in pending status: ${checkout.status}`);
-    }
+    this.assertPending(checkout);
 
     try {
-      // Set the appropriate payment gateway based on the payment method
-      if (checkout.paymentMethod === 'momo') {
-        this.setPaymentGateway(this.momoPaymentGateway);
-      } else if (checkout.paymentMethod === 'vnpay') {
-        this.setPaymentGateway(this.vnpayPaymentGateway);
-      } else {
-        throw new BadRequestException(`Unsupported payment method: ${checkout.paymentMethod}`);
-      }
-
-      // Confirm the payment intent
-      const result = await this.paymentGateway.confirmPaymentIntent(checkout.paymentIntentId);
-
+      const result = await this.selectGateway(checkout.paymentMethod).confirmPaymentIntent(
+        checkout.paymentIntentId,
+      );
       if (result.success) {
-        // Update checkout status
-        checkout.status = CheckoutStatus.COMPLETED;
-        checkout.paymentDetails = paymentDetails;
-        await this.checkoutRepository.save(checkout);
-
-        // Update order status
-        const order = await this.orderRepository.findOne({
-          where: { id: checkout.orderId },
-        });
-
-        if (order) {
-          await this.eventBus.publish<PaymentSucceededEvent>(PAYMENT_SUCCEEDED_EVENT, {
-            orderId: order.id,
-            checkoutId: checkout.id,
-            paymentId: checkout.paymentIntentId ?? null,
-          });
-          this.logger.log(`Published orderCreated event for order ${order.id} with status pending`);
-        }
-
-        // Update food purchase count
-        await this.updateFoodPurchaseCount(checkout.orderId);
-
-        return result;
+        checkout.providerMetadata = sanitizeProviderMetadata(paymentDetails);
+        await this.transition(checkout, CheckoutStatus.COMPLETED);
+        await this.publishSucceeded(checkout);
       } else {
-        // Update checkout status to failed
-        checkout.status = CheckoutStatus.FAILED;
-        await this.checkoutRepository.save(checkout);
-        return result;
+        await this.transition(checkout, CheckoutStatus.FAILED);
       }
+      return result;
     } catch (error) {
-      this.logger.error(`Payment processing failed: ${error.message}`);
-      checkout.status = CheckoutStatus.FAILED;
-      await this.checkoutRepository.save(checkout);
-      throw new BadRequestException(`Payment processing failed: ${error.message}`);
+      if (checkout.status === CheckoutStatus.PENDING) {
+        await this.transition(checkout, CheckoutStatus.FAILED);
+      }
+      const message = this.errorMessage(error);
+      this.logger.error(`Payment processing failed for checkout ${checkout.id}: ${message}`);
+      throw new BadRequestException(`Payment processing failed: ${message}`);
     }
   }
 
-  /**
-   * Cancel a checkout
-   */
   async cancelCheckout(checkoutId: string): Promise<Checkout> {
     const checkout = await this.checkoutRepository.findOne({ where: { id: checkoutId } });
-
     if (!checkout) {
       throw new BadRequestException(`Checkout with ID ${checkoutId} not found`);
     }
+    this.assertPending(checkout);
 
-    if (checkout.status !== CheckoutStatus.PENDING) {
-      throw new BadRequestException(`Checkout is not in pending status: ${checkout.status}`);
-    }
-
-    // Set the appropriate payment gateway based on the payment method
-    if (checkout.paymentMethod === 'momo') {
-      this.setPaymentGateway(this.momoPaymentGateway);
-    } else {
-      throw new BadRequestException(`Unsupported payment method: ${checkout.paymentMethod}`);
-    }
-
-    // Cancel the payment intent if it exists
     if (checkout.paymentIntentId) {
       try {
-        await this.paymentGateway.cancelPaymentIntent(checkout.paymentIntentId);
+        await this.selectGateway(checkout.paymentMethod).cancelPaymentIntent(checkout.paymentIntentId);
       } catch (error) {
-        this.logger.error(`Failed to cancel payment intent: ${error.message}`);
+        this.logger.warn(
+          `Provider cancellation failed for checkout ${checkout.id}: ${this.errorMessage(error)}`,
+        );
       }
     }
-
-    // Update checkout status
-    checkout.status = CheckoutStatus.CANCELLED;
-    await this.checkoutRepository.save(checkout);
-
-    // Update order status
-    const order = await this.orderRepository.findOne({ where: { id: checkout.orderId } });
-    if (order) {
-      order.status = 'canceled';
-      await this.orderRepository.save(order);
-    }
+    await this.transition(checkout, CheckoutStatus.CANCELLED);
     return checkout;
   }
 
-  /**
-   * Handle webhook events from the payment gateway
-   */
-  async handleWebhookEvent(payload: any, signature: string): Promise<void> {
-    // Set the appropriate payment gateway based on the payload
-    if (payload.partnerCode === 'MOMO') {
-      this.setPaymentGateway(this.momoPaymentGateway);
-    } else {
-      throw new BadRequestException(`Unsupported payment gateway: ${payload.partnerCode}`);
+  async handleWebhookEvent(payload: object, signature: string): Promise<void> {
+    const callback = payload as Record<string, unknown>;
+    if (callback.partnerCode !== 'MOMO') {
+      throw new BadRequestException(`Unsupported payment gateway: ${String(callback.partnerCode)}`);
     }
 
-    // Verify the webhook signature
-    if (!this.paymentGateway.verifyWebhookSignature(payload, signature)) {
+    const gateway = this.selectGateway('momo');
+    if (!gateway.verifyWebhookSignature(callback, signature)) {
       throw new BadRequestException('Invalid webhook signature');
     }
-
-    if (payload.currency && String(payload.currency).toUpperCase() !== 'VND') {
+    if (callback.currency && String(callback.currency).toUpperCase() !== 'VND') {
       throw new BadRequestException('Payment currency does not match checkout currency');
     }
 
-    // Process the webhook event
-    await this.paymentGateway.handleWebhookEvent(payload);
-
-    // Handle specific events
-    const eventType = payload.type || 'payment_intent.succeeded';
-
-    const hasResultCode = payload.resultCode !== undefined && payload.resultCode !== null;
-    const hasSuccessfulResultCode = payload.resultCode === '0' || payload.resultCode === '9000';
-    const isSuccessEvent = eventType === 'payment_intent.succeeded' || hasSuccessfulResultCode;
-
-    if (eventType === 'payment_intent.succeeded' && hasResultCode && !hasSuccessfulResultCode) {
+    await gateway.handleWebhookEvent(callback);
+    const eventType = String(callback.type || 'payment_intent.succeeded');
+    const resultCode = callback.resultCode === undefined ? undefined : String(callback.resultCode);
+    const isSuccess = eventType === 'payment_intent.succeeded' || resultCode === '0' || resultCode === '9000';
+    if (eventType === 'payment_intent.succeeded' && resultCode && resultCode !== '0' && resultCode !== '9000') {
       throw new BadRequestException('Payment callback status is inconsistent');
     }
 
-    if (isSuccessEvent) {
-      const paymentIntentId = payload.orderId;
-      await this.handlePaymentSuccess(paymentIntentId, payload.amount);
-    } else if (eventType === 'payment_intent.payment_failed' || payload.resultCode !== '0') {
-      const paymentIntentId = payload.orderId;
-      await this.handlePaymentFailure(paymentIntentId);
+    const providerReference = String(callback.orderId || '');
+    if (!providerReference) {
+      throw new BadRequestException('Missing provider payment reference');
+    }
+    if (isSuccess) {
+      await this.handlePaymentSuccess(providerReference, callback.amount as string | number | undefined);
+    } else {
+      await this.handlePaymentFailure(providerReference);
     }
   }
 
-  /**
-   * Handle successful payment
-   */
   public async handlePaymentSuccess(
     paymentIntentId: string,
     callbackAmount?: string | number,
   ): Promise<void> {
-    const completion = await this.checkoutRepository.manager.transaction(async (manager) => {
-      const checkoutRepository = manager.getRepository(Checkout);
-      const orderRepository = manager.getRepository(Order);
-      const checkout = await checkoutRepository.findOne({
+    const checkout = await this.checkoutRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(Checkout);
+      const current = await repository.findOne({
         where: { paymentIntentId },
         lock: { mode: 'pessimistic_write' },
       });
-
-      if (!checkout) {
+      if (!current) {
         throw new BadRequestException(`Checkout with payment intent ${paymentIntentId} not found`);
       }
-
       if (
         callbackAmount !== undefined &&
-        Math.abs(Number(checkout.amount) - Number(callbackAmount)) > 0.01
+        Math.abs(Number(current.amount) - Number(callbackAmount)) > 0.01
       ) {
-        throw new BadRequestException('Payment amount does not match checkout amount');
+        throw new BadRequestException('Payment amount does not match checkout snapshot');
       }
-
-      if (checkout.status === CheckoutStatus.COMPLETED) {
+      if (current.status === CheckoutStatus.COMPLETED) {
         return null;
       }
-      if (checkout.status !== CheckoutStatus.PENDING) {
-        throw new BadRequestException(`Checkout is not pending: ${checkout.status}`);
-      }
-
-      const order = await orderRepository.findOne({
-        where: { id: checkout.orderId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!order) {
-        throw new BadRequestException(`Order with ID ${checkout.orderId} not found`);
-      }
-      if (
-        callbackAmount !== undefined &&
-        Math.abs(Number(order.total) - Number(callbackAmount)) > 0.01
-      ) {
-        throw new BadRequestException('Payment amount does not match order total');
-      }
-
-      checkout.status = CheckoutStatus.COMPLETED;
-      await checkoutRepository.save(checkout);
-
-      order.status = 'completed';
-      order.isPaid = true;
-      order.paymentDate = new Date().toISOString();
-      await orderRepository.save(order);
-      return { checkout, order };
-    });
-
-    if (!completion) {
-      return;
-    }
-
-    await this.updateFoodPurchaseCount(completion.checkout.orderId);
-    await pubSub.publish('orderCreated', { orderCreated: completion.order });
-    await pubSub.publish('orderStatusUpdated', { orderStatusUpdated: completion.order });
-  }
-
-  /**
-   * Handle failed payment
-   */
-  public async handlePaymentFailure(paymentIntentId: string): Promise<void> {
-    // Find the checkout with this payment intent ID
-    const checkout = await this.checkoutRepository.findOne({
-      where: { paymentIntentId },
+      assertPaymentStatusTransition(current.status, CheckoutStatus.COMPLETED);
+      current.status = CheckoutStatus.COMPLETED;
+      return repository.save(current);
     });
 
     if (checkout) {
-      // Update checkout status
-      checkout.status = CheckoutStatus.FAILED;
-      await this.checkoutRepository.save(checkout);
-
-      // Update order status
-      const order = await this.orderRepository.findOne({
-        where: { id: checkout.orderId },
-      });
-      if (order) {
-        order.status = 'canceled'; // or 'failed'
-        await this.orderRepository.save(order);
-      }
+      await this.publishSucceeded(checkout);
     }
   }
 
-  /**
-   * Handle Momo payment result
-   */
-  async handleMomoResult(orderId: string, resultCode: string, message: string): Promise<any> {
-    // Set the Momo payment gateway
-    this.setPaymentGateway(this.momoPaymentGateway);
-
-    // Find the checkout with this order ID
-    const checkout = await this.checkoutRepository.findOne({
-      where: { orderId },
-    });
-
-    if (!checkout) {
-      throw new BadRequestException(`Checkout with order ID ${orderId} not found`);
+  public async handlePaymentFailure(paymentIntentId: string): Promise<void> {
+    const checkout = await this.checkoutRepository.findOne({ where: { paymentIntentId } });
+    if (!checkout || checkout.status !== CheckoutStatus.PENDING) {
+      return;
     }
+    await this.transition(checkout, CheckoutStatus.FAILED);
+  }
 
-    // Process the result
+  async handleMomoResult(orderId: string, resultCode: string, message: string): Promise<{ success: boolean; message: string }> {
+    const checkout = await this.findCheckoutByOrderId(orderId);
     if (resultCode === '0' || resultCode === '9000') {
       await this.handlePaymentSuccess(checkout.paymentIntentId);
-      return {
-        success: true,
-        message: 'Payment successful',
-      };
-    } else {
-      await this.handlePaymentFailure(checkout.paymentIntentId);
-      return {
-        success: false,
-        message: message || 'Payment failed',
-      };
+      return { success: true, message: 'Payment successful' };
     }
+    await this.handlePaymentFailure(checkout.paymentIntentId);
+    return { success: false, message: message || 'Payment failed' };
   }
 
-  /**
-   * Check Momo payment status
-   */
-  async checkMomoStatus(orderId: string): Promise<any> {
-    // Set the Momo payment gateway
-    this.setPaymentGateway(this.momoPaymentGateway);
-
-    // Find the checkout with this order ID
-    const checkout = await this.checkoutRepository.findOne({
-      where: { orderId },
-    });
-
-    if (!checkout) {
-      throw new BadRequestException(`Checkout with order ID ${orderId} not found`);
-    }
-
-    // Get the payment intent
-    const paymentIntent = await this.paymentGateway.getPaymentIntent(checkout.paymentIntentId);
-
+  async checkMomoStatus(orderId: string): Promise<Record<string, unknown>> {
+    const checkout = await this.findCheckoutByOrderId(orderId);
+    const paymentIntent = await this.selectGateway('momo').getPaymentIntent(checkout.paymentIntentId);
     return {
       orderId,
       status: paymentIntent.status,
@@ -521,36 +243,44 @@ export class PaymentService {
     };
   }
 
-  /**
-   * Check payment status for an order
-   * @param orderId Order ID
-   * @param paymentMethod Payment method (optional)
-   * @returns Payment status information
-   */
   async checkPaymentStatus(
     orderId: string,
     paymentMethod?: string,
   ): Promise<PaymentStatusResponse> {
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['user'],
-    });
+    const checkout = await this.findCheckoutByOrderId(orderId);
+    const method = paymentMethod || checkout.paymentMethod;
+    const response: PaymentStatusResponse = {
+      orderId,
+      status: checkout.status,
+      amount: Number(checkout.amount),
+      currency: checkout.currency,
+      checkoutId: checkout.id,
+      checkoutStatus: checkout.status,
+      paymentMethod: method,
+    };
 
-    if (!order) {
-      throw new BadRequestException(`Order with ID ${orderId} not found`);
+    if (checkout.paymentIntentId) {
+      try {
+        const paymentIntent = await this.selectGateway(method).getPaymentIntent(checkout.paymentIntentId);
+        response.paymentIntentStatus = paymentIntent.status;
+      } catch (error) {
+        this.logger.warn(
+          `Unable to read provider status for checkout ${checkout.id}: ${this.errorMessage(error)}`,
+        );
+      }
     }
+    return response;
+  }
 
-    // Find the checkout for this order
-    const checkout = await this.checkoutRepository.findOne({
-      where: { orderId },
-    });
-
+  private async findCheckoutByOrderId(orderId: string): Promise<Checkout> {
+    const checkout = await this.checkoutRepository.findOne({ where: { orderId } });
     if (!checkout) {
       throw new BadRequestException(`Checkout for order ${orderId} not found`);
     }
+    return checkout;
+  }
 
-    // Set payment gateway based on checkout or provided method
-    const method = paymentMethod || checkout.paymentMethod;
+  private selectGateway(method: string): IPaymentGateway {
     if (method === 'momo') {
       this.setPaymentGateway(this.momoPaymentGateway);
     } else if (method === 'vnpay') {
@@ -558,72 +288,58 @@ export class PaymentService {
     } else {
       throw new BadRequestException(`Unsupported payment method: ${method}`);
     }
+    return this.paymentGateway;
+  }
 
-    // Create base response
-    const response: PaymentStatusResponse = {
-      orderId,
-      status: order.status,
-      amount: order.total,
-      currency: 'VND',
+  private async transition(checkout: Checkout, next: CheckoutStatus): Promise<void> {
+    assertPaymentStatusTransition(checkout.status, next);
+    checkout.status = next;
+    await this.checkoutRepository.save(checkout);
+  }
+
+  private assertPending(checkout: Checkout): void {
+    if (checkout.status !== CheckoutStatus.PENDING) {
+      throw new BadRequestException(`Checkout is not pending: ${checkout.status}`);
+    }
+  }
+
+  private assertSnapshot(snapshot: PaymentOrderSnapshot): void {
+    if (!snapshot.orderId || !Number.isFinite(Number(snapshot.amount)) || Number(snapshot.amount) < 0) {
+      throw new BadRequestException('Payment requires a valid server-side order amount snapshot');
+    }
+    if (snapshot.currency !== 'VND') {
+      throw new BadRequestException('Only VND payments are currently supported');
+    }
+  }
+
+  private async publishSucceeded(checkout: Checkout): Promise<void> {
+    await this.eventBus.publish<PaymentSucceededEvent>(PAYMENT_SUCCEEDED_EVENT, {
+      orderId: checkout.orderId,
       checkoutId: checkout.id,
-      checkoutStatus: checkout.status,
-      paymentMethod: method,
-    };
-
-    // Fetch additional payment intent details if available
-    if (checkout.paymentIntentId) {
-      try {
-        const paymentIntent = await this.paymentGateway.getPaymentIntent(checkout.paymentIntentId);
-        response.paymentIntentStatus = paymentIntent.status;
-        response.metadata = paymentIntent.metadata;
-      } catch (error) {
-        this.logger.error(
-          `Failed to get payment intent for ${checkout.paymentIntentId}: ${error.message}`,
-        );
-      }
-    }
-
-    return response;
+      paymentId: checkout.paymentIntentId ?? null,
+    });
   }
 
-  /**
-   * Update purchase count for food items in an order
-   * @param orderId Order ID for completed payment
-   */
-  private async updateFoodPurchaseCount(orderId: string): Promise<void> {
-    try {
-      // Find the order with details and related foods
-      const order = await this.orderRepository.findOne({
-        where: { id: orderId },
-        relations: ['orderDetails', 'orderDetails.food'],
-      });
-
-      if (!order) {
-        this.logger.warn(`Cannot update food purchase count: Order ${orderId} not found`);
-        return;
-      }
-
-      // Update purchase count for each food item
-      for (const detail of order.orderDetails) {
-        if (detail.food) {
-          // Parse quantity and increment the purchasedNumber
-          const quantity = detail.quantity || 1;
-
-          // Update food purchase count
-          detail.food.purchasedNumber = (detail.food.purchasedNumber || 0) + quantity;
-          detail.food.soldCount = (detail.food.soldCount || 0) + quantity;
-
-          await this.foodRepository.save(detail.food);
-
-          this.logger.log(
-            `Updated purchase count for food ${detail.food.id}, new count: ${detail.food.purchasedNumber}`,
-          );
-        }
-      }
-
-      this.logger.log(`Food purchase counts updated for order ${orderId}`);
-    } catch (error) {
-      this.logger.error(`Failed to update food purchase count: ${error.message}`, error.stack);
-    }
+  private errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
+}
+
+const SENSITIVE_METADATA_KEYS = /(?:card|cvv|cvc|token|secret|signature|authorization|password)/i;
+
+function sanitizeProviderMetadata(input: Record<string, unknown>): Record<string, unknown> {
+  const metadata = input.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(metadata as Record<string, unknown>).filter(
+      ([key, value]) => !SENSITIVE_METADATA_KEYS.test(key) && isSafeMetadataValue(value),
+    ),
+  );
+}
+
+function isSafeMetadataValue(value: unknown): value is string | number | boolean | null {
+  return value === null || ['string', 'number', 'boolean'].includes(typeof value);
 }

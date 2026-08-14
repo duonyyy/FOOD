@@ -40,11 +40,13 @@ Evidence: [P4.1 handoff and risk review](../evidence/phase-4-p4.1-handoff-risk-r
 
 ### P4.2 — T6.1 Payment ownership
 
-- [ ] Payments sở hữu Checkout/PaymentTransaction.
-- [ ] Payment chỉ tham chiếu `orderId` và server-side amount snapshot.
-- [ ] Định nghĩa Payment status machine.
-- [ ] Gỡ duplicate `OrderService`, `PromotionService`, `UsersService` provider.
-- [ ] Không serialize provider secret/payload nhạy cảm.
+- [x] Payments sở hữu Checkout/PaymentTransaction.
+- [x] Payment chỉ tham chiếu `orderId` và server-side amount snapshot.
+- [x] Định nghĩa Payment status machine.
+- [x] Gỡ duplicate `OrderService`, `PromotionService`, `UsersService` provider.
+- [x] Không serialize provider secret/payload nhạy cảm.
+
+Evidence: [T6.1 Payment ownership](../evidence/phase-4-t6.1-payment-ownership.md).
 
 ### P4.3 — T6.2 Gateway ports/adapters
 
