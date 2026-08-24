@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nhận Diện Món Ăn Việt Nam | Food AI</title>
+    <!-- Import Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --primary: #FF6B6B;
+        --secondary: #FF8E53;
+        --gradient: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+        --bg-light: #fff5f5;
+        --text-dark: #2d3436;
+        --text-muted: #636e72;
+        --card-bg: rgba(255, 255, 255, 0.95);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Nunito', sans-serif;
+        /* Nền mượt mà với tone màu ấm */
+        background: linear-gradient(120deg, #f6d365 0%, #fda085 100%);
+        min-height: 100vh;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .container {
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        max-width: 900px;
+        width: 100%;
+        padding: 40px;
+        animation: slideUp 0.6s ease-out;
+      }
+
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      h1 {
+        color: var(--text-dark);
+        text-align: center;
+        margin-bottom: 5px;
+        font-size: 2.8em;
+        font-weight: 800;
+        letter-spacing: -1px;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: var(--text-muted);
+        margin-bottom: 35px;
+        font-size: 1.1em;
+        font-weight: 600;
+      }
+
+      /* Tabs hiện đại dạng Pill */
+      .tabs-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 30px;
+      }
+
+      .tabs {
+        display: inline-flex;
+        background: #f1f3f5;
+        padding: 5px;
+        border-radius: 50px;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+      }
+
+      .tab-btn {
+        padding: 12px 30px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 1.05em;
+        color: var(--text-muted);
+        border-radius: 50px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 700;
+        font-family: 'Nunito', sans-serif;
+      }
+
+      .tab-btn.active {
+        background: white;
+        color: var(--primary);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .tab-btn:hover:not(.active) {
+        color: var(--primary);
+      }
+
+      .tab-content {
+        display: none;
+        animation: fadeIn 0.4s ease-in-out;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      /* Khu vực tải lên */
+      .upload-area {
+        border: 2px dashed #ffb2b2;
+        border-radius: 20px;
+        padding: 50px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: var(--bg-light);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .upload-area:hover, .upload-area.dragover {
+        background: #ffe8e8;
+        border-color: var(--primary);
+        transform: scale(1.01);
+      }
+
+      .upload-icon {
+        font-size: 4em;
+        margin-bottom: 15px;
+        display: inline-block;
+        transition: transform 0.3s ease;
+      }
+
+      .upload-area:hover .upload-icon {
+        transform: translateY(-5px);
+      }
+
+      .upload-text {
+        color: var(--text-dark);
+        font-size: 1.2em;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .upload-subtext {
+        color: var(--text-muted);
+        font-size: 0.95em;
+      }
+
+      input[type='file'] {
+        display: none;
+      }
+
+      /* Buttons */
+      .button-group {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      button {
+        padding: 12px 28px;
+        border: none;
+        border-radius: 50px;
+        font-size: 1.05em;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 700;
+        font-family: 'Nunito', sans-serif;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-primary {
+        background: var(--gradient);
+        color: white;
+        box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 25px rgba(255, 107, 107, 0.4);
+      }
+
+      .btn-secondary {
+        background: white;
+        color: var(--primary);
+        border: 2px solid var(--primary);
+      }
+
+      .btn-secondary:hover {
+        background: var(--bg-light);
+        transform: translateY(-3px);
+      }
+
+      /* Kết quả trả về */
+      .result-container {
+        margin-top: 40px;
+        display: none;
+        animation: fadeIn 0.5s ease-out;
+      }
+
+      .result-container.show {
+        display: block;
+      }
+
+      .image-preview {
+        max-width: 100%;
+        max-height: 400px;
+        object-fit: contain;
+        margin: 0 auto 30px;
+        display: block;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      }
+
+      .image-stage {
+        position: relative;
+        width: fit-content;
+        max-width: 100%;
+        margin: 0 auto 30px;
+      }
+
+      .image-stage .image-preview {
+        margin: 0;
+      }
+
+      #detectionCanvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      .progress-section {
+        display: none;
+        margin: 0 0 20px;
+      }
+
+      .progress-section.show {
+        display: block;
+      }
+
+      .progress-label {
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-muted);
+        font-size: 0.9em;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .progress-track {
+        height: 10px;
+        overflow: hidden;
+        background: #eee;
+        border-radius: 10px;
+      }
+
+      .progress-value {
+        width: 0%;
+        height: 100%;
+        background: var(--gradient);
+        border-radius: 10px;
+        transition: width 0.35s ease;
+      }
+
+      .detection-results {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        border: 1px solid #f1f3f5;
+      }
+
+      .result-header {
+        font-size: 1.4em;
+        font-weight: 800;
+        color: var(--text-dark);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .stat-box {
+        background: var(--bg-light);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        border-bottom: 4px solid var(--primary);
+        transition: transform 0.3s ease;
+      }
+
+      .stat-box:hover {
+        transform: translateY(-5px);
+      }
+
+      .stat-number {
+        font-size: 2.5em;
+        font-weight: 800;
+        color: var(--primary);
+        line-height: 1;
+      }
+
+      .stat-label {
+        color: var(--text-muted);
+        margin-top: 8px;
+        font-size: 1em;
+        font-weight: 600;
+      }
+
+      .detection-item {
+        background: white;
+        border: 1px solid #eee;
+        padding: 15px 20px;
+        margin-bottom: 12px;
+        border-radius: 12px;
+        transition: all 0.3s;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .detection-item:hover {
+        border-color: var(--primary);
+        box-shadow: 0 5px 15px rgba(255, 107, 107, 0.1);
+      }
+
+      .food-name {
+        color: var(--text-dark);
+        font-weight: 800;
+        font-size: 1.15em;
+        margin-bottom: 10px;
+      }
+
+      .confidence-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .confidence-text {
+        font-weight: 700;
+        color: var(--primary);
+        min-width: 45px;
+      }
+
+      .confidence-bar {
+        background: #eee;
+        border-radius: 10px;
+        height: 10px;
+        flex-grow: 1;
+        overflow: hidden;
+      }
+
+      .confidence-fill {
+        background: var(--gradient);
+        height: 100%;
+        border-radius: 10px;
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .food-count-section {
+        margin-top: 35px;
+        padding-top: 20px;
+        border-top: 2px dashed #eee;
+      }
+
+      .food-count-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        background: var(--bg-light);
+        border-radius: 12px;
+        margin-bottom: 10px;
+        transition: transform 0.2s;
+      }
+
+      .food-count-item:hover {
+        transform: translateX(5px);
+      }
+
+      .food-count-name {
+        font-weight: 700;
+        color: var(--text-dark);
+        font-size: 1.1em;
+      }
+
+      .food-count-badge {
+        background: var(--gradient);
+        color: white;
+        border-radius: 50px;
+        padding: 6px 16px;
+        font-weight: 800;
+        font-size: 0.95em;
+        box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3);
+      }
+
+      /* Trạng thái */
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 30px;
+      }
+
+      .loading.show {
+        display: block;
+      }
+
+      .spinner {
+        border: 4px solid rgba(255, 107, 107, 0.2);
+        border-top: 4px solid var(--primary);
+        border-radius: 50%;
+        width: 45px;
+        height: 45px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .alert {
+        padding: 16px 20px;
+        border-radius: 12px;
+        margin-top: 20px;
+        font-weight: 600;
+        display: none;
+        animation: fadeIn 0.3s;
+      }
+
+      .alert.show {
+        display: block;
+      }
+
+      .error {
+        background: #ffebee;
+        color: #d32f2f;
+        border: 1px solid #ffcdd2;
+      }
+
+      .success {
+        background: #e8f5e9;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .container {
+          padding: 25px 20px;
+          border-radius: 20px;
+        }
+
+        h1 { font-size: 2.2em; }
+        
+        .tabs {
+          flex-direction: column;
+          border-radius: 15px;
+          width: 100%;
+        }
+
+        .tab-btn {
+          border-radius: 10px;
+          width: 100%;
+        }
+
+        .stats-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🍜 Food AI</h1>
+      <p class="subtitle">Nhận diện tinh hoa ẩm thực Việt Nam bằng AI</p>
+
+      <!-- Tab Navigation -->
+      <div class="tabs-wrapper">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="showTab('image-tab')">
+            📸 Tải Ảnh Lên
+          </button>
+          <button class="tab-btn" onclick="showTab('video-tab')">
+            🎥 Phân Tích Video
+          </button>
+        </div>
+      </div>
+
+      <!-- IMAGE TAB -->
+      <div id="image-tab" class="tab-content active">
+        <div
+          class="upload-area"
+          id="imageUploadArea"
+          onclick="document.getElementById('imageInput').click()"
+        >
+          <div class="upload-icon">🍱</div>
+          <div class="upload-text">Kéo thả ảnh hoặc click để tải lên</div>
+          <div class="upload-subtext">Hỗ trợ JPG, PNG - Tối đa 10MB</div>
+        </div>
+        <input
+          type="file"
+          id="imageInput"
+          accept="image/*"
+          onchange="handleImageSelect(event)"
+        />
+
+        <div class="loading" id="imageLoading">
+          <div class="spinner"></div>
+          <p style="color: var(--text-muted); font-weight: 600;">AI đang xử lý hình ảnh của bạn...</p>
+        </div>
+
+        <div class="alert error" id="imageError"></div>
+        <div class="alert success" id="imageSuccess"></div>
+
+        <div class="result-container" id="imageResults">
+          <div class="image-stage">
+            <img id="uploadedImage" class="image-preview" alt="Ảnh tải lên" />
+            <canvas id="detectionCanvas" aria-hidden="true"></canvas>
+          </div>
+
+          <div class="detection-results">
+            <div class="result-header">📊 Tổng Quan Nhận Diện</div>
+
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-number" id="totalDetections">0</div>
+                <div class="stat-label">Vật Thể Phát Hiện</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-number" id="totalTypes">0</div>
+                <div class="stat-label">Loại Món Ăn</div>
+              </div>
+            </div>
+
+            <div id="detectionsList"></div>
+
+            <div class="food-count-section">
+              <div class="result-header">📋 Tổng Hợp Số Lượng</div>
+              <div id="foodCountList"></div>
+            </div>
+          </div>
+
+          <div class="button-group">
+            <button class="btn-secondary" onclick="clearImageResults()">
+              ↺ Thử ảnh khác
+            </button>
+            <button class="btn-primary" onclick="downloadResults('image')">
+              ⬇️ Tải kết quả về
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIDEO TAB -->
+      <div id="video-tab" class="tab-content">
+        <div
+          class="upload-area"
+          id="videoUploadArea"
+          onclick="document.getElementById('videoInput').click()"
+        >
+          <div class="upload-icon">🎬</div>
+          <div class="upload-text">Kéo thả video hoặc click để tải lên</div>
+          <div class="upload-subtext">Hỗ trợ MP4, AVI, MOV - Tối đa 100MB</div>
+        </div>
+        <input
+          type="file"
+          id="videoInput"
+          accept="video/*"
+          onchange="handleVideoSelect(event)"
+        />
+
+        <div class="loading" id="videoLoading">
+          <div class="spinner"></div>
+          <p style="color: var(--text-muted); font-weight: 600;">Đang bóc tách video... (Vui lòng đợi giây lát)</p>
+        </div>
+
+        <div class="progress-section" id="videoProgressSection">
+          <div class="progress-label">
+            <span id="videoProgressStatus">Đang chuẩn bị video...</span>
+            <span id="videoProgressPercent">0%</span>
+          </div>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="progress-value" id="videoProgressValue"></div>
+          </div>
+        </div>
+
+        <div class="alert error" id="videoError"></div>
+        <div class="alert success" id="videoSuccess"></div>
+
+        <div class="result-container" id="videoResults">
+          <div class="detection-results">
+            <div class="result-header">🎯 Kết Quả Phân Tích Video</div>
+
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-number" id="videoTotalItems">0</div>
+                <div class="stat-label">Tổng Vật Thể Phát Hiện</div>
+              </div>
+            </div>
+
+            <div class="food-count-section">
+              <div class="result-header">🍜 Danh Sách Món Ăn Phát Hiện</div>
+              <div id="videoFoodCountList"></div>
+            </div>
+          </div>
+
+          <div class="button-group">
+            <button class="btn-secondary" onclick="clearVideoResults()">
+              ↺ Thử video khác
+            </button>
+            <button class="btn-primary" onclick="downloadResults('video')">
+              ⬇️ Tải video đã xử lý
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Tab switching
+      function showTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach((tab) => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach((btn) => btn.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+        event.target.classList.add('active');
+      }
+
+      // IMAGE UPLOAD HANDLING
+      const imageUploadArea = document.getElementById('imageUploadArea');
+      const imageInput = document.getElementById('imageInput');
+
+      imageUploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        imageUploadArea.classList.add('dragover');
+      });
+
+      imageUploadArea.addEventListener('dragleave', () => {
+        imageUploadArea.classList.remove('dragover');
+      });
+
+      imageUploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        imageUploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          imageInput.files = files;
+          handleImageSelect({ target: { files } });
+        }
+      });
+
+      function handleImageSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (!validateFile(file, 'image')) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById('uploadedImage').src = e.target.result;
+          document.getElementById('detectionCanvas').getContext('2d').clearRect(0, 0, 1, 1);
+          uploadAndDetectImage(file);
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function uploadAndDetectImage(file) {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        showLoading('imageLoading');
+        hideError('imageError');
+        hideSuccess('imageSuccess');
+
+        fetch('/image', {
+          method: 'POST',
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            hideLoading('imageLoading');
+            if (data.success) {
+              displayImageResults(data);
+              showSuccess('imageSuccess', '✅ Tuyệt vời! Đã nhận diện xong món ăn.');
+            } else {
+              showError('imageError', '❌ Lỗi: ' + data.error);
+            }
+          })
+          .catch((error) => {
+            hideLoading('imageLoading');
+            showError('imageError', '❌ Lỗi kết nối: ' + error.message);
+          });
+      }
+
+      function displayImageResults(data) {
+        document.getElementById('imageResults').classList.add('show');
+        drawDetections(data.detections || []);
+        
+        // Animate numbers
+        document.getElementById('totalDetections').textContent = data.total_detections || 0;
+        document.getElementById('totalTypes').textContent = Object.keys(data.class_counts || {}).length;
+
+        // Display individual detections
+        const detectionsList = document.getElementById('detectionsList');
+        detectionsList.innerHTML = '<div class="result-header">🔍 Chi Tiết Từng Món</div>';
+
+        if (data.detections && data.detections.length > 0) {
+          data.detections.forEach((detection, index) => {
+            const confidence = Math.round(detection.classification_confidence * 100);
+            const item = document.createElement('div');
+            item.className = 'detection-item';
+            // Start width at 0 for animation, then set to actual confidence
+            item.innerHTML = `
+              <div class="food-name">🍽️ #${index + 1}: ${detection.class_name}</div>
+              <div class="confidence-wrapper">
+                <div class="confidence-bar">
+                  <div class="confidence-fill" style="width: 0%"></div>
+                </div>
+                <div class="confidence-text">${confidence}%</div>
+              </div>
+              <div style="font-size: 0.85em; color: #999; margin-top: 8px;">
+                Tọa độ: (${detection.bbox.x1}, ${detection.bbox.y1}) → (${detection.bbox.x2}, ${detection.bbox.y2})
+              </div>
+            `;
+            detectionsList.appendChild(item);
+            
+            // Trigger animation
+            setTimeout(() => {
+                item.querySelector('.confidence-fill').style.width = `${confidence}%`;
+            }, 100);
+          });
+        } else {
+          detectionsList.innerHTML += '<p style="color: #999; text-align: center; padding: 15px; font-weight: 600;">Không tìm thấy món ăn nào trong ảnh</p>';
+        }
+
+        // Display food counts
+        const foodCountList = document.getElementById('foodCountList');
+        foodCountList.innerHTML = '';
+        if (data.class_counts && Object.keys(data.class_counts).length > 0) {
+          Object.entries(data.class_counts).forEach(([food, count]) => {
+            const item = document.createElement('div');
+            item.className = 'food-count-item';
+            item.innerHTML = `
+              <span class="food-count-name">${food}</span>
+              <span class="food-count-badge">x${count}</span>
+            `;
+            foodCountList.appendChild(item);
+          });
+        }
+      }
+
+      // VIDEO UPLOAD HANDLING
+      const videoUploadArea = document.getElementById('videoUploadArea');
+      const videoInput = document.getElementById('videoInput');
+
+      videoUploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        videoUploadArea.classList.add('dragover');
+      });
+
+      videoUploadArea.addEventListener('dragleave', () => {
+        videoUploadArea.classList.remove('dragover');
+      });
+
+      videoUploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        videoUploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          videoInput.files = files;
+          handleVideoSelect({ target: { files } });
+        }
+      });
+
+      function handleVideoSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (!validateFile(file, 'video')) return;
+        uploadAndProcessVideo(file);
+      }
+
+      function uploadAndProcessVideo(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        showLoading('videoLoading');
+        startVideoProgress();
+        hideError('videoError');
+        hideSuccess('videoSuccess');
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/video');
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            updateVideoProgress(Math.min(90, Math.round((event.loaded / event.total) * 90)), 'Đang tải video lên...');
+          }
+        });
+        xhr.upload.addEventListener('load', () => {
+          updateVideoProgress(90, 'AI đang phân tích video...');
+        });
+        xhr.addEventListener('load', () => {
+          let data;
+          try {
+            data = JSON.parse(xhr.responseText);
+          } catch (error) {
+            data = { error: 'Máy chủ trả về dữ liệu không hợp lệ' };
+          }
+          if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+            updateVideoProgress(100, 'Đã xử lý xong');
+            hideLoading('videoLoading');
+            displayVideoResults(data);
+            showSuccess('videoSuccess', '✅ Xử lý video thành công!');
+            window.setTimeout(() => hideVideoProgress(), 800);
+          } else {
+            hideLoading('videoLoading');
+            hideVideoProgress();
+            showError('videoError', '❌ ' + (data.error || `Máy chủ trả về lỗi HTTP ${xhr.status}`));
+          }
+        });
+        xhr.addEventListener('error', () => {
+          hideLoading('videoLoading');
+          hideVideoProgress();
+          showError('videoError', '❌ Không thể kết nối tới máy chủ');
+        });
+        xhr.send(formData);
+      }
+
+      const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+      const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+      const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+      const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+
+      function validateFile(file, type) {
+        const maxSize = type === 'image' ? MAX_IMAGE_SIZE : MAX_VIDEO_SIZE;
+        const allowedTypes = type === 'image' ? ALLOWED_IMAGE_TYPES : ALLOWED_VIDEO_TYPES;
+        const label = type === 'image' ? 'ảnh' : 'video';
+        if (file.size > maxSize) {
+          showError(`${type}Error`, `❌ File ${label} vượt quá giới hạn ${maxSize / 1024 / 1024}MB`);
+          return false;
+        }
+        if (!allowedTypes.includes(file.type)) {
+          showError(`${type}Error`, `❌ Định dạng ${label} không được hỗ trợ`);
+          return false;
+        }
+        hideError(`${type}Error`);
+        return true;
+      }
+
+      function startVideoProgress() {
+        const section = document.getElementById('videoProgressSection');
+        section.classList.add('show');
+        updateVideoProgress(0, 'Đang chuẩn bị video...');
+      }
+
+      function updateVideoProgress(value, status) {
+        document.getElementById('videoProgressValue').style.width = `${value}%`;
+        document.getElementById('videoProgressPercent').textContent = `${value}%`;
+        document.getElementById('videoProgressStatus').textContent = status;
+        document.querySelector('#videoProgressSection .progress-track').setAttribute('aria-valuenow', value);
+      }
+
+      function hideVideoProgress() {
+        document.getElementById('videoProgressSection').classList.remove('show');
+      }
+
+      function drawDetections(detections) {
+        const image = document.getElementById('uploadedImage');
+        const canvas = document.getElementById('detectionCanvas');
+        const draw = () => {
+          const width = image.clientWidth;
+          const height = image.clientHeight;
+          if (!width || !height || !image.naturalWidth || !image.naturalHeight) return;
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+          const scaleX = width / image.naturalWidth;
+          const scaleY = height / image.naturalHeight;
+          context.font = '700 14px Nunito, sans-serif';
+          detections.forEach((detection) => {
+            const box = detection.bbox;
+            const x = box.x1 * scaleX;
+            const y = box.y1 * scaleY;
+            const boxWidth = (box.x2 - box.x1) * scaleX;
+            const boxHeight = (box.y2 - box.y1) * scaleY;
+            context.strokeStyle = '#ff6b6b';
+            context.lineWidth = 3;
+            context.strokeRect(x, y, boxWidth, boxHeight);
+            const label = `${detection.class_name} ${Math.round(detection.classification_confidence * 100)}%`;
+            const labelWidth = context.measureText(label).width + 12;
+            context.fillStyle = '#ff6b6b';
+            context.fillRect(x, Math.max(0, y - 24), labelWidth, 24);
+            context.fillStyle = '#fff';
+            context.fillText(label, x + 6, Math.max(17, y - 7));
+          });
+        };
+        if (image.complete) draw();
+        else image.addEventListener('load', draw, { once: true });
+      }
+
+      function displayVideoResults(data) {
+        document.getElementById('videoResults').classList.add('show');
+        document.getElementById('videoTotalItems').textContent = data.total_items || 0;
+
+        const foodCountList = document.getElementById('videoFoodCountList');
+        foodCountList.innerHTML = '';
+
+        if (data.food_detections && data.food_detections.length > 0) {
+          data.food_detections.forEach((detection) => {
+            const item = document.createElement('div');
+            item.className = 'food-count-item';
+            item.innerHTML = `
+              <span class="food-count-name">${detection.food_name}</span>
+              <span class="food-count-badge">x${detection.count}</span>
+            `;
+            foodCountList.appendChild(item);
+          });
+        } else {
+          foodCountList.innerHTML = '<p style="color: #999; text-align: center; font-weight:600;">Không phát hiện được món ăn trong video</p>';
+        }
+      }
+
+      // UTILITY FUNCTIONS
+      function showLoading(elementId) {
+        document.getElementById(elementId).classList.add('show');
+      }
+
+      function hideLoading(elementId) {
+        document.getElementById(elementId).classList.remove('show');
+      }
+
+      function showError(elementId, message) {
+        const element = document.getElementById(elementId);
+        element.textContent = message;
+        element.classList.add('show');
+      }
+
+      function hideError(elementId) {
+        document.getElementById(elementId).classList.remove('show');
+      }
+
+      function showSuccess(elementId, message) {
+        const element = document.getElementById(elementId);
+        element.textContent = message;
+        element.classList.add('show');
+      }
+
+      function hideSuccess(elementId) {
+        document.getElementById(elementId).classList.remove('show');
+      }
+
+      function clearImageResults() {
+        document.getElementById('imageResults').classList.remove('show');
+        const canvas = document.getElementById('detectionCanvas');
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        imageInput.value = '';
+        document.getElementById('imageInput').value = '';
+        document.getElementById('uploadedImage').src = '';
+        hideError('imageError');
+        hideSuccess('imageSuccess');
+      }
+
+      function clearVideoResults() {
+        document.getElementById('videoResults').classList.remove('show');
+        document.getElementById('videoInput').value = '';
+        hideError('videoError');
+        hideSuccess('videoSuccess');
+      }
+
+      function downloadResults(type) {
+        window.location.href = `/download/${type}`;
+      }
+    </script>
+  </body>
+</html>

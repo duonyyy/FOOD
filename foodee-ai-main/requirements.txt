@@ -1,0 +1,9 @@
+Flask>=2.3,<4
+Flask-Cors>=4,<7
+numpy>=2.2,<2.6
+opencv-python>=4.8
+Pillow>=10
+tensorflow-cpu==2.20.0
+ultralytics>=8.0.196
+Werkzeug>=2.3,<4
+gunicorn>=21

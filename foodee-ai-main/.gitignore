@@ -1,0 +1,7 @@
+/myenv
+.venv/
+__pycache__/
+*.pyc
+runtime/input_video.mp4
+runtime/processed_video.mp4
+runtime/processed_image.jpg
