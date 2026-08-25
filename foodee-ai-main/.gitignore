@@ -1,7 +1,81 @@
-/myenv
-.venv/
+# ==============================================================================
+# FOODEE AI - GITIGNORE CONFIGURATION (PRODUCTION READY)
+# ==============================================================================
+
+# --- 1. Python Environment & Bytecode ---
 __pycache__/
-*.pyc
-runtime/input_video.mp4
-runtime/processed_video.mp4
-runtime/processed_image.jpg
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- 2. Virtual Environments ---
+.venv/
+venv/
+env/
+ENV/
+myenv/
+env.bak/
+venv.bak/
+
+# --- 3. Environment Variables & Secrets ---
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# --- 4. Runtime & Temporary Media Storage ---
+runtime/*
+!runtime/.gitkeep
+*.log
+logs/
+temp/
+tmp/
+
+# --- 5. Testing & Code Coverage Artifacts ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- 6. Jupyter Notebook & Checkpoints ---
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# --- 7. OS & IDE System Files ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/settings.json
+*.sublime-project
+*.sublime-workspace
+
+# --- 8. AI / Ultralytics Training Runs & Metrics ---
+runs/
+wandb/
+
+# --- 9. Documentation & Internal Reports ---
+docs/

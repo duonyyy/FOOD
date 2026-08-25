@@ -1,0 +1,225 @@
+{
+  "metadata": {
+    "generated_at": "2026-08-25 00:27:17",
+    "python_version": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "model_load_time_seconds": 17.2834,
+    "ram_before_load_mb": 18.62,
+    "ram_after_load_mb": 680.66,
+    "ram_delta_mb": 662.04,
+    "ram_peak_mb": 897.75
+  },
+  "images": {
+    "app-image.jpeg": {
+      "status_code": 200,
+      "latency_ms_avg": 1196.2,
+      "latencies_ms": [
+        3387.48,
+        116.15,
+        84.97
+      ],
+      "response": {
+        "class_counts": {},
+        "detections": [],
+        "success": true,
+        "total_detections": 0
+      }
+    },
+    "banhpia.jpg": {
+      "status_code": 200,
+      "latency_ms_avg": 176.14,
+      "latencies_ms": [
+        206.05,
+        159.32,
+        163.05
+      ],
+      "response": {
+        "class_counts": {
+          "Bánh pía": 3
+        },
+        "detections": [
+          {
+            "bbox": {
+              "x1": 2,
+              "x2": 402,
+              "y1": 39,
+              "y2": 504
+            },
+            "class_id": 10,
+            "class_name": "Bánh pía",
+            "classification_confidence": 0.531399667263031,
+            "detection_confidence": 0.555264413356781
+          },
+          {
+            "bbox": {
+              "x1": 196,
+              "x2": 630,
+              "y1": 258,
+              "y2": 494
+            },
+            "class_id": 10,
+            "class_name": "Bánh pía",
+            "classification_confidence": 0.9656661748886108,
+            "detection_confidence": 0.5443620085716248
+          },
+          {
+            "bbox": {
+              "x1": 88,
+              "x2": 800,
+              "y1": 0,
+              "y2": 556
+            },
+            "class_id": 10,
+            "class_name": "Bánh pía",
+            "classification_confidence": 0.8914230465888977,
+            "detection_confidence": 0.24779458343982697
+          }
+        ],
+        "success": true,
+        "total_detections": 3
+      }
+    },
+    "bunbohue.jpg": {
+      "status_code": 200,
+      "latency_ms_avg": 159.53,
+      "latencies_ms": [
+        165.92,
+        131.0,
+        181.66
+      ],
+      "response": {
+        "class_counts": {
+          "Bún bò Huế": 1
+        },
+        "detections": [
+          {
+            "bbox": {
+              "x1": 91,
+              "x2": 273,
+              "y1": 6,
+              "y2": 171
+            },
+            "class_id": 14,
+            "class_name": "Bún bò Huế",
+            "classification_confidence": 0.766697347164154,
+            "detection_confidence": 0.9601704478263855
+          }
+        ],
+        "success": true,
+        "total_detections": 1
+      }
+    },
+    "comtam.jpg": {
+      "status_code": 200,
+      "latency_ms_avg": 155.96,
+      "latencies_ms": [
+        149.89,
+        160.68,
+        157.31
+      ],
+      "response": {
+        "class_counts": {
+          "Cơm tấm": 2
+        },
+        "detections": [
+          {
+            "bbox": {
+              "x1": 83,
+              "x2": 181,
+              "y1": 27,
+              "y2": 107
+            },
+            "class_id": 23,
+            "class_name": "Cơm tấm",
+            "classification_confidence": 0.5757062435150146,
+            "detection_confidence": 0.12737824022769928
+          },
+          {
+            "bbox": {
+              "x1": 0,
+              "x2": 182,
+              "y1": 23,
+              "y2": 181
+            },
+            "class_id": 23,
+            "class_name": "Cơm tấm",
+            "classification_confidence": 0.9305740594863892,
+            "detection_confidence": 0.11582888662815094
+          }
+        ],
+        "success": true,
+        "total_detections": 2
+      }
+    },
+    "image.jpeg": {
+      "status_code": 200,
+      "latency_ms_avg": 115.66,
+      "latencies_ms": [
+        119.43,
+        107.65,
+        119.9
+      ],
+      "response": {
+        "class_counts": {},
+        "detections": [],
+        "success": true,
+        "total_detections": 0
+      }
+    },
+    "pho.jpg": {
+      "status_code": 200,
+      "latency_ms_avg": 168.15,
+      "latencies_ms": [
+        160.12,
+        172.23,
+        172.09
+      ],
+      "response": {
+        "class_counts": {
+          "Phở": 1
+        },
+        "detections": [
+          {
+            "bbox": {
+              "x1": 87,
+              "x2": 219,
+              "y1": 25,
+              "y2": 146
+            },
+            "class_id": 28,
+            "class_name": "Phở",
+            "classification_confidence": 0.8095458745956421,
+            "detection_confidence": 0.9859976768493652
+          }
+        ],
+        "success": true,
+        "total_detections": 1
+      }
+    }
+  },
+  "video": {
+    "output_video.mp4": {
+      "status_code": 200,
+      "latency_seconds": 45.34,
+      "response": {
+        "food_detections": [
+          {
+            "count": 5,
+            "food_name": "Bánh chưng"
+          },
+          {
+            "count": 3,
+            "food_name": "Bánh giò"
+          },
+          {
+            "count": 1,
+            "food_name": "Bánh tét"
+          }
+        ],
+        "success": true,
+        "total_items": 9,
+        "video_processed": true
+      }
+    }
+  }
+}
