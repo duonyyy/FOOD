@@ -30,6 +30,23 @@ def draw_detections(image: np.ndarray, detections: list) -> np.ndarray:
     return output
 
 
+def create_video_writer(output_path, fps: float, width: int, height: int) -> cv2.VideoWriter:
+    """Create VideoWriter prioritizing H.264 web streaming codecs (avc1/H264) with fallback to mp4v."""
+    codecs = ['avc1', 'H264', 'mp4v']
+    for codec in codecs:
+        try:
+            fourcc = cv2.VideoWriter_fourcc(*codec)
+            writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+            if writer.isOpened():
+                return writer
+        except Exception:
+            continue
+
+    # Fallback to standard mp4v if none opened
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    return cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+
+
 class VideoProcessor:
     def __init__(self, inference_service, config):
         self.inference_service = inference_service
@@ -47,9 +64,7 @@ class VideoProcessor:
             capture.release()
             raise ValueError('Video has invalid dimensions')
 
-        writer = cv2.VideoWriter(
-            str(output_path), cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height)
-        )
+        writer = create_video_writer(output_path, fps, width, height)
         if not writer.isOpened():
             capture.release()
             raise ValueError('Unable to create processed video')

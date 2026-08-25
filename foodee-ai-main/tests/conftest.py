@@ -37,7 +37,7 @@ def sample_image_bytes():
 @pytest.fixture
 def sample_video_path():
     """Return path of a valid sample video."""
-    return PROJECT_ROOT / "samples" / "videos" / "short_video.mp4"
+    return PROJECT_ROOT / "samples" / "videos" / "output_video.mp4"
 
 
 @pytest.fixture

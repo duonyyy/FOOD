@@ -17,6 +17,9 @@ class FoodInferenceService:
         )
         self.detection_model = self._load_detection_model()
         self.interpreter, self.input_details, self.output_details = self._load_classifier()
+        self._input_index = self.input_details[0]['index']
+        self._output_index = self.output_details[0]['index']
+        self._allocated_batch_size = int(self.input_details[0]['shape'][0])
 
     def _load_detection_model(self):
         from ultralytics import YOLO
@@ -73,11 +76,11 @@ class FoodInferenceService:
                 detection_confidence = float(box.conf[0].cpu().numpy())
                 if detection_confidence < self.config.DETECTION_CONFIDENCE_THRESHOLD:
                     continue
-                roi = image[int(y1):int(y2), int(x1):int(x2)]
+                # Task 7.1: Crop directly from rgb_image to avoid redundant cv2.cvtColor
+                roi = rgb_image[int(y1):int(y2), int(x1):int(x2)]
                 if roi.size == 0:
                     continue
                 roi = cv2.resize(roi, (input_width, input_height))
-                roi = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
                 preprocessed = self.preprocess(roi)
                 crop_key = self.cache.compute_key(preprocessed)
                 candidates.append({
@@ -116,14 +119,16 @@ class FoodInferenceService:
         # Run TFLite inference only for uncached crops
         batch = np.stack([candidate['image'] for candidate in uncached_candidates])
         with self._interpreter_lock:
-            if self.input_details[0]['shape'][0] != len(uncached_candidates):
-                self.interpreter.resize_tensor_input(self.input_details[0]['index'], batch.shape)
+            # Task 7.2: Optimize TFLite memory allocation by avoiding redundant allocate_tensors calls
+            batch_len = len(uncached_candidates)
+            if self._allocated_batch_size != batch_len:
+                self.interpreter.resize_tensor_input(self._input_index, batch.shape)
                 self.interpreter.allocate_tensors()
-                self.input_details = self.interpreter.get_input_details()
-                self.output_details = self.interpreter.get_output_details()
-            self.interpreter.set_tensor(self.input_details[0]['index'], batch)
+                self._allocated_batch_size = batch_len
+
+            self.interpreter.set_tensor(self._input_index, batch)
             self.interpreter.invoke()
-            logits = self.interpreter.get_tensor(self.output_details[0]['index'])
+            logits = self.interpreter.get_tensor(self._output_index)
 
         logits -= np.max(logits, axis=1, keepdims=True)
         probabilities = np.exp(logits)
