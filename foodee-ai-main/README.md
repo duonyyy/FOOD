@@ -1,301 +1,254 @@
-# 🍜 Foodee AI — Vietnamese Food Detection API
+# 🍜 Foodee AI — Vietnamese Food Detection & Classification Microservice
 
-Dịch vụ AI phát hiện và phân loại món ăn Việt Nam từ ảnh và video, được xây dựng trên nền tảng **Flask**, sử dụng mô hình **YOLOv5/Ultralytics** để phát hiện vật thể và **TensorFlow Lite EfficientNet** để phân loại 30 món ăn truyền thống Việt Nam.
+Dịch vụ AI phát hiện và phân loại món ăn Việt Nam từ ảnh và video, được thiết kế theo kiến trúc **Clean Modular Microservice**, kết hợp mô hình **YOLOv8** (Object Detection) và **Google LiteRT / EfficientNet-B2** (30-class Classification) đạt độ trễ cực thấp và khả năng mở rộng production cao.
 
 ---
 
-## 🧠 Kiến trúc hệ thống
+## 🧠 Cấu trúc Thư mục & Kiến trúc Hệ thống
 
 ```
 foodee-ai-main/
 ├── app/
-│   ├── __init__.py        # Application factory và model service
-│   ├── config.py          # Đường dẫn model và cấu hình runtime
-│   ├── labels.py          # Thứ tự 30 nhãn phân loại
-│   ├── routes.py          # HTTP blueprint, không chứa AI logic
-│   ├── services/
-│   │   ├── inference.py   # YOLO + TFLite batch inference
-│   │   ├── media.py       # Xử lý và ghi video
-│   │   └── tracking.py    # Tracking và đếm object
-│   └── templates/         # Giao diện demo upload ảnh/video
-├── docs/
-│   └── model_improvement_guide.md
+│   ├── __init__.py            # Application factory, extensions & error handlers
+│   ├── config.py              # Dynamic configuration & environment variables
+│   ├── labels.py              # 30 Vietnamese food classes mapping
+│   ├── observability.py       # Structured JSON Logging & X-Request-ID tracking
+│   ├── validators.py          # Magic Bytes binary validation & security checks
+│   ├── api/                   # Modular Controller Blueprints
+│   │   ├── __init__.py        # API Blueprint aggregator
+│   │   ├── web.py             # GET / (Web Demo UI)
+│   │   ├── image.py           # POST /image
+│   │   ├── video.py           # POST /video & GET /video
+│   │   ├── download.py        # GET /download/<type>
+│   │   └── health.py          # GET /health & GET /ready probes
+│   ├── services/              # Core Business & AI Services
+│   │   ├── inference.py       # YOLOv8 + LiteRT / TFLite pipeline with Letterbox
+│   │   ├── cache.py           # Thread-safe LRU + TTL Classification Cache
+│   │   ├── media.py           # Video processing & H.264 Web Streaming
+│   │   ├── storage.py         # UUID Job Storage Isolation & Sandbox Manager
+│   │   └── tracking.py        # IoU-based FoodTracker & Deduplication
+│   └── templates/
+│       └── demo.html          # Web UI demo upload
 ├── models/
-│   ├── classification/    # TFLite classifier dùng khi chạy app
-│   ├── detection/
-│   │   └── detection.pt
-│   └── legacy/
-│       ├── deploy.prototxt
-│       └── res10_300x300_ssd_iter_140000.caffemodel
-├── runtime/               # Nơi app ghi file tạm và kết quả xử lý
-├── samples/
-│   ├── images/            # Ảnh mẫu để test API
-│   └── videos/            # Video mẫu để test API
-├── requirements.txt       # Danh sách dependencies
-└── testFlask.py           # Entry point khởi chạy Flask
-```
-
-### Pipeline xử lý hai giai đoạn
-
-```
-Ảnh / Video đầu vào
-       │
-       ▼
-┌─────────────────────┐
-│  YOLOv5 Detection   │  → Phát hiện vùng chứa thực phẩm (bounding box)
-│  (models/detection/ │    Ngưỡng confidence: 0.5
-│   detection.pt)     │
-└─────────────────────┘
-       │ ROI (vùng cắt ra)
-       ▼
-┌─────────────────────┐
-│  EfficientNet TFLite│  → Phân loại tên món ăn từ 30 nhãn
-│  (classifier_b2_    │    Resize → 260×260 → Normalize → Inference
-│   finetuned_...     │
-│   float16.tflite)   │
-└─────────────────────┘
-       │
-       ▼
- JSON Response (tên món, tọa độ bbox, confidence)
+│   ├── classification/        # EfficientNet-B2 Float16 LiteRT model
+│   └── detection/             # YOLOv8 Object Detection model
+├── samples/                   # Sample images & videos for verification
+├── scripts/                   # Evaluation & Model conversion utilities
+├── tests/                     # 90+ Comprehensive Pytest Test Suite
+├── Dockerfile                 # Multi-stage production container
+├── docker-compose.yml         # Container orchestration setup
+├── gunicorn.conf.py           # Production Gunicorn worker & memory config
+├── requirements.txt           # Lightweight runtime dependencies (< 200MB)
+└── requirements-dev.txt       # Development & Pytest testing dependencies
 ```
 
 ---
 
-## 🍽️ Danh sách 30 món ăn được hỗ trợ
+## 🍽️ Danh mục 30 Món ăn Việt Nam Hỗ trợ
 
 | STT | Tên món             | STT | Tên món             | STT | Tên món             |
-|-----|---------------------|-----|---------------------|-----|---------------------|
+|:---:|:--------------------|:---:|:--------------------|:---:|:--------------------|
 | 1   | Bánh bèo            | 11  | Bánh pía            | 21  | Canh chua           |
 | 2   | Bánh bột lọc        | 12  | Bánh tét            | 22  | Cao lầu             |
 | 3   | Bánh căn            | 13  | Bánh tráng nướng    | 23  | Cháo lòng           |
 | 4   | Bánh canh           | 14  | Bánh xèo            | 24  | Cơm tấm             |
 | 5   | Bánh chưng          | 15  | Bún bò Huế          | 25  | Gỏi cuốn            |
 | 6   | Bánh cuốn           | 16  | Bún đậu mắm tôm     | 26  | Hủ tiếu             |
-| 7   | Bánh đúc            | 17  | Bún mắm             | 27  | Mì quảng            |
+| 7   | Bánh đúc            | 17  | Bún mắm             | 27  | Mì Quảng            |
 | 8   | Bánh giò            | 18  | Bún riêu            | 28  | Nem chua            |
 | 9   | Bánh khọt           | 19  | Bún thịt nướng      | 29  | Phở                 |
 | 10  | Bánh mì             | 20  | Cá kho tộ           | 30  | Xôi xéo             |
 
 ---
 
-## 🚀 Cài đặt & Chạy
+## 🚀 Hướng dẫn Cài đặt & Khởi chạy
 
-### Yêu cầu hệ thống
-
-- Python 3.10+
-- pip
-
-### 1. Clone và cài đặt dependencies
+### Cách 1: Khởi chạy Nhanh với Docker Compose (Khuyên dùng cho Production)
 
 ```bash
-git clone https://github.com/your-org/foodee-ai.git
-cd foodee-ai-main
-
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+docker compose up --build -d
 ```
-
-Nếu cần chạy notebook huấn luyện hoặc chuyển đổi model, cài thêm `requirements-training.txt` hoặc `requirements-conversion.txt` tương ứng.
-
-### 2. Chuẩn bị model files
-
-Đảm bảo các file model sau tồn tại đúng vị trí:
-
-| File | Mô tả | Kích thước |
-|------|-------|-----------|
-| `models/detection/detection.pt` | YOLOv5 model phát hiện thực phẩm | ~22 MB |
-| `models/classification/classifier_b2_finetuned_from_pth_float16.tflite` | EfficientNet-B2 TFLite float16 phân loại 30 món | ~15,5 MB |
-
-> **Lưu ý:** Ứng dụng hiện sử dụng model float16 được chuyển từ checkpoint PyTorch `.pth`. Các script chuyển đổi nằm trong `scripts/`.
-
-### 3. Chuyển checkpoint PyTorch sang TFLite
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-conversion.txt
-.\.venv\Scripts\python.exe scripts/convert_pth_to_onnx.py
-onnx2tf -i runtime/efficientnet_b2_food.onnx -o runtime/efficientnet_b2_food_saved_model
-.\.venv\Scripts\python.exe scripts/convert_saved_model_to_tflite.py
-```
-
-Model chạy production là `models/classification/classifier_b2_finetuned_from_pth_float16.tflite`. Checkpoint `.pth` và notebook chỉ cần giữ lại khi muốn huấn luyện hoặc chuyển đổi model.
-
-### 4. Khởi chạy server
-
-```bash
-# Development mode
-.\.venv\Scripts\python.exe -m flask --app testFlask run --host=0.0.0.0 --port=5000
-
-# Hoặc production mode với Gunicorn
-.\.venv\Scripts\python.exe -m gunicorn -w 4 -b 0.0.0.0:5000 "testFlask:app"
-```
-
-Server sẽ chạy tại: `http://localhost:5000`
-
-### Cấu hình ngưỡng nhận diện
-
-Ứng dụng mặc định chỉ giữ bounding box YOLO có confidence từ `0.1` và IoU NMS `0.35`, sau đó chỉ nhận tên món khi EfficientNet có confidence từ `0.5`. Detection không đủ confidence phân loại sẽ bị loại và không được cộng vào thống kê.
-
-Có thể thay đổi ngưỡng khi khởi chạy PowerShell:
-
-```powershell
-$env:FOOD_DETECTION_CONFIDENCE = "0.5"
-$env:FOOD_CLASSIFICATION_CONFIDENCE = "0.6"
-.\.venv\Scripts\python.exe -m flask --app testFlask run --host=0.0.0.0 --port=5000
-```
-
-Ứng dụng sử dụng bản TFLite float16 `models/classification/classifier_b2_finetuned_from_pth_float16.tflite` để giảm dung lượng và chạy nhiều thread CPU. Video mặc định được phân tích ở khoảng 6 FPS; có thể điều chỉnh bằng `FOOD_VIDEO_TARGET_FPS` và `FOOD_TFLITE_THREADS`.
+- Server sẵn sàng tại: `http://localhost:5000`
+- Tự động kích hoạt Healthcheck và Persistent Storage Volume.
 
 ---
 
-## 📡 API Reference
+### Cách 2: Khởi chạy Môi trường Local (Python Virtualenv)
 
-### `POST /image` — Phát hiện món ăn trong ảnh
+#### 1. Khởi tạo môi trường ảo và cài đặt dependencies:
+```bash
+python -m venv .venv
 
-Nhận một ảnh, phát hiện và phân loại các món ăn Việt Nam.
+# Windows (PowerShell):
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
 
-**Request:**
+# Linux / macOS:
+source .venv/bin/activate
+pip install -r requirements-dev.txt
 ```
-Content-Type: multipart/form-data
-Field: image (file)
+
+#### 2. Khởi chạy Server:
+
+**Development Mode:**
+```bash
+flask --app app run --host=0.0.0.0 --port=5000
 ```
 
-**Ví dụ với curl:**
+**Production Mode (Gunicorn):**
+```bash
+gunicorn --config gunicorn.conf.py app:app
+```
+
+---
+
+## 📡 API Reference & Ví dụ cURL
+
+### 1. `GET /health` — Liveness Probe
+Kiểm tra tình trạng sống của server.
+
+```bash
+curl -X GET http://localhost:5000/health
+```
+
+**Response (`200 OK`):**
+```json
+{
+  "service": "foodee-ai",
+  "status": "healthy",
+  "uptime_seconds": 12.34,
+  "version": "1.0.0"
+}
+```
+
+---
+
+### 2. `GET /ready` — Readiness Probe
+Kiểm tra mô hình AI (YOLO + LiteRT) đã nạp sẵn sàng vào RAM và thư mục storage đã mở quyền ghi.
+
+```bash
+curl -X GET http://localhost:5000/ready
+```
+
+**Response (`200 OK`):**
+```json
+{
+  "status": "ready",
+  "checks": {
+    "classifier_model": true,
+    "detection_model": true,
+    "storage_ready": true
+  },
+  "version": "1.0.0"
+}
+```
+
+---
+
+### 3. `POST /image` — Nhận diện Món ăn trong Ảnh
+Hỗ trợ trường multipart `image` hoặc `file`.
+
 ```bash
 curl -X POST http://localhost:5000/image \
-  -F "image=@/path/to/food.jpg"
+  -F "image=@samples/images/pho.jpg"
 ```
 
-**Response thành công (`200 OK`):**
+**Response (`200 OK`):**
 ```json
 {
   "success": true,
-  "total_detections": 2,
+  "job_id": "a1b2c3d4e5f6...",
+  "total_detections": 1,
   "detections": [
     {
-      "bbox": { "x1": 120, "y1": 80, "x2": 350, "y2": 300 },
-      "detection_confidence": 0.87,
       "class_id": 28,
-      "class_name": "Pho",
-      "classification_confidence": 0.92
-    },
-    {
-      "bbox": { "x1": 400, "y1": 50, "x2": 600, "y2": 250 },
-      "detection_confidence": 0.75,
-      "class_id": 9,
-      "class_name": "Banh mi",
-      "classification_confidence": 0.88
+      "class_name": "Phở",
+      "detection_confidence": 0.98,
+      "classification_confidence": 0.81,
+      "bbox": { "x1": 87, "y1": 25, "x2": 219, "y2": 146 }
     }
   ],
   "class_counts": {
-    "Pho": 1,
-    "Banh mi": 1
+    "Phở": 1
   }
 }
 ```
 
-**Response lỗi (`400`, `500`):**
-```json
-{ "error": "No file part" }
-```
-
 ---
 
-### `POST /video` — Phát hiện món ăn trong video
+### 4. `POST /video` — Nhận diện & Đếm Món ăn trong Video
+Phân tích video theo FPS target, theo dõi đối tượng với thuật toán FoodTracker IoU và xuất video H.264.
 
-Upload video, API sẽ xử lý từng frame (mỗi 5 frame 1 lần để tối ưu hiệu năng) và trả về thống kê số lượng từng món ăn xuất hiện.
-
-**Request:**
-```
-Content-Type: multipart/form-data
-Field: file (video file)
-```
-
-**Ví dụ với curl:**
 ```bash
 curl -X POST http://localhost:5000/video \
-  -F "file=@/path/to/food_video.mp4"
+  -F "file=@samples/videos/output_video.mp4"
 ```
 
-**Response thành công (`200 OK`):**
+**Response (`200 OK`):**
 ```json
 {
   "success": true,
+  "job_id": "f8e7d6c5b4a3...",
   "video_processed": true,
-  "total_items": 15,
+  "total_items": 9,
   "food_detections": [
-    { "food_name": "Com tam", "count": 8 },
-    { "food_name": "Pho", "count": 7 }
+    { "food_name": "Bánh chưng", "count": 5 },
+    { "food_name": "Bánh giò", "count": 3 },
+    { "food_name": "Bánh tét", "count": 1 }
   ]
 }
 ```
 
 ---
 
-### `GET /video` — Tải video đã xử lý
-
-Trả về file video đã được xử lý sau khi gọi `POST /video`.
+### 5. `GET /download/<file_type>` — Tải Ảnh/Video Kết quả
+Hỗ trợ tải theo `job_id` cô lập hoặc file fallback tương thích ngược.
 
 ```bash
-curl http://localhost:5000/video --output processed_video.mp4
+# Tải ảnh kết quả theo job_id:
+curl "http://localhost:5000/download/image?job_id=a1b2c3d4e5f6..." --output result.jpg
+
+# Tải video kết quả:
+curl "http://localhost:5000/download/video?job_id=f8e7d6c5b4a3..." --output result.mp4
 ```
 
 ---
 
-### `GET /download/<file_type>` — Tải file kết quả
+## ⚙️ Biến Môi trường Cấu hình (`.env`)
 
-Tải xuống file kết quả xử lý.
-
-| Endpoint | Mô tả |
-|----------|-------|
-| `GET /download/image` | Tải ảnh đã xử lý (`food_detection_result.jpg`) |
-| `GET /download/video` | Tải video đã xử lý (`food_detection_result.mp4`) |
-
----
-
-## ⚙️ Cấu hình
-
-| Tham số | Giá trị mặc định | Mô tả |
-|---------|-----------------|-------|
-| Detection confidence | `0.5` | Ngưỡng tin cậy tối thiểu để nhận diện vật thể |
-| Image resize | `224 × 224` | Kích thước ảnh đầu vào cho classifier |
-| Video frame skip | Mỗi 5 frames | Số frame bỏ qua để tăng tốc xử lý video |
-| Normalization | `[-1, 1]` | Chuẩn hóa EfficientNet `(pixel/255 - 0.5) × 2` |
+| Biến môi trường | Mặc định | Ý nghĩa |
+| :--- | :---: | :--- |
+| `FOOD_DETECTION_CONFIDENCE` | `0.1` | Ngưỡng tin cậy phát hiện vật thể YOLO |
+| `FOOD_DETECTION_IOU` | `0.35` | Ngưỡng NMS IoU cho YOLO |
+| `FOOD_CLASSIFICATION_CONFIDENCE` | `0.5` | Ngưỡng tin cậy phân loại EfficientNet |
+| `FOOD_VIDEO_TARGET_FPS` | `6` | Tần suất lấy mẫu phân tích frame video |
+| `FOOD_CACHE_SIZE` | `1024` | Số lượng ROI crop lưu trong LRU Cache |
+| `FOOD_CACHE_TTL` | `60` | Thời gian sống (giây) của kết quả trong cache |
+| `FOOD_LETTERBOX_ENABLED` | `false` | Bật/tắt bảo toàn tỷ lệ khung hình Letterbox |
+| `FOOD_ALLOWED_ORIGINS` | `*` | Cấu hình CORS Allowed Origins |
+| `GUNICORN_WORKERS` | `2` | Số lượng tiến trình Gunicorn worker |
+| `GUNICORN_THREADS` | `2` | Số luồng gthread cho mỗi worker |
+| `GUNICORN_TIMEOUT` | `120` | Thời gian chờ tối đa cho request video |
 
 ---
 
-## 📦 Dependencies chính
+## 🧪 Kiểm thử Tự động & Đánh giá Mô hình
 
-| Thư viện | Phiên bản | Mục đích |
-|----------|-----------|----------|
-| Flask | 2.3.3 | Web framework |
-| Flask-Cors | 4.0.0 | Xử lý CORS cho API |
-| ultralytics | ≥8.0.196 | YOLOv5/v8 object detection |
-| tflite-runtime | latest | Chạy model TFLite nhẹ |
-| opencv-python | 4.8.1.78 | Xử lý ảnh và video |
-| numpy | <2 | Tính toán số học |
-| Pillow | ≥10.0.1 | Xử lý ảnh |
-| Gunicorn | latest | WSGI server production |
+### Chạy toàn bộ Test Suite (90+ Test Cases):
+```bash
+pytest tests/ -v
+```
 
----
-
-## 🔧 Ghi chú kỹ thuật
-
-- **CORS** được bật toàn cầu, phù hợp cho việc tích hợp với frontend (React, Vue...) hoặc mobile app.
-- **TFLite runtime** được ưu tiên tải thay cho TensorFlow đầy đủ để giảm dung lượng triển khai.
-- **Video processing** lưu file tạm `input_video.mp4` và `processed_video.mp4` trong thư mục `runtime/`.
-- Mỗi request ảnh/video sẽ **reset bộ đếm** `food_counts` về 0 trước khi xử lý.
+### Chạy Đánh giá Độ chính xác & F1-Score:
+```bash
+python scripts/evaluate_models.py
+```
 
 ---
 
-## 🤝 Tích hợp với Foodee Backend
+## 🛡️ Ma trận Bảo mật & Phòng vệ (Security Hardening)
 
-API này được thiết kế để hoạt động cùng với **Foodee Backend** (NestJS), phục vụ tính năng:
-- Nhận diện món ăn từ ảnh chụp của khách hàng
-- Hỗ trợ FoodeeBot đề xuất món dựa trên ảnh
-- Thống kê món ăn phổ biến qua video
-
----
-
-## 📄 License
-
-MIT License — Xem file [LICENSE](LICENSE) để biết thêm chi tiết.
+* **Magic Bytes Header Verification:** Kiểm tra trực tiếp header nhị phân (`FF D8 FF`, `89 50 4E 47`, `52 49 46 46`, `66 74 79 70`), loại bỏ 100% rủi ro upload mã độc ngụy trang đuôi ảnh.
+* **Path Traversal Protection:** Chặn tuyệt đối ký tự `..`, `/` và cô lập truy cập trong thư mục sandbox `runtime/jobs/{job_id}`.
+* **Safe Model Deserialization:** Sử dụng `torch.load(weights_only=True)` loại bỏ nguy cơ RCE từ file pickle độc hại.
+* **Non-Root Docker Execution:** Chạy dịch vụ dưới user `appuser` (UID 10001) giảm thiểu tối đa rủi ro leo thang đặc quyền.

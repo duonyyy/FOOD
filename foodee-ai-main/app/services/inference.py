@@ -12,6 +12,11 @@ import numpy as np
 from app.labels import FOOD_LABELS
 from app.services.cache import ClassificationCache
 
+# Precomputed ImageNet constants for fast vectorized normalization
+_IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+_INV_255 = np.float32(1.0 / 255.0)
+_INV_STD = (1.0 / np.array([0.229, 0.224, 0.225], dtype=np.float32)).astype(np.float32)
+
 
 class FoodInferenceService:
     def __init__(self, config):
@@ -40,13 +45,18 @@ class FoodInferenceService:
         return model
 
     def _load_classifier(self):
+        # Task 12.1: Lightweight LiteRT / TFLite runtime loader with zero-warning migration
         try:
-            import tflite_runtime.interpreter as tflite
+            from ai_edge_litert.interpreter import Interpreter
         except ImportError:
-            import tensorflow as tf
-            tflite = tf.lite
+            try:
+                import tflite_runtime.interpreter as tflite
+                Interpreter = tflite.Interpreter
+            except ImportError:
+                import tensorflow as tf
+                Interpreter = tf.lite.Interpreter
 
-        interpreter = tflite.Interpreter(
+        interpreter = Interpreter(
             model_path=str(self.config.CLASSIFIER_MODEL_PATH),
             num_threads=self.config.TFLITE_NUM_THREADS,
         )
@@ -83,11 +93,11 @@ class FoodInferenceService:
 
     @staticmethod
     def preprocess(image: np.ndarray) -> np.ndarray:
-        """Normalize RGB image with ImageNet mean and std."""
-        image = image.astype(np.float32) / 255.0
-        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        return (image - mean) / std
+        """Vectorized precomputed ImageNet normalization for maximum throughput."""
+        norm = image.astype(np.float32) * _INV_255
+        norm -= _IMAGENET_MEAN
+        norm *= _INV_STD
+        return norm
 
     def detect_and_classify(self, image: np.ndarray) -> list[dict]:
         if self.detection_model is None or self.interpreter is None:

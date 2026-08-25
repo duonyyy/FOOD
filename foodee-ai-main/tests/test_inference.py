@@ -75,8 +75,7 @@ def test_inference_with_real_sample_image(inference_service):
 def test_safe_torch_weights_loading():
     """Verify PyTorch model weights loading uses weights_only=True."""
     ckpt_path = PROJECT_ROOT / "models" / "classification" / "best_efficientnet_b2_30vnfoods_finetuned.pth"
-    if not ckpt_path.exists():
-        ckpt_path = PROJECT_ROOT / "best_efficientnet_b2_30vnfoods_finetuned.pth"
+    assert ckpt_path.exists(), f"Model checkpoint not found at {ckpt_path}"
 
     checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     assert "model_state_dict" in checkpoint

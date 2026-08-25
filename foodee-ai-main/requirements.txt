@@ -1,9 +1,10 @@
-Flask>=2.3,<4
-Flask-Cors>=4,<7
-numpy>=2.2,<2.6
-opencv-python>=4.8
-Pillow>=10
-tensorflow-cpu==2.20.0
-ultralytics>=8.0.196
-Werkzeug>=2.3,<4
-gunicorn>=21
+# Production Dependencies (Lightweight & Pinned for Foodee AI)
+Flask>=3.0.0,<3.2.0
+Flask-Cors>=5.0.0,<7.0.0
+Werkzeug>=3.0.0,<3.2.0
+gunicorn>=21.2.0,<27.0.0
+numpy>=1.26.0,<2.6.0
+opencv-python>=4.8.0,<5.1.0
+Pillow>=10.0.0,<13.0.0
+ultralytics>=8.0.196,<8.5.0
+ai-edge-litert>=2.2.0

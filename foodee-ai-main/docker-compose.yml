@@ -1,0 +1,39 @@
+services:
+  foodee-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: foodee-ai-service
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - FOOD_DETECTION_MODEL=models/detection/detection.pt
+      - FOOD_CLASSIFIER_MODEL=models/classification/classifier_b2_finetuned_from_pth_float16.tflite
+      - FOOD_DETECTION_CONFIDENCE=0.1
+      - FOOD_DETECTION_IOU=0.35
+      - FOOD_CLASSIFICATION_CONFIDENCE=0.5
+      - FOOD_VIDEO_TARGET_FPS=6
+      - FOOD_TFLITE_THREADS=4
+      - FOOD_TRACK_IOU_THRESHOLD=0.3
+      - FOOD_TRACK_MAX_MISSED=3
+      - FOOD_CACHE_SIZE=1024
+      - FOOD_CACHE_TTL=60
+      - FOOD_LETTERBOX_ENABLED=false
+      - FOOD_ALLOWED_ORIGINS=*
+      - GUNICORN_BIND=0.0.0.0:5000
+      - GUNICORN_WORKERS=2
+      - GUNICORN_THREADS=2
+      - GUNICORN_TIMEOUT=120
+    volumes:
+      - foodee_runtime:/app/runtime
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  foodee_runtime:
+    driver: local

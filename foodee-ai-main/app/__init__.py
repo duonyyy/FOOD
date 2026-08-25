@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 
 from app.config import Config
+from app.observability import init_observability
 from app.services.inference import FoodInferenceService
 from app.services.storage import JobStorageManager
 
@@ -13,6 +14,9 @@ def create_app():
 	app.config['APP_CONFIG'] = Config
 	Config.UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 	CORS(app, origins=Config.ALLOWED_ORIGINS)
+
+	# Initialize Structured Logging & Request Tracking
+	init_observability(app)
 
 	# Global JSON Error Handlers
 	@app.errorhandler(400)
