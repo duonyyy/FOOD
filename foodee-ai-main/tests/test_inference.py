@@ -15,6 +15,30 @@ def inference_service():
     return FoodInferenceService(Config)
 
 
+def test_letterbox_preserves_dimensions_and_aspect_ratio():
+    """Verify letterbox helper produces exact target size with neutral padding."""
+    # Wide rectangle (100x50)
+    wide_img = np.ones((50, 100, 3), dtype=np.uint8) * 200
+    lb_wide = FoodInferenceService.letterbox(wide_img, target_size=(260, 260), fill_value=(124, 116, 104))
+    assert lb_wide.shape == (260, 260, 3)
+    # Check that top and bottom borders have padding color (124, 116, 104)
+    assert tuple(lb_wide[0, 0]) == (124, 116, 104)
+    assert tuple(lb_wide[259, 259]) == (124, 116, 104)
+
+    # Tall rectangle (50x100)
+    tall_img = np.ones((100, 50, 3), dtype=np.uint8) * 200
+    lb_tall = FoodInferenceService.letterbox(tall_img, target_size=(260, 260), fill_value=(124, 116, 104))
+    assert lb_tall.shape == (260, 260, 3)
+    # Check that left and right borders have padding color
+    assert tuple(lb_tall[0, 0]) == (124, 116, 104)
+    assert tuple(lb_tall[130, 0]) == (124, 116, 104)
+
+    # Empty image edge case
+    empty_img = np.zeros((0, 0, 3), dtype=np.uint8)
+    lb_empty = FoodInferenceService.letterbox(empty_img, target_size=(260, 260))
+    assert lb_empty.shape == (260, 260, 3)
+
+
 def test_inference_with_blank_image(inference_service):
     """Zero/black image should not crash and return valid list."""
     black_image = np.zeros((480, 640, 3), dtype=np.uint8)

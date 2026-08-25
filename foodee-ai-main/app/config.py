@@ -35,6 +35,9 @@ class Config:
     CACHE_SIZE = int(os.getenv('FOOD_CACHE_SIZE', '1024'))
     CACHE_TTL = float(os.getenv('FOOD_CACHE_TTL', '60.0'))
 
+    # AI Preprocessing Options
+    LETTERBOX_ENABLED = os.getenv('FOOD_LETTERBOX_ENABLED', 'false').lower() == 'true'
+
     # CORS Security Configuration
     _raw_origins = os.getenv('FOOD_ALLOWED_ORIGINS', '*')
     ALLOWED_ORIGINS = '*' if _raw_origins.strip() == '*' else [o.strip() for o in _raw_origins.split(',') if o.strip()]
