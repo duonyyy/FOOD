@@ -11,6 +11,7 @@ class FoodInferenceService:
     def __init__(self, config):
         self.config = config
         self._interpreter_lock = threading.RLock()
+        self._detection_lock = threading.RLock()
         self.cache = ClassificationCache(
             max_size=getattr(config, 'CACHE_SIZE', 1024),
             ttl_seconds=getattr(config, 'CACHE_TTL', 60.0),
@@ -58,12 +59,13 @@ class FoodInferenceService:
             return []
 
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = self.detection_model(
-            rgb_image,
-            conf=self.config.DETECTION_CONFIDENCE_THRESHOLD,
-            iou=self.config.DETECTION_IOU_THRESHOLD,
-            verbose=False,
-        )
+        with self._detection_lock:
+            results = self.detection_model(
+                rgb_image,
+                conf=self.config.DETECTION_CONFIDENCE_THRESHOLD,
+                iou=self.config.DETECTION_IOU_THRESHOLD,
+                verbose=False,
+            )
         candidates = []
         input_height = int(self.input_details[0]['shape'][1])
         input_width = int(self.input_details[0]['shape'][2])
