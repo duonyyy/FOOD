@@ -6,7 +6,9 @@ from torchvision import models
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CHECKPOINT_PATH = BASE_DIR / "best_efficientnet_b2_30vnfoods_finetuned.pth"
+CHECKPOINT_PATH = BASE_DIR / "models" / "classification" / "best_efficientnet_b2_30vnfoods_finetuned.pth"
+if not CHECKPOINT_PATH.exists():
+    CHECKPOINT_PATH = BASE_DIR / "best_efficientnet_b2_30vnfoods_finetuned.pth"
 OUTPUT_PATH = BASE_DIR / "runtime" / "efficientnet_b2_food.onnx"
 
 
@@ -20,7 +22,8 @@ class NHWCModel(nn.Module):
 
 
 def main():
-    checkpoint = torch.load(CHECKPOINT_PATH, map_location="cpu", weights_only=False)
+    # Load model weights safely with weights_only=True to prevent arbitrary code execution
+    checkpoint = torch.load(CHECKPOINT_PATH, map_location="cpu", weights_only=True)
     class_count = checkpoint["num_classes"]
 
     model = models.efficientnet_b2(weights=None)

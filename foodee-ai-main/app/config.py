@@ -30,3 +30,7 @@ class Config:
     TRACK_MAX_MISSED_SAMPLES = int(os.getenv('FOOD_TRACK_MAX_MISSED', '3'))
     MAX_IMAGE_BYTES = int(os.getenv('FOOD_MAX_IMAGE_BYTES', str(10 * 1024 * 1024)))
     MAX_CONTENT_LENGTH = int(os.getenv('FOOD_MAX_UPLOAD_BYTES', str(100 * 1024 * 1024)))
+
+    # CORS Security Configuration
+    _raw_origins = os.getenv('FOOD_ALLOWED_ORIGINS', '*')
+    ALLOWED_ORIGINS = '*' if _raw_origins.strip() == '*' else [o.strip() for o in _raw_origins.split(',') if o.strip()]
