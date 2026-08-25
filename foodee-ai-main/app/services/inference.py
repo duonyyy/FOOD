@@ -4,12 +4,17 @@ import cv2
 import numpy as np
 
 from app.labels import FOOD_LABELS
+from app.services.cache import ClassificationCache
 
 
 class FoodInferenceService:
     def __init__(self, config):
         self.config = config
         self._interpreter_lock = threading.RLock()
+        self.cache = ClassificationCache(
+            max_size=getattr(config, 'CACHE_SIZE', 1024),
+            ttl_seconds=getattr(config, 'CACHE_TTL', 60.0),
+        )
         self.detection_model = self._load_detection_model()
         self.interpreter, self.input_details, self.output_details = self._load_classifier()
 
@@ -73,18 +78,45 @@ class FoodInferenceService:
                     continue
                 roi = cv2.resize(roi, (input_width, input_height))
                 roi = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+                preprocessed = self.preprocess(roi)
+                crop_key = self.cache.compute_key(preprocessed)
                 candidates.append({
                     'bbox': {'x1': int(x1), 'y1': int(y1), 'x2': int(x2), 'y2': int(y2)},
                     'detection_confidence': detection_confidence,
-                    'image': self.preprocess(roi),
+                    'image': preprocessed,
+                    'crop_key': crop_key,
                 })
 
         if not candidates:
             return []
 
-        batch = np.stack([candidate['image'] for candidate in candidates])
+        detections = []
+        uncached_candidates = []
+
+        # Check Cache first
+        for candidate in candidates:
+            cached_result = self.cache.get(candidate['crop_key'])
+            if cached_result is not None:
+                class_id, class_name, classification_confidence = cached_result
+                if classification_confidence >= self.config.CLASSIFICATION_CONFIDENCE_THRESHOLD and class_name != 'Unknown':
+                    detections.append({
+                        'bbox': candidate['bbox'],
+                        'detection_confidence': candidate['detection_confidence'],
+                        'class_id': class_id,
+                        'class_name': class_name,
+                        'classification_confidence': classification_confidence,
+                    })
+            else:
+                uncached_candidates.append(candidate)
+
+        # If all candidates were in cache, return immediately
+        if not uncached_candidates:
+            return detections
+
+        # Run TFLite inference only for uncached crops
+        batch = np.stack([candidate['image'] for candidate in uncached_candidates])
         with self._interpreter_lock:
-            if self.input_details[0]['shape'][0] != len(candidates):
+            if self.input_details[0]['shape'][0] != len(uncached_candidates):
                 self.interpreter.resize_tensor_input(self.input_details[0]['index'], batch.shape)
                 self.interpreter.allocate_tensors()
                 self.input_details = self.interpreter.get_input_details()
@@ -96,16 +128,18 @@ class FoodInferenceService:
         logits -= np.max(logits, axis=1, keepdims=True)
         probabilities = np.exp(logits)
         probabilities /= np.sum(probabilities, axis=1, keepdims=True)
-        detections = []
 
-        for candidate, scores in zip(candidates, probabilities):
+        for candidate, scores in zip(uncached_candidates, probabilities):
             class_id = int(np.argmax(scores))
             classification_confidence = float(np.max(scores))
-            if classification_confidence < self.config.CLASSIFICATION_CONFIDENCE_THRESHOLD:
-                continue
             class_name = FOOD_LABELS[class_id] if class_id < len(FOOD_LABELS) else 'Unknown'
-            if class_name == 'Unknown':
+
+            # Store in cache for future frames/requests
+            self.cache.set(candidate['crop_key'], (class_id, class_name, classification_confidence))
+
+            if classification_confidence < self.config.CLASSIFICATION_CONFIDENCE_THRESHOLD or class_name == 'Unknown':
                 continue
+
             detections.append({
                 'bbox': candidate['bbox'],
                 'detection_confidence': candidate['detection_confidence'],
@@ -113,4 +147,5 @@ class FoodInferenceService:
                 'class_name': class_name,
                 'classification_confidence': classification_confidence,
             })
+
         return detections

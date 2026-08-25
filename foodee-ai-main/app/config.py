@@ -31,6 +31,10 @@ class Config:
     MAX_IMAGE_BYTES = int(os.getenv('FOOD_MAX_IMAGE_BYTES', str(10 * 1024 * 1024)))
     MAX_CONTENT_LENGTH = int(os.getenv('FOOD_MAX_UPLOAD_BYTES', str(100 * 1024 * 1024)))
 
+    # In-Memory Cache Configuration
+    CACHE_SIZE = int(os.getenv('FOOD_CACHE_SIZE', '1024'))
+    CACHE_TTL = float(os.getenv('FOOD_CACHE_TTL', '60.0'))
+
     # CORS Security Configuration
     _raw_origins = os.getenv('FOOD_ALLOWED_ORIGINS', '*')
     ALLOWED_ORIGINS = '*' if _raw_origins.strip() == '*' else [o.strip() for o in _raw_origins.split(',') if o.strip()]

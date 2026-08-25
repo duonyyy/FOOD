@@ -45,8 +45,8 @@ def create_app():
 	app.extensions['food_inference'] = FoodInferenceService(Config)
 	app.extensions['storage_manager'] = JobStorageManager(Config.UPLOAD_FOLDER)
 
-	from app.routes import api
-	app.register_blueprint(api)
+	from app.api import api_bp
+	app.register_blueprint(api_bp)
 	return app
 
 
