@@ -1,6 +1,33 @@
 import cv2
+import numpy as np
 
 from app.services.tracking import FoodTracker
+
+
+def draw_detections(image: np.ndarray, detections: list) -> np.ndarray:
+    """Draw bounding boxes and class names with confidence on an image or video frame."""
+    output = image.copy()
+    for detection in detections:
+        bbox = detection['bbox']
+        cv2.rectangle(
+            output,
+            (bbox['x1'], bbox['y1']),
+            (bbox['x2'], bbox['y2']),
+            (0, 255, 0),
+            2,
+        )
+        label = f"{detection['class_name']} {detection['classification_confidence']:.0%}"
+        cv2.putText(
+            output,
+            label,
+            (bbox['x1'], max(20, bbox['y1'] - 8)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 255, 0),
+            2,
+            cv2.LINE_AA,
+        )
+    return output
 
 
 class VideoProcessor:
@@ -53,25 +80,4 @@ class VideoProcessor:
 
     @staticmethod
     def _draw_detections(frame, detections):
-        output = frame.copy()
-        for detection in detections:
-            bbox = detection['bbox']
-            cv2.rectangle(
-                output,
-                (bbox['x1'], bbox['y1']),
-                (bbox['x2'], bbox['y2']),
-                (0, 255, 0),
-                2,
-            )
-            label = f"{detection['class_name']} {detection['classification_confidence']:.0%}"
-            cv2.putText(
-                output,
-                label,
-                (bbox['x1'], max(20, bbox['y1'] - 8)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0, 255, 0),
-                2,
-                cv2.LINE_AA,
-            )
-        return output
+        return draw_detections(frame, detections)
