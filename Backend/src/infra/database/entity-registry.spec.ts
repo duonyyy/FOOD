@@ -22,6 +22,7 @@ describe('database entity registry', () => {
       'Notification',
       'Order',
       'OrderDetail',
+      'OutboxEvent',
       'PendingShipperAssignment',
       'Permission',
       'Promotion',

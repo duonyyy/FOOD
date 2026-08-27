@@ -1,7 +1,7 @@
 export const PAYMENT_SUCCEEDED_EVENT = 'payment.succeeded';
 
-export interface PaymentSucceededEvent {
+export type PaymentSucceededEvent = Record<string, unknown> & {
   orderId: string;
   checkoutId: string;
   paymentId: string | null;
-}
+};

@@ -1,11 +1,15 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
+import {
+  PAYMENT_FAILED_EVENT,
+  type PaymentFailedEvent,
+} from 'src/common/events/payment-failed.event';
 import {
   PAYMENT_SUCCEEDED_EVENT,
   type PaymentSucceededEvent,
 } from 'src/common/events/payment-succeeded.event';
+import { OutboxService } from 'src/common/events/outbox.service';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
 import {
   assertPaymentStatusTransition,
@@ -32,7 +36,7 @@ export class PaymentService {
     private readonly checkoutRepository: Repository<Checkout>,
     private readonly configService: ConfigService,
     private readonly paymentGateways: PaymentGatewayRouter,
-    private readonly eventBus: InProcessEventBus,
+    private readonly outboxService: OutboxService,
   ) {}
 
   /**
@@ -52,12 +56,13 @@ export class PaymentService {
       paymentMethod,
       status: order.amount === 0 ? CheckoutStatus.COMPLETED : CheckoutStatus.PENDING,
     });
-    await this.checkoutRepository.save(checkout);
-
     if (order.amount === 0) {
-      await this.publishSucceeded(checkout);
+      const eventId = await this.persistPaymentEvent(checkout, 'succeeded');
+      await this.dispatchPaymentEvent(eventId);
       return checkout;
     }
+
+    await this.checkoutRepository.save(checkout);
 
     const gateway = this.selectGateway(paymentMethod);
     try {
@@ -80,7 +85,7 @@ export class PaymentService {
       // paymentUrl is intentionally transient: signed provider URLs are secrets.
       return Object.assign(checkout, { paymentUrl: paymentIntent.clientSecret });
     } catch (error) {
-      await this.transition(checkout, CheckoutStatus.FAILED);
+      await this.transition(checkout, CheckoutStatus.FAILED, this.errorMessage(error));
       const message = this.errorMessage(error);
       this.logger.error(`Failed to create payment intent for checkout ${checkout.id}: ${message}`);
       throw new BadRequestException(`Payment processing failed: ${message}`);
@@ -107,12 +112,12 @@ export class PaymentService {
         // provider callback may transition a checkout to COMPLETED.
         await this.checkoutRepository.save(checkout);
       } else {
-        await this.transition(checkout, CheckoutStatus.FAILED);
+        await this.transition(checkout, CheckoutStatus.FAILED, 'Provider rejected payment');
       }
       return result;
     } catch (error) {
       if (checkout.status === CheckoutStatus.PENDING) {
-        await this.transition(checkout, CheckoutStatus.FAILED);
+        await this.transition(checkout, CheckoutStatus.FAILED, this.errorMessage(error));
       }
       const message = this.errorMessage(error);
       this.logger.error(`Payment processing failed for checkout ${checkout.id}: ${message}`);
@@ -310,13 +315,23 @@ export class PaymentService {
         checkout.providerTransactionId === callback.providerTransactionId ||
         checkout.webhookIdempotencyKey === callback.idempotencyKey
       ) {
-        return { checkout: null, duplicate: true, outcome: this.outcomeFor(checkout.status) };
+        return {
+          checkout: null,
+          duplicate: true,
+          outcome: this.outcomeFor(checkout.status),
+          eventId: null,
+        };
       }
       if (checkout.providerTransactionId || checkout.webhookIdempotencyKey) {
         throw new BadRequestException('Checkout already has a different verified provider callback');
       }
       if (checkout.status !== CheckoutStatus.PENDING) {
-        return { checkout: null, duplicate: true, outcome: this.outcomeFor(checkout.status) };
+        return {
+          checkout: null,
+          duplicate: true,
+          outcome: this.outcomeFor(checkout.status),
+          eventId: null,
+        };
       }
 
       const nextStatus =
@@ -326,11 +341,24 @@ export class PaymentService {
       checkout.providerTransactionId = callback.providerTransactionId;
       checkout.webhookIdempotencyKey = callback.idempotencyKey;
       const saved = await repository.save(checkout);
-      return { checkout: saved, duplicate: false, outcome: callback.outcome };
+      const outboxEvent = await this.outboxService.enqueue(manager, {
+        eventType:
+          callback.outcome === 'succeeded' ? PAYMENT_SUCCEEDED_EVENT : PAYMENT_FAILED_EVENT,
+        aggregateType: 'Checkout',
+        aggregateId: saved.id,
+        idempotencyKey: `Checkout:${saved.id}:payment:${callback.outcome}`,
+        payload: this.paymentEventPayload(saved, callback.outcome),
+      });
+      return {
+        checkout: saved,
+        duplicate: false,
+        outcome: callback.outcome,
+        eventId: outboxEvent.id,
+      };
     });
 
-    if (persisted.checkout && persisted.outcome === 'succeeded') {
-      await this.publishSucceeded(persisted.checkout);
+    if (persisted.eventId) {
+      await this.dispatchPaymentEvent(persisted.eventId);
     }
     return {
       acknowledged: true,
@@ -379,10 +407,41 @@ export class PaymentService {
     return this.paymentGateways.get(method);
   }
 
-  private async transition(checkout: Checkout, next: CheckoutStatus): Promise<void> {
-    assertPaymentStatusTransition(checkout.status, next);
-    checkout.status = next;
-    await this.checkoutRepository.save(checkout);
+  private async transition(
+    checkout: Checkout,
+    next: CheckoutStatus,
+    failureReason?: string,
+  ): Promise<void> {
+    if (next !== CheckoutStatus.FAILED) {
+      assertPaymentStatusTransition(checkout.status, next);
+      checkout.status = next;
+      await this.checkoutRepository.save(checkout);
+      return;
+    }
+
+    const persisted = await this.checkoutRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(Checkout);
+      const current = await repository.findOne({
+        where: { id: checkout.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!current) throw new BadRequestException(`Checkout with ID ${checkout.id} not found`);
+      if (current.status === CheckoutStatus.FAILED) return { checkout: current, eventId: null };
+      assertPaymentStatusTransition(current.status, next);
+      current.status = next;
+      const saved = await repository.save(current);
+      const outboxEvent = await this.outboxService.enqueue(manager, {
+        eventType: PAYMENT_FAILED_EVENT,
+        aggregateType: 'Checkout',
+        aggregateId: saved.id,
+        idempotencyKey: `Checkout:${saved.id}:payment:failed`,
+        payload: this.paymentEventPayload(saved, 'failed', failureReason),
+      });
+      return { checkout: saved, eventId: outboxEvent.id };
+    });
+
+    Object.assign(checkout, persisted.checkout);
+    if (persisted.eventId) await this.dispatchPaymentEvent(persisted.eventId);
   }
 
   private assertPending(checkout: Checkout): void {
@@ -400,12 +459,47 @@ export class PaymentService {
     }
   }
 
-  private async publishSucceeded(checkout: Checkout): Promise<void> {
-    await this.eventBus.publish<PaymentSucceededEvent>(PAYMENT_SUCCEEDED_EVENT, {
+  private async persistPaymentEvent(
+    checkout: Checkout,
+    outcome: VerifiedPaymentOutcome,
+    reason?: string,
+  ): Promise<string> {
+    const persisted = await this.checkoutRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(Checkout);
+      const saved = await repository.save(checkout);
+      const outboxEvent = await this.outboxService.enqueue(manager, {
+        eventType: outcome === 'succeeded' ? PAYMENT_SUCCEEDED_EVENT : PAYMENT_FAILED_EVENT,
+        aggregateType: 'Checkout',
+        aggregateId: saved.id,
+        idempotencyKey: `Checkout:${saved.id}:payment:${outcome}`,
+        payload: this.paymentEventPayload(saved, outcome, reason),
+      });
+      return { checkout: saved, eventId: outboxEvent.id };
+    });
+    Object.assign(checkout, persisted.checkout);
+    return persisted.eventId;
+  }
+
+  private paymentEventPayload(
+    checkout: Checkout,
+    outcome: VerifiedPaymentOutcome,
+    reason?: string,
+  ): PaymentSucceededEvent | PaymentFailedEvent {
+    const payload = {
       orderId: checkout.orderId,
       checkoutId: checkout.id,
       paymentId: checkout.paymentIntentId ?? null,
-    });
+    };
+    return outcome === 'succeeded' ? payload : { ...payload, reason };
+  }
+
+  private async dispatchPaymentEvent(eventId: string): Promise<void> {
+    try {
+      await this.outboxService.dispatchAfterCommit(eventId);
+    } catch (error) {
+      // The checkout transaction is already committed. The outbox retry job owns recovery.
+      this.logger.warn(`Payment event ${eventId} queued for retry: ${this.errorMessage(error)}`);
+    }
   }
 
   private errorMessage(error: unknown): string {

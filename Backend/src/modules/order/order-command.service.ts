@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import {
@@ -109,29 +109,47 @@ export class OrderCommandService {
   }
 
   async markPaid(orderId: string): Promise<Order> {
-    const order = await this.orderQueryService.getOrderById(orderId);
+    const result = await this.orderRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(Order);
+      const order = await repository.findOne({
+        where: { id: orderId },
+        relations: ['user'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Order not found');
 
-    try {
-      order.status = this.stateMachine.markPaid(order.status);
-    } catch (error) {
-      if (
-        error instanceof InvalidOrderStatusError ||
-        error instanceof InvalidOrderTransitionError
-      ) {
-        throw new BadRequestException(
-          `Cannot confirm payment for an order with status ${order.status}`,
-        );
+      // A retried outbox delivery must be a no-op, including notifications and subscriptions.
+      if (order.status === OrderStatus.COMPLETED && order.isPaid) {
+        return { order, changed: false };
       }
-      throw error;
+
+      try {
+        if (order.status !== OrderStatus.COMPLETED) {
+          order.status = this.stateMachine.markPaid(order.status);
+        }
+      } catch (error) {
+        if (
+          error instanceof InvalidOrderStatusError ||
+          error instanceof InvalidOrderTransitionError
+        ) {
+          throw new BadRequestException(
+            `Cannot confirm payment for an order with status ${order.status}`,
+          );
+        }
+        throw error;
+      }
+
+      order.isPaid = true;
+      order.paymentDate ??= new Date().toISOString();
+      return { order: await repository.save(order), changed: true };
+    });
+
+    // These are post-commit projections, never part of the payment transaction.
+    if (result.changed) {
+      await pubSub.publish('orderCreated', { orderCreated: result.order });
+      await pubSub.publish('orderStatusUpdated', { orderStatusUpdated: result.order });
     }
 
-    order.isPaid = true;
-    order.paymentDate = new Date().toISOString();
-    const updatedOrder = await this.orderRepository.save(order);
-
-    await pubSub.publish('orderCreated', { orderCreated: updatedOrder });
-    await pubSub.publish('orderStatusUpdated', { orderStatusUpdated: updatedOrder });
-
-    return updatedOrder;
+    return result.order;
   }
 }

@@ -10,7 +10,7 @@ describe('Payment callback idempotency characterization', () => {
     findOne: jest.Mock;
     save: jest.Mock;
   };
-  let eventBus: { publish: jest.Mock };
+  let outboxService: { enqueue: jest.Mock; dispatchAfterCommit: jest.Mock };
   let momoGateway: {
     verifyWebhookSignature: jest.Mock;
     handleWebhookEvent: jest.Mock;
@@ -52,7 +52,10 @@ describe('Payment callback idempotency characterization', () => {
         }),
       },
     };
-    eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
+    outboxService = {
+      enqueue: jest.fn().mockResolvedValue({ id: 'outbox-payment-1' }),
+      dispatchAfterCommit: jest.fn().mockResolvedValue(undefined),
+    };
     momoGateway = {
       verifyWebhookSignature: jest.fn().mockReturnValue(true),
       handleWebhookEvent: jest.fn(),
@@ -63,7 +66,7 @@ describe('Payment callback idempotency characterization', () => {
       checkoutRepository as never,
       { get: jest.fn() } as never,
       gatewayRouter as never,
-      eventBus as never,
+      outboxService as never,
     );
   });
 
@@ -75,7 +78,15 @@ describe('Payment callback idempotency characterization', () => {
     ]);
 
     expect(transactionalCheckoutRepository.save).toHaveBeenCalledTimes(1);
-    expect(eventBus.publish).toHaveBeenCalledTimes(1);
+    expect(outboxService.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: 'payment.succeeded',
+        idempotencyKey: 'Checkout:checkout-1:payment:succeeded',
+      }),
+    );
+    expect(outboxService.enqueue).toHaveBeenCalledTimes(1);
+    expect(outboxService.dispatchAfterCommit).toHaveBeenCalledTimes(1);
     expect(acknowledgements.map((item) => item.duplicate).sort()).toEqual([false, true]);
   });
 
@@ -87,7 +98,8 @@ describe('Payment callback idempotency characterization', () => {
     const acknowledgement = await service.handleWebhookEvent(momoCallback(), 'valid-signature');
 
     expect(transactionalCheckoutRepository.save).not.toHaveBeenCalled();
-    expect(eventBus.publish).not.toHaveBeenCalled();
+    expect(outboxService.enqueue).not.toHaveBeenCalled();
+    expect(outboxService.dispatchAfterCommit).not.toHaveBeenCalled();
     expect(acknowledgement).toEqual({
       acknowledged: true,
       duplicate: true,
@@ -168,11 +180,37 @@ describe('Payment callback idempotency characterization', () => {
     });
   });
 
+  it('stores a verified failed payment as a PaymentFailed outbox event', async () => {
+    const acknowledgement = await service.handleWebhookEvent(
+      {
+        ...momoCallback(),
+        type: 'payment_intent.failed',
+        resultCode: '1',
+      },
+      'valid-signature',
+    );
+
+    expect(acknowledgement).toEqual({
+      acknowledged: true,
+      duplicate: false,
+      outcome: 'failed',
+    });
+    expect(checkout.status).toBe(CheckoutStatus.FAILED);
+    expect(outboxService.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: 'payment.failed',
+        idempotencyKey: 'Checkout:checkout-1:payment:failed',
+        payload: expect.objectContaining({ orderId: 'order-1', checkoutId: 'checkout-1' }),
+      }),
+    );
+  });
+
   it('does not mark a checkout paid from an authenticated client process request', async () => {
     await service.processPayment('checkout-1', { metadata: { bankCode: 'NCB' } });
 
     expect(checkout.status).toBe(CheckoutStatus.PENDING);
-    expect(eventBus.publish).not.toHaveBeenCalled();
+    expect(outboxService.enqueue).not.toHaveBeenCalled();
     expect(checkoutRepository.save).toHaveBeenCalledWith(checkout);
   });
 });

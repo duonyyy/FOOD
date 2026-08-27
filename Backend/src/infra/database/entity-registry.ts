@@ -7,6 +7,7 @@ import { Message } from '../../entities/message.entity';
 import { Notification } from '../../entities/notification.entity';
 import { Order } from '../../entities/order.entity';
 import { OrderDetail } from '../../entities/orderDetail.entity';
+import { OutboxEvent } from '../../entities/outbox-event.entity';
 import { PendingShipperAssignment } from '../../entities/pendingShipperAssignment.entity';
 import { Permission } from '../../entities/permission.entity';
 import { Promotion } from '../../entities/promotion.entity';
@@ -30,6 +31,7 @@ export const DATABASE_ENTITIES = [
   Notification,
   Order,
   OrderDetail,
+  OutboxEvent,
   PendingShipperAssignment,
   Permission,
   Promotion,

@@ -12,8 +12,19 @@ describe('OrderCommandService', () => {
       user: { id: 'customer-1' },
       isPaid: false,
     };
+    const transactionalRepository = {
+      findOne: jest.fn(async () => order),
+      save: jest.fn(async (value) => value),
+    };
     const dependencies = {
-      orderRepository: { save: jest.fn(async (value) => value) },
+      orderRepository: {
+        save: jest.fn(async (value) => value),
+        manager: {
+          transaction: jest.fn(async (callback) =>
+            callback({ getRepository: () => transactionalRepository }),
+          ),
+        },
+      },
       orderQueryService: { getOrderById: jest.fn().mockResolvedValue(order) },
       pendingAssignmentService: {
         addPendingAssignment: jest.fn().mockResolvedValue({ id: 'assignment-1' }),
@@ -30,6 +41,7 @@ describe('OrderCommandService', () => {
       ),
       dependencies,
       order,
+      transactionalRepository,
     };
   };
 
@@ -76,14 +88,24 @@ describe('OrderCommandService', () => {
   });
 
   it('marks a pending payment as completed and paid', async () => {
-    const { service, dependencies } = createCommandService();
+    const { service, transactionalRepository } = createCommandService();
 
     await expect(service.markPaid('order-1')).resolves.toMatchObject({
       status: OrderStatus.COMPLETED,
       isPaid: true,
     });
-    expect(dependencies.orderRepository.save).toHaveBeenCalledWith(
+    expect(transactionalRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ status: OrderStatus.COMPLETED, isPaid: true }),
     );
+  });
+
+  it('treats a retried payment event as a no-op', async () => {
+    const { service, transactionalRepository, order } = createCommandService();
+    order.status = OrderStatus.COMPLETED;
+    order.isPaid = true;
+
+    await expect(service.markPaid('order-1')).resolves.toBe(order);
+
+    expect(transactionalRepository.save).not.toHaveBeenCalled();
   });
 });

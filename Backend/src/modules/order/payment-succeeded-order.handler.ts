@@ -4,8 +4,7 @@ import {
   PAYMENT_SUCCEEDED_EVENT,
   PaymentSucceededEvent,
 } from 'src/common/events/payment-succeeded.event';
-import { pubSub } from 'src/pubsub';
-import { OrderService } from './order.service';
+import { OrderCommandService } from './order-command.service';
 
 @Injectable()
 export class PaymentSucceededOrderHandler implements OnModuleInit, OnModuleDestroy {
@@ -13,7 +12,7 @@ export class PaymentSucceededOrderHandler implements OnModuleInit, OnModuleDestr
 
   constructor(
     private readonly eventBus: InProcessEventBus,
-    private readonly orderService: OrderService,
+    private readonly orderCommandService: OrderCommandService,
   ) {}
 
   onModuleInit(): void {
@@ -28,8 +27,6 @@ export class PaymentSucceededOrderHandler implements OnModuleInit, OnModuleDestr
   }
 
   private async handle(event: PaymentSucceededEvent): Promise<void> {
-    const updatedOrder = await this.orderService.updateOrderStatus(event.orderId, 'pending');
-
-    await pubSub.publish('orderCreated', { orderCreated: updatedOrder });
+    await this.orderCommandService.markPaid(event.orderId);
   }
 }

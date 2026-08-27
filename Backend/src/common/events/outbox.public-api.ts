@@ -9,4 +9,6 @@ export {
   type OrderLifecycleEvent,
   type OrderPaidEvent,
 } from './order-events';
+export { PAYMENT_FAILED_EVENT, type PaymentFailedEvent } from './payment-failed.event';
+export { PAYMENT_SUCCEEDED_EVENT, type PaymentSucceededEvent } from './payment-succeeded.event';
 export { OutboxService, type EnqueueOutboxEventRequest } from './outbox.service';

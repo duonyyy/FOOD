@@ -1,17 +1,18 @@
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import { PAYMENT_SUCCEEDED_EVENT } from 'src/common/events/payment-succeeded.event';
-import { pubSub } from 'src/pubsub';
-import { OrderService } from './order.service';
+import { OrderCommandService } from './order-command.service';
 import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler';
 
 describe('PaymentSucceededOrderHandler', () => {
-  it('delegates the status transition and keeps the existing orderCreated publication', async () => {
+  it('delegates payment completion to the idempotent Ordering command', async () => {
     const eventBus = new InProcessEventBus();
-    const orderService = {
-      updateOrderStatus: jest.fn().mockResolvedValue({ id: 'order-1', status: 'pending' }),
-    } as Pick<OrderService, 'updateOrderStatus'>;
-    const publishSpy = jest.spyOn(pubSub, 'publish').mockResolvedValue(undefined);
-    const handler = new PaymentSucceededOrderHandler(eventBus, orderService as OrderService);
+    const orderCommandService = {
+      markPaid: jest.fn().mockResolvedValue({ id: 'order-1', status: 'completed', isPaid: true }),
+    } as Pick<OrderCommandService, 'markPaid'>;
+    const handler = new PaymentSucceededOrderHandler(
+      eventBus,
+      orderCommandService as OrderCommandService,
+    );
 
     handler.onModuleInit();
     await eventBus.publish(PAYMENT_SUCCEEDED_EVENT, {
@@ -21,11 +22,6 @@ describe('PaymentSucceededOrderHandler', () => {
     });
     handler.onModuleDestroy();
 
-    expect(orderService.updateOrderStatus).toHaveBeenCalledWith('order-1', 'pending');
-    expect(publishSpy).toHaveBeenCalledWith('orderCreated', {
-      orderCreated: { id: 'order-1', status: 'pending' },
-    });
-
-    publishSpy.mockRestore();
+    expect(orderCommandService.markPaid).toHaveBeenCalledWith('order-1');
   });
 });
