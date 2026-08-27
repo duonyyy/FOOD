@@ -15,7 +15,11 @@ import {
   assertPaymentStatusTransition,
 } from 'src/features/payments/domain/payment-status-machine';
 import type { PaymentOrderSnapshot } from 'src/features/payments/contracts/payment-order-snapshot.contract';
-import type { PaymentGatewayPort } from 'src/features/payments/contracts/payment-gateway.port';
+import { PaymentStatus } from 'src/features/payments/contracts/payment-gateway.port';
+import type {
+  PaymentGatewayPort,
+  PaymentIntent,
+} from 'src/features/payments/contracts/payment-gateway.port';
 import type {
   PaymentWebhookAcknowledgement,
   VerifiedPaymentOutcome,
@@ -273,12 +277,98 @@ export class PaymentService {
     return response;
   }
 
+  /**
+   * Reconcile one pending checkout from an authoritative provider status query.
+   * A provider status alone is not enough: amount, currency, order reference
+   * and provider transaction id must all be present and match the checkout
+   * snapshot before the normal verified-callback transaction is reused.
+   */
+  async reconcilePendingCheckout(checkoutId: string): Promise<PaymentReconciliationResult> {
+    const checkout = await this.checkoutRepository.findOne({ where: { id: checkoutId } });
+    if (!checkout || checkout.status !== CheckoutStatus.PENDING || !checkout.paymentIntentId) {
+      return { status: 'skipped' };
+    }
+
+    const paymentIntent = await this.selectGateway(checkout.paymentMethod).getPaymentIntent(
+      checkout.paymentIntentId,
+    );
+    if (paymentIntent.status !== PaymentStatus.SUCCEEDED) {
+      return { status: 'still_pending', providerStatus: paymentIntent.status };
+    }
+
+    const validation = this.validateReconciliationEvidence(checkout, paymentIntent);
+    if (!validation.valid) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'payment_reconciliation_mismatch',
+          checkoutId: checkout.id,
+          paymentIntentId: checkout.paymentIntentId,
+          reason: validation.reason,
+        }),
+      );
+      return { status: 'mismatch', reason: validation.reason };
+    }
+
+    const acknowledgement = await this.applyVerifiedCallback({
+      paymentMethod: checkout.paymentMethod as 'momo' | 'vnpay',
+      providerReference: checkout.paymentIntentId,
+      orderReference: validation.orderReference,
+      providerTransactionId: validation.providerTransactionId,
+      idempotencyKey: `reconciliation:${checkout.paymentMethod}:${validation.providerTransactionId}`,
+      amount: validation.amount,
+      currency: validation.currency,
+      outcome: 'succeeded',
+    });
+
+    return {
+      status: acknowledgement.duplicate ? 'already_completed' : 'reconciled',
+      providerTransactionId: validation.providerTransactionId,
+    };
+  }
+
   private async findCheckoutByOrderId(orderId: string): Promise<Checkout> {
     const checkout = await this.checkoutRepository.findOne({ where: { orderId } });
     if (!checkout) {
       throw new BadRequestException(`Checkout for order ${orderId} not found`);
     }
     return checkout;
+  }
+
+  private validateReconciliationEvidence(
+    checkout: Checkout,
+    paymentIntent: PaymentIntent,
+  ): ReconciliationEvidence | { valid: false; reason: string } {
+    if (paymentIntent.id !== checkout.paymentIntentId) {
+      return { valid: false, reason: 'provider_reference_mismatch' };
+    }
+
+    const amount = Number(paymentIntent.amount);
+    if (!Number.isFinite(amount) || Math.abs(Number(checkout.amount) - amount) > 0.01) {
+      return { valid: false, reason: 'amount_mismatch_or_missing' };
+    }
+
+    const currency = paymentIntent.currency?.trim().toUpperCase();
+    if (!currency || currency !== checkout.currency.toUpperCase()) {
+      return { valid: false, reason: 'currency_mismatch_or_missing' };
+    }
+
+    const orderReference = paymentIntent.metadata?.orderId;
+    if (typeof orderReference !== 'string' || orderReference !== checkout.orderId) {
+      return { valid: false, reason: 'order_reference_mismatch_or_missing' };
+    }
+
+    const providerTransactionId = paymentIntent.providerTransactionId?.trim();
+    if (!providerTransactionId) {
+      return { valid: false, reason: 'provider_transaction_id_missing' };
+    }
+
+    return {
+      valid: true,
+      amount,
+      currency,
+      orderReference,
+      providerTransactionId,
+    };
   }
 
   private async applyVerifiedCallback(
@@ -535,4 +625,18 @@ interface VerifiedPaymentCallback {
   amount: number;
   currency: string;
   outcome: VerifiedPaymentOutcome;
+}
+
+export type PaymentReconciliationResult =
+  | { status: 'reconciled' | 'already_completed'; providerTransactionId: string }
+  | { status: 'still_pending'; providerStatus: string }
+  | { status: 'mismatch'; reason: string }
+  | { status: 'skipped' };
+
+interface ReconciliationEvidence {
+  valid: true;
+  amount: number;
+  currency: string;
+  orderReference: string;
+  providerTransactionId: string;
 }

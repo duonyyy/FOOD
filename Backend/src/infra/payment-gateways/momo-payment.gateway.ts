@@ -222,7 +222,7 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
     try {
       // Momo doesn't support canceling payment intents directly
       // We can only check the status
-      const status = await this.checkTransactionStatus(paymentIntentId);
+      const { status } = await this.checkTransactionStatus(paymentIntentId);
 
       if (status === PaymentStatus.PENDING) {
         return {
@@ -266,15 +266,17 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
    */
   async getPaymentIntent(paymentIntentId: string): Promise<PaymentIntent> {
     try {
-      const status = await this.checkTransactionStatus(paymentIntentId);
+      const query = await this.checkTransactionStatus(paymentIntentId);
 
       return {
         id: paymentIntentId,
-        amount: 0, // We don't have this information here
-        currency: 'VND',
-        status,
+        amount: query.amount,
+        currency: query.currency,
+        status: query.status,
+        providerTransactionId: query.providerTransactionId,
         metadata: {
-          orderId: paymentIntentId,
+          orderId: query.orderReference,
+          providerReference: query.providerReference,
         },
       };
     } catch (error) {
@@ -331,7 +333,7 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
    * @param orderId Order ID
    * @returns Payment status
    */
-  private async checkTransactionStatus(orderId: string): Promise<PaymentStatus> {
+  private async checkTransactionStatus(orderId: string): Promise<MomoQueryResult> {
     try {
       this.assertConfigured('check_transaction_status');
       const { accessKey, secretKey, partnerCode, lang } = this.momoConfig;
@@ -367,14 +369,37 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
         timeout: this.timeoutMs,
       });
 
-      const { resultCode } = response.data;
+      const {
+        resultCode,
+        amount,
+        orderId: providerReference,
+        orderInfo: orderReference,
+        transId,
+        currency,
+      } = response.data;
+
+      // MoMo may serialize resultCode as either a number or a string.
+      const normalizedResultCode = String(resultCode);
 
       // Map Momo result codes to PaymentStatus
-      if (resultCode === 0 || resultCode === 9000) {
-        return PaymentStatus.SUCCEEDED;
-      } else {
-        return PaymentStatus.FAILED;
-      }
+      return {
+        status:
+          normalizedResultCode === '0' || normalizedResultCode === '9000'
+            ? PaymentStatus.SUCCEEDED
+            : PaymentStatus.FAILED,
+        amount: Number.isFinite(Number(amount)) ? Number(amount) : 0,
+        currency: typeof currency === 'string' && currency.trim() ? currency : 'VND',
+        providerReference:
+          typeof providerReference === 'string' && providerReference.trim()
+            ? providerReference
+            : orderId,
+        orderReference:
+          typeof orderReference === 'string' && orderReference.trim()
+            ? orderReference
+            : undefined,
+        providerTransactionId:
+          typeof transId === 'string' && transId.trim() ? transId : undefined,
+      };
     } catch (error) {
       const mapped = mapPaymentGatewayError('momo', 'check_transaction_status', error);
       this.logProviderError('check_transaction_status', mapped);
@@ -481,4 +506,13 @@ function metadataString(
   fallback: string,
 ): string {
   return typeof metadata?.[key] === 'string' ? metadata[key] : fallback;
+}
+
+interface MomoQueryResult {
+  status: PaymentStatus;
+  amount: number;
+  currency: string;
+  providerReference: string;
+  orderReference?: string;
+  providerTransactionId?: string;
 }

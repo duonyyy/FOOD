@@ -13,7 +13,8 @@ export function createDatabaseOptions(configService: ConfigService): TypeOrmModu
     database: configService.get<string>('DB_NAME'),
     entities: DATABASE_ENTITIES,
     synchronize: false,
-    migrations: [path.join(__dirname, '..', '..', 'migrations', '*{.ts,.js}')],
+    // Migration files are timestamp-prefixed; exclude Jest *.spec.ts files.
+    migrations: [path.join(__dirname, '..', '..', 'migrations', '[0-9]*{.ts,.js}')],
     migrationsRun: false,
     migrationsTableName: 'migrations',
     autoLoadEntities: false,

@@ -89,6 +89,36 @@ describe('payment gateway port contracts', () => {
     });
   });
 
+  it('maps authoritative MoMo query evidence for reconciliation', async () => {
+    const gateway = new MomoPaymentGateway(
+      new ConfigService({
+        MOMO_ACCESS_KEY: 'access-key',
+        MOMO_SECRET_KEY: 'secret-key',
+        MOMO_PARTNER_CODE: 'partner-code',
+      }),
+    );
+    gateway.initialize({ environment: 'sandbox' });
+    axiosRequest.post.mockResolvedValue({
+      data: {
+        resultCode: '0',
+        amount: 120_000,
+        currency: 'VND',
+        orderId: 'provider-ref',
+        orderInfo: 'order-1',
+        transId: 'transaction-1',
+      },
+    });
+
+    await expect(gateway.getPaymentIntent('provider-ref')).resolves.toMatchObject({
+      id: 'provider-ref',
+      amount: 120_000,
+      currency: 'VND',
+      status: 'SUCCEEDED',
+      providerTransactionId: 'transaction-1',
+      metadata: { orderId: 'order-1', providerReference: 'provider-ref' },
+    });
+  });
+
   it('maps and signs a VNPAY request through the same port without persisting a payment URL', async () => {
     const gateway = new VnpayPaymentGateway(
       new ConfigService({

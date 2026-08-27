@@ -13,6 +13,7 @@ export default new DataSource({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   entities: DATABASE_ENTITIES,
-  migrations: [path.join(__dirname, '..', 'migrations', '*{.ts,.js}')],
+  // Migration files are timestamp-prefixed; exclude Jest *.spec.ts files.
+  migrations: [path.join(__dirname, '..', 'migrations', '[0-9]*{.ts,.js}')],
   migrationsTableName: 'migrations',
 });

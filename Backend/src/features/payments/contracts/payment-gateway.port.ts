@@ -27,6 +27,8 @@ export interface PaymentIntent {
   amount: number;
   currency: string;
   status: PaymentStatus;
+  /** Provider-side transaction id returned by an authoritative status query. */
+  providerTransactionId?: string;
   paymentMethod?: PaymentMethod;
   clientSecret?: string;
   metadata?: Record<string, unknown>;

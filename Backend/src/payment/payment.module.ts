@@ -7,6 +7,7 @@ import { PaymentGatewayModule } from 'src/infra/payment-gateways/payment-gateway
 import { Checkout } from '../entities/checkout.entity';
 import { DemoPaymentController, DemoPaymentGuard } from './demo-payment.controller';
 import { PaymentController } from './payment.controller';
+import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { PaymentService } from './payment.service';
 
 @Module({
@@ -25,7 +26,7 @@ import { PaymentService } from './payment.service';
     }),
   ],
   controllers: [PaymentController, DemoPaymentController],
-  providers: [PaymentService, DemoPaymentGuard],
+  providers: [PaymentService, PaymentReconciliationService, DemoPaymentGuard],
   exports: [PaymentService],
 })
 export class PaymentModule {}

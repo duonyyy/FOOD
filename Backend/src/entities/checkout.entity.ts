@@ -72,6 +72,16 @@ export class Checkout {
   @Column({ type: 'jsonb', nullable: true, name: 'paymentDetails' })
   providerMetadata: Record<string, unknown>;
 
+  /** Durable bounded-retry state for provider reconciliation. */
+  @Column({ type: 'int', default: 0, name: 'reconciliation_attempts' })
+  reconciliationAttempts: number;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'reconciliation_last_attempt_at' })
+  reconciliationLastAttemptAt: Date | null;
+
+  @Column({ type: 'text', nullable: true, name: 'reconciliation_last_error' })
+  reconciliationLastError: string | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;

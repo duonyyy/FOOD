@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
+import { PaymentStatus } from 'src/features/payments/contracts/payment-gateway.port';
 import { PaymentService } from './payment.service';
 
 describe('Payment callback idempotency characterization', () => {
@@ -15,6 +16,7 @@ describe('Payment callback idempotency characterization', () => {
     verifyWebhookSignature: jest.Mock;
     handleWebhookEvent: jest.Mock;
     confirmPaymentIntent: jest.Mock;
+    getPaymentIntent: jest.Mock;
   };
   let gatewayRouter: { get: jest.Mock };
   let service: PaymentService;
@@ -60,6 +62,7 @@ describe('Payment callback idempotency characterization', () => {
       verifyWebhookSignature: jest.fn().mockReturnValue(true),
       handleWebhookEvent: jest.fn(),
       confirmPaymentIntent: jest.fn().mockResolvedValue({ success: true }),
+      getPaymentIntent: jest.fn(),
     };
     gatewayRouter = { get: jest.fn().mockReturnValue(momoGateway) };
     service = new PaymentService(
@@ -212,6 +215,47 @@ describe('Payment callback idempotency characterization', () => {
     expect(checkout.status).toBe(CheckoutStatus.PENDING);
     expect(outboxService.enqueue).not.toHaveBeenCalled();
     expect(checkoutRepository.save).toHaveBeenCalledWith(checkout);
+  });
+
+  it('reconciles provider success only when all provider evidence matches', async () => {
+    momoGateway.getPaymentIntent.mockResolvedValue({
+      id: 'provider-reference-1',
+      amount: 100_000,
+      currency: 'VND',
+      status: PaymentStatus.SUCCEEDED,
+      providerTransactionId: 'provider-transaction-reconciled',
+      metadata: { orderId: 'order-1' },
+    });
+
+    const result = await service.reconcilePendingCheckout('checkout-1');
+
+    expect(result).toEqual({
+      status: 'reconciled',
+      providerTransactionId: 'provider-transaction-reconciled',
+    });
+    expect(checkout.status).toBe(CheckoutStatus.COMPLETED);
+    expect(outboxService.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventType: 'payment.succeeded' }),
+    );
+  });
+
+  it('leaves the checkout pending when provider success lacks verified amount', async () => {
+    momoGateway.getPaymentIntent.mockResolvedValue({
+      id: 'provider-reference-1',
+      amount: 0,
+      currency: 'VND',
+      status: PaymentStatus.SUCCEEDED,
+      providerTransactionId: 'provider-transaction-without-amount',
+      metadata: { orderId: 'order-1' },
+    });
+
+    const result = await service.reconcilePendingCheckout('checkout-1');
+
+    expect(result).toEqual({ status: 'mismatch', reason: 'amount_mismatch_or_missing' });
+    expect(checkout.status).toBe(CheckoutStatus.PENDING);
+    expect(outboxService.enqueue).not.toHaveBeenCalled();
+    expect(transactionalCheckoutRepository.save).not.toHaveBeenCalled();
   });
 });
 
