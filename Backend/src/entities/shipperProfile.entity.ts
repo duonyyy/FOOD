@@ -11,10 +11,10 @@ export class ShipperProfile {
   @PrimaryColumn({ name: 'user_id', type: 'varchar', length: 28 })
   userId: string;
 
-  @Column({ name: 'cccd', nullable: true })
+  @Column({ name: 'cccd', type: 'varchar', nullable: true })
   cccd: string | null;
 
-  @Column({ name: 'driver_license', nullable: true })
+  @Column({ name: 'driver_license', type: 'varchar', nullable: true })
   driverLicense: string | null;
 
   @Column({ name: 'certificate_status', type: 'varchar', length: 20, default: 'PENDING' })
