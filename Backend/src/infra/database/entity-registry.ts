@@ -16,6 +16,7 @@ import { RestaurantApprovalAudit } from '../../entities/restaurantApprovalAudit.
 import { Review } from '../../entities/review.entity';
 import { Role } from '../../entities/role.entity';
 import { ShipperCertificateInfo } from '../../entities/shipperCertificateInfo.entity';
+import { ShipperProfile } from '../../entities/shipperProfile.entity';
 import { ShippingDetail } from '../../entities/shippingDetail.entity';
 import { SystemConstraint } from '../../entities/systemConstaints.entity';
 import { Topping } from '../../entities/topping.entity';
@@ -40,6 +41,7 @@ export const DATABASE_ENTITIES = [
   Review,
   Role,
   ShipperCertificateInfo,
+  ShipperProfile,
   ShippingDetail,
   SystemConstraint,
   Topping,
