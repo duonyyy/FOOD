@@ -1,6 +1,8 @@
 import AppDataSource from 'src/config/typeorm.data-source';
 import { DataSource } from 'typeorm';
 
+jest.setTimeout(30_000);
+
 const postgresIntegration =
   process.env.FOODEE_RUN_POSTGRES_INTEGRATION === '1' ? describe : describe.skip;
 
@@ -76,7 +78,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
       if (insertedIds.length > 0) {
         await dataSource.query(
           `DELETE FROM "shippingDetails" WHERE id = ANY($1::uuid[])`,
-          insertedIds,
+          [insertedIds],
         );
       }
       await Promise.all([firstRunner.release(), secondRunner.release()]);
