@@ -523,6 +523,8 @@ export class ShipperService {
               shippingDetailId: shippingDetail.id,
               completedAt: shippingDetail.actualDeliveryTime.toISOString(),
               earnings: shipperEarnings,
+              deliveryTimeMinutes: Math.round(deliveryTime),
+              onTime: isOnTime,
             } satisfies DeliveryCompletedEvent,
           })
         : null;

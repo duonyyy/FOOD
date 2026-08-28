@@ -2,6 +2,7 @@ import { Address } from '../../entities/address.entity';
 import { Category } from '../../entities/category.entity';
 import { Checkout } from '../../entities/checkout.entity';
 import { Conversation } from '../../entities/conversation.entity';
+import { DeliveryEarningsEvent } from '../../entities/deliveryEarningsEvent.entity';
 import { Food } from '../../entities/food.entity';
 import { Message } from '../../entities/message.entity';
 import { Notification } from '../../entities/notification.entity';
@@ -27,6 +28,7 @@ export const DATABASE_ENTITIES = [
   Category,
   Checkout,
   Conversation,
+  DeliveryEarningsEvent,
   Food,
   Message,
   Notification,

@@ -6,4 +6,6 @@ export type DeliveryCompletedEvent = Record<string, unknown> & {
   shippingDetailId: string;
   completedAt: string;
   earnings: number;
+  deliveryTimeMinutes: number | null;
+  onTime: boolean | null;
 };
