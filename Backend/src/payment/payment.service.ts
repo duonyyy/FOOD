@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { OutboxService } from 'src/common/events/outbox.service';
 import {
   PAYMENT_FAILED_EVENT,
   type PaymentFailedEvent,
@@ -9,26 +10,21 @@ import {
   PAYMENT_SUCCEEDED_EVENT,
   type PaymentSucceededEvent,
 } from 'src/common/events/payment-succeeded.event';
-import { OutboxService } from 'src/common/events/outbox.service';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
-import {
-  assertPaymentStatusTransition,
-} from 'src/features/payments/domain/payment-status-machine';
-import type { PaymentOrderSnapshot } from 'src/features/payments/contracts/payment-order-snapshot.contract';
-import { PaymentStatus } from 'src/features/payments/contracts/payment-gateway.port';
 import type {
   PaymentGatewayPort,
   PaymentIntent,
 } from 'src/features/payments/contracts/payment-gateway.port';
+import { PaymentStatus } from 'src/features/payments/contracts/payment-gateway.port';
+import type { PaymentOrderSnapshot } from 'src/features/payments/contracts/payment-order-snapshot.contract';
 import type {
   PaymentWebhookAcknowledgement,
   VerifiedPaymentOutcome,
 } from 'src/features/payments/contracts/payment-webhook.contract';
+import { assertPaymentStatusTransition } from 'src/features/payments/domain/payment-status-machine';
 import { PaymentGatewayRouter } from 'src/infra/payment-gateways/payment-gateway.router';
 import { Repository } from 'typeorm';
-import {
-  type PaymentResult,
-} from './interfaces/payment-gateway.interface';
+import { type PaymentResult } from './interfaces/payment-gateway.interface';
 import type { PaymentStatusResponse } from './interfaces/payment-status.interface';
 
 @Injectable()
@@ -47,10 +43,7 @@ export class PaymentService {
    * Ordering supplies its already-calculated snapshot. Payments never reads the
    * Order, User, Catalog or Promotion repositories to create a checkout.
    */
-  async createCheckout(
-    order: PaymentOrderSnapshot,
-    paymentMethod: string,
-  ): Promise<Checkout> {
+  async createCheckout(order: PaymentOrderSnapshot, paymentMethod: string): Promise<Checkout> {
     this.assertSnapshot(order);
 
     const checkout = this.checkoutRepository.create({
@@ -138,7 +131,9 @@ export class PaymentService {
 
     if (checkout.paymentIntentId) {
       try {
-        await this.selectGateway(checkout.paymentMethod).cancelPaymentIntent(checkout.paymentIntentId);
+        await this.selectGateway(checkout.paymentMethod).cancelPaymentIntent(
+          checkout.paymentIntentId,
+        );
       } catch (error) {
         this.logger.warn(
           `Provider cancellation failed for checkout ${checkout.id}: ${this.errorMessage(error)}`,
@@ -163,8 +158,9 @@ export class PaymentService {
       throw new BadRequestException('Invalid webhook signature');
     }
     await gateway.handleWebhookEvent(callback);
-    const eventType = String(callback.type || 'payment_intent.succeeded');
-    const resultCode = callback.resultCode === undefined ? undefined : String(callback.resultCode);
+    const eventType = callbackString(callback.type) || 'payment_intent.succeeded';
+    const resultCode =
+      callback.resultCode === undefined ? undefined : callbackString(callback.resultCode);
     const isSuccess =
       eventType === 'payment_intent.succeeded' || resultCode === '0' || resultCode === '9000';
     if (
@@ -177,9 +173,15 @@ export class PaymentService {
     }
     return this.applyVerifiedCallback({
       paymentMethod: 'momo',
-      providerReference: this.requiredCallbackString(callback.orderId, 'provider payment reference'),
+      providerReference: this.requiredCallbackString(
+        callback.orderId,
+        'provider payment reference',
+      ),
       orderReference: this.requiredCallbackString(callback.orderInfo, 'order reference'),
-      providerTransactionId: this.requiredCallbackString(callback.transId, 'provider transaction id'),
+      providerTransactionId: this.requiredCallbackString(
+        callback.transId,
+        'provider transaction id',
+      ),
       idempotencyKey: `momo:${this.requiredCallbackString(callback.transId, 'provider transaction id')}`,
       amount: this.callbackAmount(callback.amount),
       currency: this.callbackCurrency(callback.currency),
@@ -187,9 +189,7 @@ export class PaymentService {
     });
   }
 
-  async handleVnpayWebhook(
-    query: Record<string, string>,
-  ): Promise<PaymentWebhookAcknowledgement> {
+  async handleVnpayWebhook(query: Record<string, string>): Promise<PaymentWebhookAcknowledgement> {
     const signature = query.vnp_SecureHash;
     if (!signature) {
       throw new BadRequestException('Missing VNPAY signature');
@@ -207,7 +207,10 @@ export class PaymentService {
     const transactionStatus = query.vnp_TransactionStatus;
     return this.applyVerifiedCallback({
       paymentMethod: 'vnpay',
-      providerReference: this.requiredCallbackString(query.vnp_TxnRef, 'provider payment reference'),
+      providerReference: this.requiredCallbackString(
+        query.vnp_TxnRef,
+        'provider payment reference',
+      ),
       orderReference: this.requiredCallbackString(query.vnp_OrderInfo, 'order reference'),
       providerTransactionId: this.requiredCallbackString(
         query.vnp_TransactionNo,
@@ -239,7 +242,9 @@ export class PaymentService {
 
   async checkMomoStatus(orderId: string): Promise<Record<string, unknown>> {
     const checkout = await this.findCheckoutByOrderId(orderId);
-    const paymentIntent = await this.selectGateway('momo').getPaymentIntent(checkout.paymentIntentId);
+    const paymentIntent = await this.selectGateway('momo').getPaymentIntent(
+      checkout.paymentIntentId,
+    );
     return {
       orderId,
       status: paymentIntent.status,
@@ -266,7 +271,9 @@ export class PaymentService {
 
     if (checkout.paymentIntentId) {
       try {
-        const paymentIntent = await this.selectGateway(method).getPaymentIntent(checkout.paymentIntentId);
+        const paymentIntent = await this.selectGateway(method).getPaymentIntent(
+          checkout.paymentIntentId,
+        );
         response.paymentIntentStatus = paymentIntent.status;
       } catch (error) {
         this.logger.warn(
@@ -413,7 +420,9 @@ export class PaymentService {
         };
       }
       if (checkout.providerTransactionId || checkout.webhookIdempotencyKey) {
-        throw new BadRequestException('Checkout already has a different verified provider callback');
+        throw new BadRequestException(
+          'Checkout already has a different verified provider callback',
+        );
       }
       if (checkout.status !== CheckoutStatus.PENDING) {
         return {
@@ -541,7 +550,11 @@ export class PaymentService {
   }
 
   private assertSnapshot(snapshot: PaymentOrderSnapshot): void {
-    if (!snapshot.orderId || !Number.isFinite(Number(snapshot.amount)) || Number(snapshot.amount) < 0) {
+    if (
+      !snapshot.orderId ||
+      !Number.isFinite(Number(snapshot.amount)) ||
+      Number(snapshot.amount) < 0
+    ) {
       throw new BadRequestException('Payment requires a valid server-side order amount snapshot');
     }
     if (snapshot.currency !== 'VND') {
@@ -598,6 +611,14 @@ export class PaymentService {
 }
 
 const SENSITIVE_METADATA_KEYS = /(?:card|cvv|cvc|token|secret|signature|authorization|password)/i;
+
+function callbackString(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return '';
+}
 
 function sanitizeProviderMetadata(input: Record<string, unknown>): Record<string, unknown> {
   const metadata = input.metadata;

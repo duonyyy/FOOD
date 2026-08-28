@@ -22,11 +22,16 @@ export class GeocodingService {
 
   /**
    * Convert an address into geographic coordinates using Mapbox
-   * 
+   *
    * @param addressParts The parts of the address to geocode
    * @returns latitude and longitude coordinates
    */
-  async geocode(addressParts: { street: string, ward: string, district: string, city: string }): Promise<GeocodingResult | null> {
+  async geocode(addressParts: {
+    street: string;
+    ward: string;
+    district: string;
+    city: string;
+  }): Promise<GeocodingResult | null> {
     if (!this.accessToken) {
       this.logger.warn('Geocoding skipped - no Mapbox access token provided');
       return null;
@@ -44,9 +49,9 @@ export class GeocodingService {
         params: {
           access_token: this.accessToken,
           country: 'vn', // Limit results to Vietnam
-          limit: 1,      // Get just the top result
-          types: 'address,place' // Focus on addresses and places
-        }
+          limit: 1, // Get just the top result
+          types: 'address,place', // Focus on addresses and places
+        },
       });
 
       // Check if we have valid results
@@ -56,7 +61,7 @@ export class GeocodingService {
         // Mapbox returns coordinates as [longitude, latitude]
         return {
           lat: latitude,
-          lng: longitude
+          lng: longitude,
         };
       }
 
@@ -77,11 +82,8 @@ export class GeocodingService {
       return null;
     }
   }
-  haversineDistance(
-    lat1: number, lon1: number,
-    lat2: number, lon2: number
-  ): number {
-    const toRad = (x: number) => x * Math.PI / 180;
+  haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const toRad = (x: number) => (x * Math.PI) / 180;
     const R = 6371; // Earth radius in km
 
     const dLat = toRad(lat2 - lat1);
@@ -89,8 +91,7 @@ export class GeocodingService {
 
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in km

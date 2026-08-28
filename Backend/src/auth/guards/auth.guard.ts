@@ -2,11 +2,11 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  Logger,
   UnauthorizedException,
-  Logger
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { extractBearerToken } from '../utils/auth-token.util';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -36,8 +36,8 @@ export class AuthGuard implements CanActivate {
 
       // Attach the payload to the request object
       request.user = payload;
-      request.user.id = payload.sub; 
-      request.user.uid = payload.sub; 
+      request.user.id = payload.sub;
+      request.user.uid = payload.sub;
       return true;
     } catch (error) {
       this.logger.error(`Token verification failed: ${error.message}`);

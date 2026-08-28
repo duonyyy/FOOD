@@ -1,9 +1,15 @@
-/* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, OneToOne, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Field, ID, ObjectType } from '@nestjs/graphql';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Restaurant } from './restaurant.entity';
 import { User } from './user.entity';
-import { ObjectType, Field, ID } from '@nestjs/graphql';
 
 @ObjectType() // Thêm ObjectType decorator cho class
 @Entity()
@@ -37,11 +43,11 @@ export class Address {
   longitude: number;
 
   @Field(() => [Restaurant], { nullable: true })
-  @OneToMany(() => Restaurant, restaurant => restaurant.address)
+  @OneToMany(() => Restaurant, (restaurant) => restaurant.address)
   restaurants: Restaurant[];
 
   @Field(() => User, { nullable: true })
-  @ManyToOne(() => User, user => user.address)
+  @ManyToOne(() => User, (user) => user.address)
   user: User;
 
   @Field({ nullable: true })

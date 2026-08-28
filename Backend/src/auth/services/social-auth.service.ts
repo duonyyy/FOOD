@@ -2,15 +2,15 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
-import { User } from 'src/entities/user.entity';
-import { DefaultRole } from 'src/entities/role.entity';
 import { initializeFirebaseAdmin } from 'src/config/firebase-admin.config';
+import { DefaultRole } from 'src/entities/role.entity';
+import { User } from 'src/entities/user.entity';
+import { RolesService } from 'src/modules/role/role.service';
 import { CreateUserDto } from 'src/modules/users/dto/create-users.dto';
 import { UsersService } from 'src/modules/users/users.service';
-import { RolesService } from 'src/modules/role/role.service';
-import { AuthProvider } from '../enums/auth-provider.enum';
+import { v4 as uuidv4 } from 'uuid';
 import { GoogleRegisterDto } from '../dto/google-register.dto';
+import { AuthProvider } from '../enums/auth-provider.enum';
 
 @Injectable()
 export class SocialAuthService {
@@ -72,7 +72,9 @@ export class SocialAuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`Google registration/login failed for ${email}: ${(error as Error).message}`);
+      this.logger.error(
+        `Google registration/login failed for ${email}: ${(error as Error).message}`,
+      );
       throw new BadRequestException('Google registration/login failed');
     }
   }

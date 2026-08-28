@@ -1,15 +1,19 @@
-import * as nodemailer from 'nodemailer';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
 
 /**
  * Interface representing email information used for sending messages
  */
 export interface EmailInfo {
-  readonly from: string;      // Original sender's email (will be stored in reply-to)
-  readonly to: string;        // Recipient email
-  readonly subject: string;   // Email subject
-  readonly sender: string;    // Sender's name
-  readonly bodyHtml: string;  // Email HTML content
+  readonly from: string; // Original sender's email (will be stored in reply-to)
+  readonly to: string; // Recipient email
+  readonly subject: string; // Email subject
+  readonly sender: string; // Sender's name
+  readonly bodyHtml: string; // Email HTML content
+}
+
+interface MailTransport {
+  sendMail(options: unknown): Promise<unknown>;
 }
 
 /**
@@ -18,7 +22,7 @@ export interface EmailInfo {
 @Injectable()
 export class MailingService implements OnModuleInit {
   private readonly logger = new Logger(MailingService.name);
-  private transporter: nodemailer.Transporter | null = null;
+  private transporter: MailTransport | null = null;
   private isConfigValid = false;
 
   /**
@@ -42,14 +46,14 @@ export class MailingService implements OnModuleInit {
         'PROJECT_NAME',
         'PROJECT_EMAIL',
       ];
-      
-      const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-      
+
+      const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName]);
+
       if (missingEnvVars.length > 0) {
         this.logger.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
         return false;
       }
-      
+
       this.transporter = nodemailer.createTransport({
         host: process.env.MAIL_HOST,
         port: Number(process.env.MAIL_PORT),
@@ -59,7 +63,7 @@ export class MailingService implements OnModuleInit {
           pass: process.env.MAIL_PASSWORD,
         },
       });
-      
+
       this.isConfigValid = true;
       this.logger.log('Mail transporter initialized successfully');
       return true;
@@ -82,7 +86,7 @@ export class MailingService implements OnModuleInit {
         throw new Error('Mailing service is not configured properly');
       }
     }
-    
+
     if (!this.transporter) {
       this.logger.error('Transporter is not initialized. Cannot send email.');
       throw new Error('Mailing service is not configured properly');
@@ -103,15 +107,12 @@ export class MailingService implements OnModuleInit {
         // Optional: Add additional information to the email body
         text: `Original sender: ${emailData.from}\n\n${emailData.bodyHtml.replace(/<[^>]*>/g, '')}`,
       };
-      
+
       const result = await this.transporter.sendMail(mailOptions);
       this.logger.log(`Email sent successfully to ${emailData.to}`);
       return true;
     } catch (error) {
-      this.logger.error(
-        `Failed to send email to ${emailData.to}: ${error.message}`,
-        error.stack
-      );
+      this.logger.error(`Failed to send email to ${emailData.to}: ${error.message}`, error.stack);
       throw new Error(`Failed to send email: ${error.message}`);
     }
   }

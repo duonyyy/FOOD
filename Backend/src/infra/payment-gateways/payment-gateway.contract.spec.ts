@@ -12,7 +12,9 @@ jest.mock('axios', () => {
   request.post = jest.fn();
   request.isAxiosError = (error: unknown) =>
     Boolean(
-      typeof error === 'object' && error !== null && (error as { isAxiosError?: boolean }).isAxiosError,
+      typeof error === 'object' &&
+        error !== null &&
+        (error as { isAxiosError?: boolean }).isAxiosError,
     );
   return { __esModule: true, default: request };
 });
@@ -33,7 +35,11 @@ describe('payment gateway port contracts', () => {
     );
     gateway.initialize({ environment: 'sandbox' });
     axiosRequest.mockResolvedValue({
-      data: { orderId: 'provider-ref', requestId: 'request-1', payUrl: 'https://provider/pay?token=x' },
+      data: {
+        orderId: 'provider-ref',
+        requestId: 'request-1',
+        payUrl: 'https://provider/pay?token=x',
+      },
     });
 
     const intent = await gateway.createPaymentIntent('order-1', 120_000, 'VND', {

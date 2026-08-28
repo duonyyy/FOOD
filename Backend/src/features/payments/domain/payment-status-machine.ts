@@ -12,10 +12,7 @@ const ALLOWED_TRANSITIONS: Readonly<Record<CheckoutStatus, readonly CheckoutStat
   [CheckoutStatus.CANCELLED]: [],
 };
 
-export function assertPaymentStatusTransition(
-  current: CheckoutStatus,
-  next: CheckoutStatus,
-): void {
+export function assertPaymentStatusTransition(current: CheckoutStatus, next: CheckoutStatus): void {
   if (!ALLOWED_TRANSITIONS[current].includes(next)) {
     throw new BadRequestException(`Payment cannot transition from ${current} to ${next}`);
   }

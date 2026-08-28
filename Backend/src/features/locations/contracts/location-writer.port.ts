@@ -13,10 +13,7 @@ export interface LocationWriterPort {
   /**
    * Creates a new address and returns the generated address ID
    */
-  writeAddress(
-    data: CreateAddressPayload,
-    ownerUserId?: string,
-  ): Promise<{ addressId: string }>;
+  writeAddress(data: CreateAddressPayload, ownerUserId?: string): Promise<{ addressId: string }>;
 
   /**
    * Updates an existing address

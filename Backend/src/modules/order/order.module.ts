@@ -20,10 +20,11 @@ import { SystemConstraintsModule } from 'src/features/system-constraints/public-
 import { MapsModule } from 'src/infra/maps/maps.module';
 import { StorageModule } from 'src/infra/storage/storage.module';
 import { PaymentModule } from 'src/payment/payment.module';
-import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
 import { DeliveryModule } from '../../features/delivery/public-api';
+import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
 import { PromotionModule } from '../promotion/promotion.module';
 import { UsersModule } from '../users/users.module';
+import { DeliveryCompletedOrderHandler } from './delivery-completed-order.handler';
 import { OrderCommandService } from './order-command.service';
 import { OrderCreateService } from './order-create.service';
 import { OrderQueryService } from './order-query.service';
@@ -31,7 +32,6 @@ import { OrderController } from './order.controller';
 import { OrderResolver } from './order.resolver';
 import { OrderService } from './order.service';
 import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler';
-import { DeliveryCompletedOrderHandler } from './delivery-completed-order.handler';
 
 @Module({
   imports: [

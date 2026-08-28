@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { RestaurantDiscoveryService } from 'src/features/restaurants/services/restaurant-discovery.service';
 import { AddressService } from 'src/modules/address/address.service';
 import { CreateOrderDetailDto } from 'src/modules/order/dto/create-order.dto';
 import { OrderService } from 'src/modules/order/order.service';
-import { RestaurantDiscoveryService } from 'src/features/restaurants/services/restaurant-discovery.service';
 import { ChatLlmService } from '../services/chat-llm.service';
 import { ChatOrderValidationService } from '../services/chat-order-validation.service';
 

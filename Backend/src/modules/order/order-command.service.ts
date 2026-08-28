@@ -11,6 +11,7 @@ import {
   InvalidOrderTransitionError,
   OrderStateMachine,
   OrderStatus,
+  parseOrderStatus,
 } from 'src/features/orders/state-machine/order-status';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { pubSub } from 'src/pubsub';
@@ -117,7 +118,7 @@ export class OrderCommandService {
       });
       if (!order) throw new NotFoundException('Order not found');
 
-      if (order.status === OrderStatus.COMPLETED) {
+      if (parseOrderStatus(order.status) === OrderStatus.COMPLETED) {
         return { order, changed: false };
       }
 
@@ -156,12 +157,12 @@ export class OrderCommandService {
       if (!order) throw new NotFoundException('Order not found');
 
       // A retried outbox delivery must be a no-op, including notifications and subscriptions.
-      if (order.status === OrderStatus.COMPLETED && order.isPaid) {
+      if (parseOrderStatus(order.status) === OrderStatus.COMPLETED && order.isPaid) {
         return { order, changed: false };
       }
 
       try {
-        if (order.status !== OrderStatus.COMPLETED) {
+        if (parseOrderStatus(order.status) !== OrderStatus.COMPLETED) {
           order.status = this.stateMachine.markPaid(order.status);
         }
       } catch (error) {

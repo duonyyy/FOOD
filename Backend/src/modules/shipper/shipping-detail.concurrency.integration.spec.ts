@@ -76,10 +76,9 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
       insertedIds.push(fulfilled[0].value[0].id);
     } finally {
       if (insertedIds.length > 0) {
-        await dataSource.query(
-          `DELETE FROM "shippingDetails" WHERE id = ANY($1::uuid[])`,
-          [insertedIds],
-        );
+        await dataSource.query(`DELETE FROM "shippingDetails" WHERE id = ANY($1::uuid[])`, [
+          insertedIds,
+        ]);
       }
       await Promise.all([firstRunner.release(), secondRunner.release()]);
     }

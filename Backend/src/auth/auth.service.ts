@@ -1,23 +1,21 @@
-import {
-  Injectable,
-  BadRequestException,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { UsersService } from 'src/modules/users/users.service';
-import { CreateUserDto } from 'src/modules/users/dto/create-users.dto';
-import { RolesService } from 'src/modules/role/role.service';
-import { DefaultRole, Role } from '../entities/role.entity';
-import { RegisterDto } from './dto/register-user.dto';
-import { GoogleRegisterDto } from './dto/google-register.dto';
-import * as bcrypt from 'bcrypt';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { v4 as uuidv4 } from 'uuid';
-import { CreateShipperDto } from './dto/create-shipper.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
+import {
+  CertificateStatus,
+  ShipperCertificateInfo,
+} from 'src/entities/shipperCertificateInfo.entity';
 import { User } from 'src/entities/user.entity';
-import { CertificateStatus, ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { RolesService } from 'src/modules/role/role.service';
+import { CreateUserDto } from 'src/modules/users/dto/create-users.dto';
+import { UsersService } from 'src/modules/users/users.service';
 import { Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
+import { DefaultRole, Role } from '../entities/role.entity';
+import { CreateShipperDto } from './dto/create-shipper.dto';
+import { GoogleRegisterDto } from './dto/google-register.dto';
+import { RegisterDto } from './dto/register-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthProvider } from './enums/auth-provider.enum';
 import { OtpService } from './services/otp.service';
@@ -46,7 +44,7 @@ export class AuthService {
 
     @InjectRepository(Role)
     private readonly roleRepo: Repository<Role>,
-  ) { }
+  ) {}
 
   /**
    * Gửi mã OTP xác thực số điện thoại
@@ -98,15 +96,9 @@ export class AuthService {
    * @param isNewUser - Cờ đánh dấu user mới tạo
    * @returns Object chứa thông tin user và quyền hạn
    */
-  private async createUserResponse(
-    user: any,
-    isNewUser: boolean = false,
-  ): Promise<any> {
+  private async createUserResponse(user: any, isNewUser: boolean = false): Promise<any> {
     // Lấy danh sách quyền (permissions) của user dựa trên role
-    const permissions = await this.rolesService.getUserPermissions(
-      user.role.id,
-      true,
-    );
+    const permissions = await this.rolesService.getUserPermissions(user.role.id, true);
     return {
       message: isNewUser ? 'Registration successful' : 'Login successful',
       user: {
@@ -122,8 +114,8 @@ export class AuthService {
 
   /**
    * Đăng nhập bằng Email và Password
-   * @param email 
-   * @param password 
+   * @param email
+   * @param password
    * @returns Token JWT và thông tin user
    */
   async loginWithEmailPassword(email: string, password: string): Promise<any> {
@@ -159,10 +151,7 @@ export class AuthService {
       );
 
       // Lấy quyền của user
-      const permissions = await this.rolesService.getUserPermissions(
-        user.role.id,
-        true,
-      );
+      const permissions = await this.rolesService.getUserPermissions(user.role.id, true);
 
       return {
         user: {
@@ -180,15 +169,13 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(
-        'Email/password authentication failed: ' + error.message,
-      );
+      throw new BadRequestException('Email/password authentication failed: ' + error.message);
     }
   }
 
   /**
    * Đăng xuất user (hiện tại chỉ là log, client cần xóa token)
-   * @param userId 
+   * @param userId
    */
   async logout(userId: string): Promise<any> {
     this.logger.log(`User logged out: ${userId}`);
@@ -199,7 +186,6 @@ export class AuthService {
       success: true,
     };
   }
-
 
   /**
    * Đăng ký tài xế (Shipper)
@@ -235,7 +221,6 @@ export class AuthService {
       birthday: new Date(dto.birthday),
       role,
       isActive: true,
-
     });
 
     await this.userRepo.save(user);
@@ -258,7 +243,7 @@ export class AuthService {
 
   /**
    * Kiểm tra số điện thoại đã tồn tại trong hệ thống chưa
-   * @param phone 
+   * @param phone
    * @returns true nếu đã tồn tại, false nếu chưa
    */
   async checkPhoneExists(phone: string): Promise<boolean> {
@@ -268,7 +253,7 @@ export class AuthService {
 
   /**
    * Kiểm tra xem số điện thoại có phải là của Shipper không
-   * @param phone 
+   * @param phone
    * @returns true nếu là shipper và có thông tin chứng chỉ
    */
   async isShipperPhone(phone: string): Promise<boolean> {
@@ -281,7 +266,7 @@ export class AuthService {
 
   /**
    * Lấy trạng thái duyệt của Shipper dựa trên số điện thoại
-   * @param phone 
+   * @param phone
    * @returns Trạng thái đăng ký (pending, approved, rejected)
    */
   async getShipperStatusByPhone(phone: string): Promise<{
@@ -296,7 +281,10 @@ export class AuthService {
 
     return {
       exists: true,
-      status: user.shipperCertificateInfo?.status.toLowerCase() as 'pending' | 'approved' | 'rejected',
+      status: user.shipperCertificateInfo?.status.toLowerCase() as
+        | 'pending'
+        | 'approved'
+        | 'rejected',
     };
   }
 
@@ -347,11 +335,9 @@ export class AuthService {
       username: user.username,
       roles: [user.role.name],
     };
-    const access_token = await this.jwtService.signAsync(payload,
-      {
-        expiresIn: '1d', // Token hết hạn sau 1 ngày
-      }
-    );
+    const access_token = await this.jwtService.signAsync(payload, {
+      expiresIn: '1d', // Token hết hạn sau 1 ngày
+    });
 
     return {
       status: 'approved',
@@ -367,7 +353,7 @@ export class AuthService {
 
   /**
    * Tìm user theo số điện thoại
-   * @param phone 
+   * @param phone
    * @returns User entity hoặc null
    */
   async findByPhone(phone: string): Promise<User | null> {
@@ -379,7 +365,7 @@ export class AuthService {
 
   /**
    * Đăng ký tài khoản người dùng thông thường (Customer)
-   * @param registerDto 
+   * @param registerDto
    * @returns User response
    */
   async register(registerDto: RegisterDto): Promise<any> {
@@ -393,9 +379,7 @@ export class AuthService {
       }
 
       // Lấy role mặc định cho user (Customer)
-      const role = await this.rolesService.getRoleByName(
-        DefaultRole.USER,
-      );
+      const role = await this.rolesService.getRoleByName(DefaultRole.USER);
       if (!role) {
         throw new BadRequestException('Default role not found');
       }
@@ -427,7 +411,7 @@ export class AuthService {
    * Đăng ký hoặc Đăng nhập bằng Google
    * - Nếu email đã tồn tại: Liên kết tài khoản Google (nếu chưa) và đăng nhập
    * - Nếu email chưa tồn tại: Tạo tài khoản mới với provider là Google
-   * @param googleDto 
+   * @param googleDto
    * @returns User response và token
    */
   async registerWithGoogle(googleDto: GoogleRegisterDto): Promise<any> {

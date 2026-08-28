@@ -1,16 +1,24 @@
-/* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import { User } from './user.entity';
+import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Address } from './address.entity';
 import { Food } from './food.entity';
 import { Order } from './order.entity';
-import { Address } from './address.entity';
-import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
+import { User } from './user.entity';
 
 export enum RestaurantStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
-  REJECTED = 'rejected'
+  REJECTED = 'rejected',
 }
 
 registerEnumType(RestaurantStatus, {
@@ -21,7 +29,7 @@ registerEnumType(RestaurantStatus, {
 @Entity({ name: 'restaurants' })
 export class Restaurant {
   @Field(() => ID)
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Field({ nullable: true })
@@ -37,9 +45,9 @@ export class Restaurant {
   backgroundImage: string;
 
   @Field(() => Address, { nullable: true })
-  @ManyToOne(() => Address, address => address.restaurants, {
+  @ManyToOne(() => Address, (address) => address.restaurants, {
     cascade: true,
-    eager: true
+    eager: true,
   })
   @JoinColumn()
   address: Address;
@@ -72,12 +80,11 @@ export class Restaurant {
   @Column({ type: 'decimal', precision: 3, scale: 2, nullable: true })
   rating: number;
 
-
   @Field(() => RestaurantStatus, { nullable: true })
   @Column({
     type: 'enum',
     enum: RestaurantStatus,
-    default: RestaurantStatus.PENDING
+    default: RestaurantStatus.PENDING,
   })
   status: RestaurantStatus;
 
@@ -104,5 +111,4 @@ export class Restaurant {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
-
 }

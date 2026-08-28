@@ -7,6 +7,8 @@ class ClassProtectedController {
   handler(): void {}
 }
 
+const protectedHandler = (): void => undefined;
+
 describe('RolesGuard authorization characterization', () => {
   const requiredPermission = 'DASHBOARD_READ';
   let request: { headers: { authorization?: string }; user?: { id: string } };
@@ -27,7 +29,7 @@ describe('RolesGuard authorization characterization', () => {
       { get: jest.fn().mockReturnValue('test-secret') } as never,
     );
     context = {
-      getHandler: () => ClassProtectedController.prototype.handler,
+      getHandler: () => protectedHandler,
       getClass: () => ClassProtectedController,
       switchToHttp: () => ({ getRequest: () => request }),
     } as never;

@@ -1,22 +1,19 @@
+import { Field, ID, ObjectType } from '@nestjs/graphql';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
   CreateDateColumn,
-  UpdateDateColumn,
-  JoinColumn,
+  Entity,
   ManyToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Role } from './role.entity';
-import { Permission as PermissionEnum, PermissionType } from 'src/constants/permission.enum';
-import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
 
 // Register enums for GraphQL if they are used in fields with @Field
 // registerEnumType(PermissionEnum, {
 //   name: 'PermissionEnum',
 // });
-// 
+//
 // registerEnumType(PermissionType, {
 //   name: 'PermissionType',
 // });

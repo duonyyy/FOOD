@@ -1,11 +1,11 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreatePendingShipperAssignment1750000000007 implements MigrationInterface {
-    name = 'CreatePendingShipperAssignment1750000000007';
+  name = 'CreatePendingShipperAssignment1750000000007';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Create the pending_shipper_assignments table
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create the pending_shipper_assignments table
+    await queryRunner.query(`
             CREATE TABLE "pending_shipper_assignments" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "priority" integer NOT NULL DEFAULT 1,
@@ -19,42 +19,44 @@ export class CreatePendingShipperAssignment1750000000007 implements MigrationInt
             )
         `);
 
-        // Add foreign key constraint to orders table
-        await queryRunner.query(`
+    // Add foreign key constraint to orders table
+    await queryRunner.query(`
             ALTER TABLE "pending_shipper_assignments" 
             ADD CONSTRAINT "FK_pending_shipper_assignments_order" 
             FOREIGN KEY ("order_id") REFERENCES "orders"("id") 
             ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
-        // Create indexes for performance
-        await queryRunner.query(`
+    // Create indexes for performance
+    await queryRunner.query(`
             CREATE INDEX "IDX_pending_shipper_assignments_createdAt" 
             ON "pending_shipper_assignments" ("createdAt")
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE INDEX "IDX_pending_shipper_assignments_priority_createdAt" 
             ON "pending_shipper_assignments" ("priority", "createdAt")
         `);
 
-        console.log('Created pending_shipper_assignments table with indexes');
-    }
+    console.log('Created pending_shipper_assignments table with indexes');
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Drop indexes
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_pending_shipper_assignments_priority_createdAt"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_pending_shipper_assignments_createdAt"`);
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Drop indexes
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_pending_shipper_assignments_priority_createdAt"`,
+    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_pending_shipper_assignments_createdAt"`);
 
-        // Drop foreign key constraint
-        await queryRunner.query(`
+    // Drop foreign key constraint
+    await queryRunner.query(`
             ALTER TABLE "pending_shipper_assignments" 
             DROP CONSTRAINT IF EXISTS "FK_pending_shipper_assignments_order"
         `);
 
-        // Drop the table
-        await queryRunner.query(`DROP TABLE IF EXISTS "pending_shipper_assignments"`);
+    // Drop the table
+    await queryRunner.query(`DROP TABLE IF EXISTS "pending_shipper_assignments"`);
 
-        console.log('Dropped pending_shipper_assignments table');
-    }
+    console.log('Dropped pending_shipper_assignments table');
+  }
 }

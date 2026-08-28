@@ -1,18 +1,11 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Job, JobsOptions, Queue } from 'bullmq';
+import { type DeliveryQueueJobOptions } from 'src/features/delivery/contracts/delivery-assignment-queue.port';
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import { QueueNames } from './queue.constants';
 
-export interface QueueJobOptions {
-  attempts?: number;
-  backoffDelayMs?: number;
-  delayMs?: number;
-  priority?: number;
-  jobId?: string;
-  removeOnComplete?: boolean | number;
-  removeOnFail?: boolean | number;
-}
+export type QueueJobOptions = DeliveryQueueJobOptions;
 
 @Injectable()
 export class QueueService {
@@ -35,14 +28,18 @@ export class QueueService {
       const job = await queue.add(queueName, jobData, this.toBullJobOptions(options));
 
       if (!job.id) {
-        throw new InternalServerErrorException(`BullMQ did not return a job ID for queue '${queueName}'.`);
+        throw new InternalServerErrorException(
+          `BullMQ did not return a job ID for queue '${queueName}'.`,
+        );
       }
 
       return String(job.id);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logProviderError('add_job', error, queueName);
-      throw new InternalServerErrorException(`Failed to add job to queue '${queueName}': ${message}`);
+      throw new InternalServerErrorException(
+        `Failed to add job to queue '${queueName}': ${message}`,
+      );
     }
   }
 
@@ -54,7 +51,9 @@ export class QueueService {
       return (counts.waiting ?? 0) + (counts.delayed ?? 0) + (counts.prioritized ?? 0);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new InternalServerErrorException(`Failed to get queue size for '${queueName}': ${message}`);
+      throw new InternalServerErrorException(
+        `Failed to get queue size for '${queueName}': ${message}`,
+      );
     }
   }
 
@@ -67,7 +66,9 @@ export class QueueService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logProviderError('get_pending_jobs', error, queueName);
-      throw new InternalServerErrorException(`Failed to fetch pending jobs from '${queueName}': ${message}`);
+      throw new InternalServerErrorException(
+        `Failed to fetch pending jobs from '${queueName}': ${message}`,
+      );
     }
   }
 
@@ -103,12 +104,16 @@ export class QueueService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logProviderError('cancel_job', error, queueName);
-      throw new InternalServerErrorException(`Failed to cancel job ${jobId} in queue '${queueName}': ${message}`);
+      throw new InternalServerErrorException(
+        `Failed to cancel job ${jobId} in queue '${queueName}': ${message}`,
+      );
     }
   }
 
   async completeJob(): Promise<boolean> {
-    this.logger.warn('completeJob is not used with BullMQ. Jobs complete when the processor returns.');
+    this.logger.warn(
+      'completeJob is not used with BullMQ. Jobs complete when the processor returns.',
+    );
     return false;
   }
 

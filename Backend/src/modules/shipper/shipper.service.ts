@@ -8,12 +8,12 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { addDays, format, startOfDay, startOfWeek } from 'date-fns';
 import {
   DELIVERY_COMPLETED_EVENT,
   DeliveryCompletedEvent,
 } from 'src/common/events/delivery-completed.event';
 import { OutboxService } from 'src/common/events/outbox.service';
-import { addDays, format, startOfDay, startOfWeek } from 'date-fns';
 import { Order } from 'src/entities/order.entity';
 import {
   CertificateStatus,
@@ -21,11 +21,11 @@ import {
 } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
+import { DeliveryAssignmentPolicy } from 'src/features/delivery/contracts/delivery-assignment.policy';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { pubSub } from 'src/pubsub';
 import { LessThan, Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from './dto/update-driver-dto';
-import { DeliveryAssignmentPolicy } from 'src/features/delivery/contracts/delivery-assignment.policy';
 
 @Injectable()
 export class ShipperService {

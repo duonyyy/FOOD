@@ -306,7 +306,6 @@ export class PromotionService {
     // Handle image update
     if (promotion.image && data.image && promotion.image !== data.image) {
       await this.minioService.deleteFile(promotion.image);
-
     }
 
     // Build update object with proper typing
@@ -335,7 +334,6 @@ export class PromotionService {
     // Delete image if exists
     if (promotion.image) {
       await this.minioService.deleteFile(promotion.image);
-
     }
 
     const result = await this.promotionRepository.delete(id);

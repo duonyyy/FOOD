@@ -1,12 +1,12 @@
+import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json'; // Bạn cần cài package này
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
-import GraphQLJSON from 'graphql-type-json'; // Bạn cần cài package này
 
 export enum CheckoutStatus {
   PENDING = 'PENDING',
@@ -89,5 +89,4 @@ export class Checkout {
   @Field()
   @UpdateDateColumn()
   updatedAt: Date;
-
 }

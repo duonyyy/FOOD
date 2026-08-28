@@ -5,13 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Conversation, ConversationType } from 'src/entities/conversation.entity';
-import { Message } from 'src/entities/message.entity';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import {
   NOTIFICATION_REQUESTED_EVENT,
   NotificationRequestedEvent,
 } from 'src/common/events/notification-requested.event';
+import { Conversation, ConversationType } from 'src/entities/conversation.entity';
+import { Message } from 'src/entities/message.entity';
 import { Order } from 'src/entities/order.entity';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
@@ -336,15 +336,12 @@ export class MessengerService {
         : conversation.participant1.id;
 
     // Publish notification event — Communications owns persistence
-    await this.eventBus.publish<NotificationRequestedEvent>(
-      NOTIFICATION_REQUESTED_EVENT,
-      {
-        recipientUserId: receiverId,
-        description: 'Bạn có tin nhắn mới',
-        content: message.content,
-        type: 'message',
-      },
-    );
+    await this.eventBus.publish<NotificationRequestedEvent>(NOTIFICATION_REQUESTED_EVENT, {
+      recipientUserId: receiverId,
+      description: 'Bạn có tin nhắn mới',
+      content: message.content,
+      type: 'message',
+    });
 
     return message;
   }

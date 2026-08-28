@@ -1,4 +1,12 @@
-type CacheKeyPart = string | number | boolean | null | undefined | Date | CacheKeyPart[] | { [key: string]: CacheKeyPart };
+type CacheKeyPart =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Date
+  | CacheKeyPart[]
+  | { [key: string]: CacheKeyPart };
 
 const normalizeValue = (value: CacheKeyPart): unknown => {
   if (value === undefined) {
@@ -25,7 +33,10 @@ const normalizeValue = (value: CacheKeyPart): unknown => {
   return value;
 };
 
-export const buildCacheKey = (namespace: string, parts: Record<string, CacheKeyPart> = {}): string => {
+export const buildCacheKey = (
+  namespace: string,
+  parts: Record<string, CacheKeyPart> = {},
+): string => {
   const normalized = normalizeValue(parts);
   return `${namespace}:${Buffer.from(JSON.stringify(normalized)).toString('base64url')}`;
 };

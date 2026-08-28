@@ -51,7 +51,9 @@ export class PasswordResetService {
     }
   }
 
-  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string; success: boolean }> {
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ message: string; success: boolean }> {
     const { token, email, newPassword } = resetPasswordDto;
 
     try {
@@ -121,7 +123,8 @@ export class PasswordResetService {
 
   private genericForgotPasswordResponse(): { message: string; success: boolean } {
     return {
-      message: 'If an account with this email exists, you will receive password reset instructions.',
+      message:
+        'If an account with this email exists, you will receive password reset instructions.',
       success: true,
     };
   }
@@ -191,7 +194,10 @@ export class PasswordResetService {
     `;
   }
 
-  private async sendPasswordChangeConfirmationEmail(email: string, userName: string): Promise<void> {
+  private async sendPasswordChangeConfirmationEmail(
+    email: string,
+    userName: string,
+  ): Promise<void> {
     const emailContent = `
     <!DOCTYPE html>
     <html lang="en">

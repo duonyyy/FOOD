@@ -7,7 +7,10 @@ import {
   type LocationReaderPort,
   type TemporaryAddressSnapshot,
 } from '../contracts/location-reader.port';
-import { type LocationWriterPort, type CreateAddressPayload } from '../contracts/location-writer.port';
+import {
+  type CreateAddressPayload,
+  type LocationWriterPort,
+} from '../contracts/location-writer.port';
 import { toAddressResponse } from './address.mapper';
 import { AddressResponseDto } from './dto/address-response.dto';
 import { CreateAddressDto } from './dto/create-address.dto';

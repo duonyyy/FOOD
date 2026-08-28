@@ -1,5 +1,4 @@
 import { Job, UnrecoverableError } from 'bullmq';
-import { DeliveryAssignmentScheduler } from '../../../features/delivery/services/delivery-assignment-scheduler.service';
 import { FindShipperProcessor } from './find-shipper.processor';
 
 describe('FindShipperProcessor', () => {
@@ -16,10 +15,7 @@ describe('FindShipperProcessor', () => {
 
     await processor.process(validJob);
 
-    expect(scheduler.processShipperAssignmentJobData).toHaveBeenCalledWith(
-      'job-1',
-      validJob.data,
-    );
+    expect(scheduler.processShipperAssignmentJobData).toHaveBeenCalledWith('job-1', validJob.data);
   });
 
   it('routes malformed payloads to dead-letter without calling business logic', async () => {
@@ -33,7 +29,9 @@ describe('FindShipperProcessor', () => {
 
   it('logs a dead-letter event after the final retry and rethrows retryable errors', async () => {
     const scheduler = {
-      processShipperAssignmentJobData: jest.fn().mockRejectedValue(new Error('temporary Redis failure')),
+      processShipperAssignmentJobData: jest
+        .fn()
+        .mockRejectedValue(new Error('temporary Redis failure')),
     };
     const processor = new FindShipperProcessor(scheduler as never);
     const logger = (processor as any).logger;

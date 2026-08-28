@@ -152,10 +152,9 @@ describe('Shipper delivery transition and concurrency baseline', () => {
     await service.reassignOrder(order.id);
 
     expect(pending.removePendingAssignment).toHaveBeenCalledWith(order.id);
-    expect(pubSub.publish).not.toHaveBeenCalledWith(
-      'orderReassignedToShippers',
-      expect.anything(),
-    );
+    // The mocked publisher is inspected, not invoked without its receiver.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(pubSub.publish).not.toHaveBeenCalledWith('orderReassignedToShippers', expect.anything());
   });
 
   it('rejects an expired offer and schedules it for another shipper', async () => {

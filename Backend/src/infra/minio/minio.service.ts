@@ -83,13 +83,9 @@ export class MinioService implements OnModuleInit {
       : `${Date.now()}-${cleanFileName}`;
 
     try {
-      await this.minioClient.putObject(
-        this.bucketName,
-        objectName,
-        file.buffer,
-        file.size,
-        { 'Content-Type': file.mimetype },
-      );
+      await this.minioClient.putObject(this.bucketName, objectName, file.buffer, file.size, {
+        'Content-Type': file.mimetype,
+      });
     } catch (error) {
       this.logProviderError('upload_object', error);
       throw error;

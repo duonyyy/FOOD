@@ -1,27 +1,20 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GqlExecutionContext } from '@nestjs/graphql';
+import { JwtService } from '@nestjs/jwt';
 import { extractBearerToken } from '../utils/auth-token.util';
 
 @Injectable()
 export class WebSocketAuthGuard implements CanActivate {
-
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    
     const gqlContext = GqlExecutionContext.create(context);
     const ctx = gqlContext.getContext();
-    
+
     // For WebSocket subscriptions
     if (!ctx.connection) {
       throw new UnauthorizedException('WebSocket connection required');
@@ -46,7 +39,7 @@ export class WebSocketAuthGuard implements CanActivate {
       connectionContext.user = payload;
       connectionContext.user.id = payload.sub;
       connectionContext.user.uid = payload.sub;
-      
+
       return true;
     } catch (error) {
       throw new UnauthorizedException('Invalid or expired token');

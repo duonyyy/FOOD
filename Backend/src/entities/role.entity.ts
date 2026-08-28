@@ -1,9 +1,17 @@
-/* eslint-disable prettier/prettier */
 // src/roles/entities/role.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToMany, JoinTable } from 'typeorm';
-import { User } from './user.entity';
+import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinTable,
+  ManyToMany,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Permission } from './permission.entity';
-import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
+import { User } from './user.entity';
 
 export enum DefaultRole {
   SUPER_ADMIN = 'super_admin',
@@ -35,7 +43,7 @@ export class Role {
   name: DefaultRole;
 
   @Field({ nullable: true }) // Add Field decorator for GraphQL
-  @Column({name: 'display_name', type: 'varchar', length: 255, nullable: true })
+  @Column({ name: 'display_name', type: 'varchar', length: 255, nullable: true })
   displayName: string;
 
   @Field({ nullable: true }) // Add Field decorator for GraphQL
@@ -43,7 +51,7 @@ export class Role {
   description: string;
 
   @Field() // Add Field decorator for GraphQL
-  @Column({ name: 'is_system' ,type: 'boolean', default: false })
+  @Column({ name: 'is_system', type: 'boolean', default: false })
   isSystem: boolean;
 
   @Field() // Add Field decorator for GraphQL
@@ -59,11 +67,11 @@ export class Role {
   users: User[];
 
   @Field(() => [Permission], { nullable: true }) // Add Field decorator for GraphQL
-  @ManyToMany(() => Permission, permission => permission.roles)
+  @ManyToMany(() => Permission, (permission) => permission.roles)
   @JoinTable({
     name: 'role_permissions',
     joinColumn: { name: 'role_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'permission_id', referencedColumnName: 'id' }
+    inverseJoinColumn: { name: 'permission_id', referencedColumnName: 'id' },
   })
   permissions: Permission[];
 }

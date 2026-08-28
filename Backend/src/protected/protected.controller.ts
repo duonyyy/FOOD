@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/require-await */
 // src/protected/protected.controller.ts
 import { Controller, Get, Req, UseGuards } from '@nestjs/common';

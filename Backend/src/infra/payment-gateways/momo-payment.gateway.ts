@@ -2,7 +2,6 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as crypto from 'crypto';
-import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import {
   mapPaymentGatewayError,
   missingPaymentGatewayConfiguration,
@@ -14,6 +13,7 @@ import {
   type PaymentResult,
   PaymentStatus,
 } from 'src/features/payments/contracts/payment-gateway.port';
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 
 /**
  * Momo Payment Gateway Implementation
@@ -23,7 +23,7 @@ import {
  */
 @Injectable()
 export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
-  readonly provider = 'momo' as const;
+  readonly provider = 'momo';
   private readonly logger = new Logger(MomoPaymentGateway.name);
   private config: PaymentGatewayConfig;
   private baseUrl: string;
@@ -41,7 +41,8 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
 
   onModuleInit(): void {
     this.initialize({
-      environment: this.configService.get<string>('NODE_ENV') === 'production' ? 'production' : 'sandbox',
+      environment:
+        this.configService.get<string>('NODE_ENV') === 'production' ? 'production' : 'sandbox',
     });
   }
 
@@ -78,7 +79,11 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
       this.configService.get<string>('MOMO_BASE_URL') ||
       'https://test-payment.momo.vn/v2/gateway/api';
 
-    this.logger.log({ event: 'provider_initialized', provider: 'momo', environment: config.environment });
+    this.logger.log({
+      event: 'provider_initialized',
+      provider: 'momo',
+      environment: config.environment,
+    });
   }
 
   /**
@@ -295,7 +300,10 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
   verifyWebhookSignature(payload: Record<string, unknown>, signature: string): boolean {
     try {
       if (!this.hasRequiredConfiguration()) {
-        this.logProviderError('verify_webhook_signature', missingPaymentGatewayConfiguration('momo', 'verify_webhook_signature'));
+        this.logProviderError(
+          'verify_webhook_signature',
+          missingPaymentGatewayConfiguration('momo', 'verify_webhook_signature'),
+        );
         return false;
       }
       // For Momo, we need to verify the signature from the webhook
@@ -304,11 +312,11 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
         'accessKey=' +
         this.momoConfig.accessKey +
         '&orderId=' +
-        String(payload.orderId || '') +
+        paymentPayloadString(payload.orderId) +
         '&partnerCode=' +
-        String(payload.partnerCode || '') +
+        paymentPayloadString(payload.partnerCode) +
         '&requestId=' +
-        String(payload.requestId || '');
+        paymentPayloadString(payload.requestId);
 
       const expectedSignature = this.generateHmacSignature(rawSignature, this.momoConfig.secretKey);
 
@@ -394,11 +402,8 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
             ? providerReference
             : orderId,
         orderReference:
-          typeof orderReference === 'string' && orderReference.trim()
-            ? orderReference
-            : undefined,
-        providerTransactionId:
-          typeof transId === 'string' && transId.trim() ? transId : undefined,
+          typeof orderReference === 'string' && orderReference.trim() ? orderReference : undefined,
+        providerTransactionId: typeof transId === 'string' && transId.trim() ? transId : undefined,
       };
     } catch (error) {
       const mapped = mapPaymentGatewayError('momo', 'check_transaction_status', error);
@@ -408,7 +413,9 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
   }
 
   private get timeoutMs(): number {
-    const configured = Number(this.configService.get<string>('PAYMENT_GATEWAY_TIMEOUT_MS', '10000'));
+    const configured = Number(
+      this.configService.get<string>('PAYMENT_GATEWAY_TIMEOUT_MS', '10000'),
+    );
     return Number.isFinite(configured) && configured > 0 ? configured : 10000;
   }
 
@@ -498,6 +505,14 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
   private generateHmacSignature(rawSignature: string, secretKey: string): string {
     return crypto.createHmac('sha256', secretKey).update(rawSignature).digest('hex');
   }
+}
+
+function paymentPayloadString(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return '';
 }
 
 function metadataString(

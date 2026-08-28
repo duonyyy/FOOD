@@ -1,12 +1,20 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
-import * as bcrypt from "bcryptjs";
-import { v4 as uuidv4 } from "uuid";
+import * as bcrypt from 'bcryptjs';
+import { MigrationInterface, QueryRunner } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 const standardGroups = [
-  "user", "role", "permission", "restaurant", "food",
-  "order", "promotion", "category", "payment", "review"
+  'user',
+  'role',
+  'permission',
+  'restaurant',
+  'food',
+  'order',
+  'promotion',
+  'category',
+  'payment',
+  'review',
 ];
-const operations = ["CREATE", "READ", "UPDATE", "DELETE", "LIST"];
+const operations = ['CREATE', 'READ', 'UPDATE', 'DELETE', 'LIST'];
 
 export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -18,7 +26,7 @@ export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
           `INSERT INTO "permissions" ("name", "description", "is_active") 
            VALUES ($1, $2, true)
            ON CONFLICT ("name") DO NOTHING`,
-          [name, `Permission to ${operation.toLowerCase()} ${group}`]
+          [name, `Permission to ${operation.toLowerCase()} ${group}`],
         );
       }
     }
@@ -27,27 +35,27 @@ export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
     await queryRunner.query(
       `INSERT INTO "roles" ("name", "display_name", "description", "is_system") 
        VALUES ('super_admin', 'Super Administrator', 'Full system access with all permissions', true)
-       ON CONFLICT ("name") DO NOTHING`
+       ON CONFLICT ("name") DO NOTHING`,
     );
     await queryRunner.query(
       `INSERT INTO "roles" ("name", "display_name", "description", "is_system") 
        VALUES ('administrator', 'Administrator', 'Restaurant system administration', true)
-       ON CONFLICT ("name") DO NOTHING`
+       ON CONFLICT ("name") DO NOTHING`,
     );
     await queryRunner.query(
       `INSERT INTO "roles" ("name", "display_name", "description", "is_system") 
        VALUES ('user', 'Standard User', 'Regular application user', true)
-       ON CONFLICT ("name") DO NOTHING`
+       ON CONFLICT ("name") DO NOTHING`,
     );
     await queryRunner.query(
       `INSERT INTO "roles" ("name", "display_name", "description", "is_system") 
        VALUES ('shop_owner', 'Shop Owner', 'Manages their own restaurant and related operations', false)
-       ON CONFLICT ("name") DO NOTHING`
+       ON CONFLICT ("name") DO NOTHING`,
     );
     await queryRunner.query(
       `INSERT INTO "roles" ("name", "display_name", "description", "is_system") 
        VALUES ('shipper', 'Shipper', 'shipper role with limited permissions', false)
-       ON CONFLICT ("name") DO NOTHING`
+       ON CONFLICT ("name") DO NOTHING`,
     );
 
     // 3. Assign all permissions to super_admin (FIXED)
@@ -111,14 +119,14 @@ export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
     let addressId: string | null = null;
     const addressRes = await queryRunner.query(
       `SELECT id FROM "address" WHERE street = $1 AND ward = $2 AND district = $3 AND city = $4 LIMIT 1`,
-      ['Admin Street', 'Admin Ward', 'Admin District', 'Admin City']
+      ['Admin Street', 'Admin Ward', 'Admin District', 'Admin City'],
     );
     if (addressRes.length > 0) {
       addressId = addressRes[0].id;
     } else {
       const insertRes = await queryRunner.query(
         `INSERT INTO "address" (street, ward, district, city) VALUES ($1, $2, $3, $4) RETURNING id`,
-        ['Admin Street', 'Admin Ward', 'Admin District', 'Admin City']
+        ['Admin Street', 'Admin Ward', 'Admin District', 'Admin City'],
       );
       addressId = insertRes[0].id;
     }
@@ -126,7 +134,7 @@ export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
     // 9. Create admin user if not exists
     const adminUserRes = await queryRunner.query(
       `SELECT id FROM "users" WHERE username = $1 LIMIT 1`,
-      ['admin']
+      ['admin'],
     );
     if (adminUserRes.length === 0) {
       const adminId = uuidv4().substring(0, 28);
@@ -134,7 +142,7 @@ export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
 
       // Get super admin role id (FIXED)
       const superAdminRoleRes = await queryRunner.query(
-        `SELECT id FROM "roles" WHERE name = 'super_admin' LIMIT 1`
+        `SELECT id FROM "roles" WHERE name = 'super_admin' LIMIT 1`,
       );
       const superAdminRoleId = superAdminRoleRes[0].id;
 
@@ -150,8 +158,8 @@ export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
           'System Administrator',
           new Date(),
           superAdminRoleId,
-          'email'
-        ]
+          'email',
+        ],
       );
     }
   }
@@ -160,15 +168,21 @@ export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
     // Remove seeded admin user
     await queryRunner.query(`DELETE FROM "users" WHERE username = 'admin'`);
     // Remove seeded roles (FIXED)
-    await queryRunner.query(`DELETE FROM "roles" WHERE name IN ('super_admin', 'administrator', 'user', 'shop_owner', 'shipper')`);
+    await queryRunner.query(
+      `DELETE FROM "roles" WHERE name IN ('super_admin', 'administrator', 'user', 'shop_owner', 'shipper')`,
+    );
     // Remove seeded permissions
-    await queryRunner.query(`DELETE FROM "permissions" WHERE name IN (${[
-      ...standardGroups.flatMap(group => operations.map(op => `'${group.toUpperCase()}_${op}'`))
-    ].join(',')})`);
+    await queryRunner.query(
+      `DELETE FROM "permissions" WHERE name IN (${[
+        ...standardGroups.flatMap((group) =>
+          operations.map((op) => `'${group.toUpperCase()}_${op}'`),
+        ),
+      ].join(',')})`,
+    );
     // Optionally, remove admin address
     await queryRunner.query(
       `DELETE FROM "address" WHERE street = $1 AND ward = $2 AND district = $3 AND city = $4`,
-      ['Admin Street', 'Admin Ward', 'Admin District', 'Admin City']
+      ['Admin Street', 'Admin Ward', 'Admin District', 'Admin City'],
     );
   }
 }

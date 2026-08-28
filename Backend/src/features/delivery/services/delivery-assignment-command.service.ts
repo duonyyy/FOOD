@@ -3,8 +3,8 @@ import { ShipperService } from '../../../modules/shipper/shipper.service';
 import {
   AcceptDeliveryCommand,
   OfferDeliveryCommand,
-  RejectDeliveryCommand,
   ReassignDeliveryCommand,
+  RejectDeliveryCommand,
 } from '../contracts/delivery-assignment.commands';
 import { DeliveryAssignmentPolicy } from '../contracts/delivery-assignment.policy';
 
@@ -21,7 +21,9 @@ export class DeliveryAssignmentCommandService {
 
   async acceptDelivery(command: AcceptDeliveryCommand) {
     DeliveryAssignmentPolicy.assertCommandActor(command.actorId);
-    const assignment = await this.legacyAssignmentService.getPendingAssignmentForShipper(command.actorId);
+    const assignment = await this.legacyAssignmentService.getPendingAssignmentForShipper(
+      command.actorId,
+    );
     if (!assignment) {
       DeliveryAssignmentPolicy.assertOwnership(assignment, command.assignmentId, command.actorId);
       return null;
@@ -33,7 +35,9 @@ export class DeliveryAssignmentCommandService {
 
   async rejectDelivery(command: RejectDeliveryCommand) {
     DeliveryAssignmentPolicy.assertCommandActor(command.actorId);
-    const assignment = await this.legacyAssignmentService.getPendingAssignmentForShipper(command.actorId);
+    const assignment = await this.legacyAssignmentService.getPendingAssignmentForShipper(
+      command.actorId,
+    );
     if (!assignment) {
       DeliveryAssignmentPolicy.assertOwnership(assignment, command.assignmentId, command.actorId);
       return null;
@@ -44,7 +48,9 @@ export class DeliveryAssignmentCommandService {
 
   async reassignDelivery(command: ReassignDeliveryCommand) {
     DeliveryAssignmentPolicy.assertCommandActor(command.actorId);
-    const assignment = await this.legacyAssignmentService.getPendingAssignmentForOrder(command.orderId);
+    const assignment = await this.legacyAssignmentService.getPendingAssignmentForOrder(
+      command.orderId,
+    );
     DeliveryAssignmentPolicy.assertCanReassign(
       command.actorId,
       assignment?.shipperId ?? null,

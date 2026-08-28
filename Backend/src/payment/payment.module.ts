@@ -6,8 +6,8 @@ import { EventsModule } from 'src/common/events/events.module';
 import { PaymentGatewayModule } from 'src/infra/payment-gateways/payment-gateway.module';
 import { Checkout } from '../entities/checkout.entity';
 import { DemoPaymentController, DemoPaymentGuard } from './demo-payment.controller';
-import { PaymentController } from './payment.controller';
 import { PaymentReconciliationService } from './payment-reconciliation.service';
+import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
 
 @Module({

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NestMinioModule } from 'nestjs-minio';
-import { MinioService } from './minio.service';
 import minioConfig from './minio.config';
+import { MinioService } from './minio.service';
 
 @Module({
   imports: [

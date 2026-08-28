@@ -19,8 +19,9 @@ describe('DeliveryEarningsProjectionService', () => {
     });
     const eventRepository = {
       manager: { transaction: jest.fn(async (callback) => callback(manager)) },
-      findOne: jest.fn(async ({ where }) =>
-        entries.find((entry) => entry.idempotencyKey === where.idempotencyKey) ?? null,
+      findOne: jest.fn(
+        async ({ where }) =>
+          entries.find((entry) => entry.idempotencyKey === where.idempotencyKey) ?? null,
       ),
       create: jest.fn((value) => Object.assign(new DeliveryEarningsEvent(), value)),
       save: jest.fn(async (entry) => {

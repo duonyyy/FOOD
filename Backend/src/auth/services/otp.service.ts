@@ -1,4 +1,11 @@
-import { BadRequestException, HttpException, HttpStatus, Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from 'src/infra/cache/cache.constants';
@@ -23,11 +30,18 @@ export class OtpService {
     const sendCountKey = this.sendCountKey(phone);
     const sendCount = await this.incrementCounter(sendCountKey, this.sendLimitTtlSeconds);
     if (sendCount > this.maxSendsPerWindow) {
-      throw new HttpException('Too many OTP requests. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Too many OTP requests. Please try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const otp = crypto.randomInt(100000, 1000000).toString();
-    await this.setRecord(this.otpKey(phone), { hash: this.hashOtp(phone, otp) }, this.otpTtlSeconds);
+    await this.setRecord(
+      this.otpKey(phone),
+      { hash: this.hashOtp(phone, otp) },
+      this.otpTtlSeconds,
+    );
     await this.deleteKey(this.verifyCountKey(phone));
 
     return { message: 'OTP sent successfully' };
@@ -43,7 +57,10 @@ export class OtpService {
     const verifyCount = await this.incrementCounter(verifyCountKey, this.verifyLimitTtlSeconds);
     if (verifyCount > this.maxVerifyAttempts) {
       await this.deleteKey(this.otpKey(phone));
-      throw new HttpException('Too many invalid OTP attempts. Please request a new OTP.', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Too many invalid OTP attempts. Please request a new OTP.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const record = await this.getRecord<OtpRecord>(this.otpKey(phone));

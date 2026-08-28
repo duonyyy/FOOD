@@ -1,5 +1,5 @@
-import * as admin from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
+import * as admin from 'firebase-admin';
 
 let firebaseApp: admin.app.App;
 
@@ -16,15 +16,15 @@ export function initializeFirebaseAdmin(configService: ConfigService) {
       token_uri: configService.get('FIREBASE_TOKEN_URI'),
       auth_provider_x509_cert_url: configService.get('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
       client_x509_cert_url: configService.get('FIREBASE_CLIENT_X509_CERT_URL'),
-      universe_domain: "googleapis.com"
+      universe_domain: 'googleapis.com',
     };
 
     if (!firebaseApp) {
       firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount as admin.ServiceAccount)
+        credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
       });
     }
-    
+
     return firebaseApp;
   } catch (error) {
     console.error('Firebase admin initialization error:', error);

@@ -35,7 +35,10 @@ export class DeliveryAssignmentPolicy {
     }
   }
 
-  static assertEligible(actorRole: string | undefined, certificateStatus: string | undefined): void {
+  static assertEligible(
+    actorRole: string | undefined,
+    certificateStatus: string | undefined,
+  ): void {
     if (actorRole !== 'shipper' || certificateStatus !== 'APPROVED') {
       throw new BadRequestException('Invalid or unapproved shipper');
     }
@@ -60,7 +63,11 @@ export class DeliveryAssignmentPolicy {
     }
   }
 
-  static assertCanReassign(actorId: string, targetShipperId: string | null, actorRole?: string): void {
+  static assertCanReassign(
+    actorId: string,
+    targetShipperId: string | null,
+    actorRole?: string,
+  ): void {
     const isAdmin = ['admin', 'administrator', 'super_admin'].includes(actorRole ?? '');
     if (!isAdmin && (!targetShipperId || actorId !== targetShipperId)) {
       throw new ForbiddenException('Only the assigned shipper or an admin can reassign');

@@ -1,5 +1,5 @@
-import { IsNotEmpty, IsString, IsDateString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class CreateShipperDto {
   @ApiProperty({ example: '0901234567' })
@@ -10,7 +10,7 @@ export class CreateShipperDto {
   @ApiProperty({ example: 'password123', minLength: 8 })
   @IsString()
   @MinLength(8)
-  password: string; 
+  password: string;
 
   @ApiProperty({ example: 'Nguyễn Văn Tài' })
   @IsString()

@@ -1,30 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 import { DELIVERY_ASSIGNMENT_POLICY } from 'src/features/delivery/contracts/delivery-assignment.policy';
+import {
+  type PendingAssignmentState,
+  type PendingAssignmentStorePort,
+  type ShipperAssignmentHold,
+} from 'src/features/delivery/contracts/pending-assignment-store.port';
 import { REDIS_CLIENT } from 'src/infra/cache/cache.constants';
 
-export interface PendingAssignmentState {
-  id: string;
-  orderId: string;
-  priority: number;
-  attemptCount: number;
-  lastAttemptAt: string | null;
-  nextAttemptAt: string;
-  createdAt: string;
-  notes: string | null;
-  isSentToShipper: boolean;
-  targetShipperId: string | null;
-}
-
-export interface ShipperAssignmentHold {
-  assignmentId: string;
-  orderId: string;
-  shipperId: string;
-  expiresAt: string;
-}
-
 @Injectable()
-export class PendingAssignmentStore {
+export class PendingAssignmentStore implements PendingAssignmentStorePort {
   private readonly logger = new Logger(PendingAssignmentStore.name);
   private readonly pendingTtlSeconds = DELIVERY_ASSIGNMENT_POLICY.pendingAssignmentTtlSeconds;
   private readonly shipperHoldTtlSeconds = DELIVERY_ASSIGNMENT_POLICY.offerHoldTtlSeconds;
@@ -57,7 +42,13 @@ export class PendingAssignmentStore {
       targetShipperId: null,
     };
 
-    const claimed = await this.redis.set(this.orderKey(orderId), assignment.id, 'EX', this.pendingTtlSeconds, 'NX');
+    const claimed = await this.redis.set(
+      this.orderKey(orderId),
+      assignment.id,
+      'EX',
+      this.pendingTtlSeconds,
+      'NX',
+    );
     if (claimed !== 'OK') {
       const claimedId = await this.redis.get(this.orderKey(orderId));
       const claimedAssignment = claimedId ? await this.getById(claimedId) : null;
@@ -72,9 +63,18 @@ export class PendingAssignmentStore {
 
   async save(assignment: PendingAssignmentState): Promise<void> {
     const pipeline = this.redis.pipeline();
-    pipeline.set(this.assignmentKey(assignment.id), JSON.stringify(assignment), 'EX', this.pendingTtlSeconds);
+    pipeline.set(
+      this.assignmentKey(assignment.id),
+      JSON.stringify(assignment),
+      'EX',
+      this.pendingTtlSeconds,
+    );
     pipeline.set(this.orderKey(assignment.orderId), assignment.id, 'EX', this.pendingTtlSeconds);
-    pipeline.zadd(this.dueSetKey, String(new Date(assignment.nextAttemptAt).getTime()), assignment.id);
+    pipeline.zadd(
+      this.dueSetKey,
+      String(new Date(assignment.nextAttemptAt).getTime()),
+      assignment.id,
+    );
     pipeline.expire(this.notifiedKey(assignment.orderId), this.pendingTtlSeconds);
     await pipeline.exec();
   }
@@ -88,7 +88,9 @@ export class PendingAssignmentStore {
     try {
       return JSON.parse(value) as PendingAssignmentState;
     } catch (error) {
-      this.logger.warn(`Failed to parse pending assignment ${assignmentId}: ${(error as Error).message}`);
+      this.logger.warn(
+        `Failed to parse pending assignment ${assignmentId}: ${(error as Error).message}`,
+      );
       return null;
     }
   }
@@ -102,7 +104,9 @@ export class PendingAssignmentStore {
     const now = Date.now();
     const ids = await this.redis.zrangebyscore(this.dueSetKey, '-inf', now, 'LIMIT', 0, limit);
     const assignments = await Promise.all(ids.map((id) => this.getById(id)));
-    return assignments.filter((assignment): assignment is PendingAssignmentState => Boolean(assignment));
+    return assignments.filter((assignment): assignment is PendingAssignmentState =>
+      Boolean(assignment),
+    );
   }
 
   async acquireProcessingLock(assignmentId: string, ttlSeconds = 30): Promise<boolean> {
@@ -166,8 +170,18 @@ export class PendingAssignmentStore {
     const pipeline = this.redis.pipeline();
     pipeline.sadd(this.notifiedKey(assignment.orderId), shipperId);
     pipeline.expire(this.notifiedKey(assignment.orderId), this.pendingTtlSeconds);
-    pipeline.set(this.shipperHoldKey(shipperId), JSON.stringify(hold), 'EX', this.shipperHoldTtlSeconds);
-    pipeline.set(this.orderHoldKey(assignment.orderId), JSON.stringify(hold), 'EX', this.shipperHoldTtlSeconds);
+    pipeline.set(
+      this.shipperHoldKey(shipperId),
+      JSON.stringify(hold),
+      'EX',
+      this.shipperHoldTtlSeconds,
+    );
+    pipeline.set(
+      this.orderHoldKey(assignment.orderId),
+      JSON.stringify(hold),
+      'EX',
+      this.shipperHoldTtlSeconds,
+    );
     await pipeline.exec();
   }
 

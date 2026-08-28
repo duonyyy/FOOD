@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from 'src/auth/auth.module';
+import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
 import { AddressModule } from '../address/address.module';
 import { FoodModule } from '../food/food.module';
 import { OrderModule } from '../order/order.module';
-import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { GeneralChatFlowService } from './flows/general-chat-flow.service';

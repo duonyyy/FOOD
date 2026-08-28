@@ -1,18 +1,25 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DELIVERY_ASSIGNMENT_POLICY } from 'src/features/delivery/contracts/delivery-assignment.policy';
-import { Order } from 'src/entities/order.entity';
 import { haversineDistance } from 'src/common/utils/geo.util';
+import { DELIVERY_ASSIGNMENT_POLICY } from 'src/features/delivery/contracts/delivery-assignment.policy';
 import { activeShipperTracker } from 'src/modules/order/order.resolver';
 import { pubSub } from 'src/pubsub';
-import { Repository } from 'typeorm';
-import { FindShipperJobData, QueueNames } from '../../../infra/queue/queue.constants';
-import { QueueService } from '../../../infra/queue/queue.service';
 import {
+  DELIVERY_ASSIGNMENT_QUEUE,
+  DELIVERY_ASSIGNMENT_QUEUE_PORT,
+  type DeliveryAssignmentJobData,
+  type DeliveryAssignmentQueuePort,
+} from '../contracts/delivery-assignment-queue.port';
+import {
+  DELIVERY_ORDER_READER,
+  type DeliveryOrderReaderPort,
+  type DeliveryOrderSnapshot,
+} from '../contracts/delivery-order-reader.port';
+import {
+  PENDING_ASSIGNMENT_STORE,
   PendingAssignmentState,
-  PendingAssignmentStore,
-} from '../../../infra/queue/pending-assignment-store.service';
+  type PendingAssignmentStorePort,
+} from '../contracts/pending-assignment-store.port';
 
 interface ActiveShipper {
   shipperId: string;
@@ -23,7 +30,7 @@ interface ActiveShipper {
 }
 
 export type ExpiredPendingAssignment = Omit<PendingAssignmentState, 'createdAt'> & {
-  order: Order;
+  order: DeliveryOrderSnapshot;
   createdAt: Date;
 };
 
@@ -32,10 +39,12 @@ export class DeliveryAssignmentScheduler {
   private readonly logger = new Logger(DeliveryAssignmentScheduler.name);
 
   constructor(
-    @InjectRepository(Order)
-    private readonly orderRepository: Repository<Order>,
-    private readonly queueService: QueueService,
-    private readonly store: PendingAssignmentStore,
+    @Inject(DELIVERY_ORDER_READER)
+    private readonly orderReader: DeliveryOrderReaderPort,
+    @Inject(DELIVERY_ASSIGNMENT_QUEUE_PORT)
+    private readonly queueService: DeliveryAssignmentQueuePort,
+    @Inject(PENDING_ASSIGNMENT_STORE)
+    private readonly store: PendingAssignmentStorePort,
   ) {}
 
   @Cron(CronExpression.EVERY_5_SECONDS)
@@ -97,7 +106,10 @@ export class DeliveryAssignmentScheduler {
     return true;
   }
 
-  async addPendingAssignment(orderId: string, priority: number = 1): Promise<PendingAssignmentState> {
+  async addPendingAssignment(
+    orderId: string,
+    priority: number = 1,
+  ): Promise<PendingAssignmentState> {
     const existing = await this.store.getByOrderId(orderId);
     if (existing) {
       return existing;
@@ -178,7 +190,10 @@ export class DeliveryAssignmentScheduler {
     return this.store.getExcludedShipperIds(orderId);
   }
 
-  async processShipperAssignmentJobData(jobId: string, data: FindShipperJobData): Promise<void> {
+  async processShipperAssignmentJobData(
+    jobId: string,
+    data: DeliveryAssignmentJobData,
+  ): Promise<void> {
     if (!this.isValidJobData(data)) {
       this.logger.error(`Received invalid job data: ${JSON.stringify(data)}`);
       throw new Error('Invalid job data');
@@ -198,12 +213,7 @@ export class DeliveryAssignmentScheduler {
         return;
       }
 
-      const currentOrder = await this.orderRepository.findOne({
-        where: { id: orderId },
-        relations: ['shippingDetail'],
-      });
-
-      if (currentOrder?.shippingDetail) {
+      if (order.shippingDetail) {
         await this.store.remove(assignment);
         return;
       }
@@ -273,7 +283,7 @@ export class DeliveryAssignmentScheduler {
     try {
       await Promise.all([
         this.store.count(),
-        this.queueService.getQueueSize(QueueNames.FIND_SHIPPER),
+        this.queueService.getQueueSize(DELIVERY_ASSIGNMENT_QUEUE),
         this.store.countReady(),
       ]);
     } catch (error) {
@@ -317,15 +327,17 @@ export class DeliveryAssignmentScheduler {
     return true;
   }
 
-  private async createJobForPendingAssignment(assignment: PendingAssignmentState): Promise<string | null> {
+  private async createJobForPendingAssignment(
+    assignment: PendingAssignmentState,
+  ): Promise<string | null> {
     try {
-      const jobData: FindShipperJobData = {
+      const jobData: DeliveryAssignmentJobData = {
         pendingAssignmentId: assignment.id,
         orderId: assignment.orderId,
         attempt: assignment.attemptCount + 1,
       };
 
-      return this.queueService.addJob(QueueNames.FIND_SHIPPER, jobData, {
+      return this.queueService.addJob(DELIVERY_ASSIGNMENT_QUEUE, jobData, {
         attempts: 3,
         backoffDelayMs: 5000,
         priority: assignment.priority,
@@ -339,7 +351,9 @@ export class DeliveryAssignmentScheduler {
     }
   }
 
-  private async findNearestAvailableShipper(order: Order): Promise<ActiveShipper | null> {
+  private async findNearestAvailableShipper(
+    order: DeliveryOrderSnapshot,
+  ): Promise<ActiveShipper | null> {
     if (!order.restaurant?.latitude || !order.restaurant?.longitude || !activeShipperTracker) {
       return null;
     }
@@ -355,7 +369,12 @@ export class DeliveryAssignmentScheduler {
         continue;
       }
 
-      const distance = haversineDistance(shipper.latitude, shipper.longitude, restaurantLat, restaurantLng);
+      const distance = haversineDistance(
+        shipper.latitude,
+        shipper.longitude,
+        restaurantLat,
+        restaurantLng,
+      );
       if (distance <= shipper.maxDistance && distance < shortestDistance) {
         shortestDistance = distance;
         nearestShipper = {
@@ -371,16 +390,20 @@ export class DeliveryAssignmentScheduler {
     return nearestShipper;
   }
 
-  private async scheduleRetryForAssignment(assignment: PendingAssignmentState, baseDelayMinutes = 1): Promise<void> {
+  private async scheduleRetryForAssignment(
+    assignment: PendingAssignmentState,
+    baseDelayMinutes = 1,
+  ): Promise<void> {
     const maxRetries = DELIVERY_ASSIGNMENT_POLICY.retryMaxAttempts;
     if (assignment.attemptCount >= maxRetries) {
       await this.store.remove(assignment);
       return;
     }
 
-    const delayMinutes = baseDelayMinutes === 0
-      ? 0
-      : Math.min(baseDelayMinutes * Math.pow(2, assignment.attemptCount), 60);
+    const delayMinutes =
+      baseDelayMinutes === 0
+        ? 0
+        : Math.min(baseDelayMinutes * Math.pow(2, assignment.attemptCount), 60);
 
     assignment.attemptCount += 1;
     assignment.lastAttemptAt = new Date().toISOString();
@@ -388,7 +411,7 @@ export class DeliveryAssignmentScheduler {
     await this.store.save(assignment);
   }
 
-  private async validateOrderForAssignment(orderId: string): Promise<Order> {
+  private async validateOrderForAssignment(orderId: string): Promise<DeliveryOrderSnapshot> {
     const order = await this.findOrderForAssignment(orderId);
 
     if (!order) {
@@ -406,30 +429,20 @@ export class DeliveryAssignmentScheduler {
     return order;
   }
 
-  private async findOrderForAssignment(orderId: string): Promise<Order | null> {
-    return this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: [
-        'restaurant',
-        'user',
-        'address',
-        'orderDetails',
-        'orderDetails.food',
-        'shippingDetail',
-      ],
-    });
+  private async findOrderForAssignment(orderId: string): Promise<DeliveryOrderSnapshot | null> {
+    return this.orderReader.findOrderForDeliveryAssignment(orderId);
   }
 
-  private async handleShipperResponseTimeout(assignmentId: string, shipperId: string): Promise<void> {
+  private async handleShipperResponseTimeout(
+    assignmentId: string,
+    shipperId: string,
+  ): Promise<void> {
     const assignment = await this.store.getById(assignmentId);
     if (!assignment || assignment.targetShipperId !== shipperId) {
       return;
     }
 
-    const order = await this.orderRepository.findOne({
-      where: { id: assignment.orderId },
-      relations: ['shippingDetail'],
-    });
+    const order = await this.findOrderForAssignment(assignment.orderId);
 
     if (!order || order.status !== 'confirmed' || order.shippingDetail) {
       await this.store.remove(assignment);
@@ -442,12 +455,12 @@ export class DeliveryAssignmentScheduler {
     await this.scheduleRetryForAssignment(assignment);
   }
 
-  private isValidJobData(data: unknown): data is FindShipperJobData {
+  private isValidJobData(data: unknown): data is DeliveryAssignmentJobData {
     if (!data || typeof data !== 'object') {
       return false;
     }
 
-    const job = data as Partial<FindShipperJobData>;
+    const job = data as Partial<DeliveryAssignmentJobData>;
     return (
       typeof job.pendingAssignmentId === 'string' &&
       typeof job.orderId === 'string' &&

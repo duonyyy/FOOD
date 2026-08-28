@@ -22,9 +22,13 @@ export class RefactorCheckoutPaymentOwnership1761000000000 implements MigrationI
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('ALTER TABLE "checkouts" DROP COLUMN IF EXISTS "currency"');
     await queryRunner.query(
-      "ALTER TABLE \"checkouts\" ALTER COLUMN \"paymentIntentId\" TYPE uuid USING CASE WHEN \"paymentIntentId\" ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN \"paymentIntentId\"::uuid ELSE NULL END",
+      'ALTER TABLE "checkouts" ALTER COLUMN "paymentIntentId" TYPE uuid USING CASE WHEN "paymentIntentId" ~* \'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\' THEN "paymentIntentId"::uuid ELSE NULL END',
     );
-    await queryRunner.query('ALTER TABLE "checkouts" ADD COLUMN IF NOT EXISTS "paymentUrl" character varying');
-    await queryRunner.query('ALTER TABLE "checkouts" ADD COLUMN IF NOT EXISTS "userId" character varying(28)');
+    await queryRunner.query(
+      'ALTER TABLE "checkouts" ADD COLUMN IF NOT EXISTS "paymentUrl" character varying',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "checkouts" ADD COLUMN IF NOT EXISTS "userId" character varying(28)',
+    );
   }
 }

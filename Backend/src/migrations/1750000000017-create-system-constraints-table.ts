@@ -1,10 +1,10 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateSystemConstraintsTable1750000000017 implements MigrationInterface {
-    name = 'CreateSystemConstraintsTable1750000000017'
+  name = 'CreateSystemConstraintsTable1750000000017';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             CREATE TABLE "system_constraints" (
                 "id" SERIAL PRIMARY KEY,
                 "min_completion_rate" float NOT NULL DEFAULT 0.7,
@@ -22,9 +22,9 @@ export class CreateSystemConstraintsTable1750000000017 implements MigrationInter
                 "updated_at" TIMESTAMP NOT NULL DEFAULT now()
             )
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DROP TABLE "system_constraints"`);
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP TABLE "system_constraints"`);
+  }
 }

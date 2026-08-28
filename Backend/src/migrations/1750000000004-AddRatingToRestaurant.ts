@@ -1,21 +1,21 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddRatingToRestaurant1750000000004 implements MigrationInterface {
-    name = 'AddRatingToRestaurant1750000000004';
+  name = 'AddRatingToRestaurant1750000000004';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Add rating column to restaurants table
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Add rating column to restaurants table
+    await queryRunner.query(`
             ALTER TABLE "restaurants" 
             ADD COLUMN IF NOT EXISTS "rating" DECIMAL(3,2) NULL
         `);
 
-        console.log('Added rating column to restaurants table');
+    console.log('Added rating column to restaurants table');
 
-        // Update existing restaurant ratings based on their foods' reviews
-        console.log('Calculating and updating restaurant ratings...');
-        
-        await queryRunner.query(`
+    // Update existing restaurant ratings based on their foods' reviews
+    console.log('Calculating and updating restaurant ratings...');
+
+    await queryRunner.query(`
             UPDATE "restaurants" 
             SET "rating" = (
                 SELECT AVG(r.rating)::numeric(3,2)
@@ -34,16 +34,16 @@ export class AddRatingToRestaurant1750000000004 implements MigrationInterface {
             )
         `);
 
-        console.log('Updated restaurant ratings based on food reviews');
-    }
+    console.log('Updated restaurant ratings based on food reviews');
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Remove rating column from restaurants table
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Remove rating column from restaurants table
+    await queryRunner.query(`
             ALTER TABLE "restaurants" 
             DROP COLUMN IF EXISTS "rating"
         `);
 
-        console.log('Removed rating column from restaurants table');
-    }
+    console.log('Removed rating column from restaurants table');
+  }
 }

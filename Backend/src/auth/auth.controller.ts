@@ -9,19 +9,18 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register-user.dto';
-import { log } from 'console';
-import { GoogleRegisterDto } from './dto/google-register.dto';
-import { AuthGuard } from './guards/auth.guard';
-import { CreateShipperDto } from './dto/create-shipper.dto';
 import { ApiBody } from '@nestjs/swagger';
-import { LoginDriverDto } from './dto/login-driver.dto';
+import { AuthService } from './auth.service';
+import { CreateShipperDto } from './dto/create-shipper.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { GoogleRegisterDto } from './dto/google-register.dto';
+import { LoginDriverDto } from './dto/login-driver.dto';
+import { RegisterDto } from './dto/register-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { AuthGuard } from './guards/auth.guard';
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   // @Post('login/google')
   // @UseGuards(AuthGuard) // Verify Firebase token
@@ -36,10 +35,7 @@ export class AuthController {
   // }
 
   @Post('login/email')
-  async loginWithEmailPassword(
-    @Body('email') email: string,
-    @Body('password') password: string,
-  ) {
+  async loginWithEmailPassword(@Body('email') email: string, @Body('password') password: string) {
     return await this.authService.loginWithEmailPassword(email, password);
   }
 
@@ -74,19 +70,16 @@ export class AuthController {
   }
 
   @Get('verify-reset-token')
-  async verifyResetToken(
-    @Query('token') token: string,
-    @Query('email') email: string
-  ) {
+  async verifyResetToken(@Query('token') token: string, @Query('email') email: string) {
     return await this.authService.verifyResetToken(token, email);
   }
-  
+
   @Post('register-driver')
   @ApiBody({ type: CreateShipperDto })
   async registerDriver(@Body() dto: CreateShipperDto) {
-  return this.authService.registerDriver(dto);
+    return this.authService.registerDriver(dto);
   }
-  
+
   @Get('check-phone')
   async checkPhone(@Query('phone') phone: string) {
     return await this.authService.getShipperStatusByPhone(phone);
@@ -94,7 +87,7 @@ export class AuthController {
 
   @Post('send-otp')
   async sendOtp(@Body('phone') phone: string) {
-   return this.authService.sendOtp(phone);
+    return this.authService.sendOtp(phone);
   }
 
   @Post('verify-otp')
@@ -110,6 +103,6 @@ export class AuthController {
   @Post('check')
   @UseGuards(AuthGuard)
   async checkAuth(@Req() req) {
-    return { message: 'User is authenticated', user: req.user, isLogin: true  };
+    return { message: 'User is authenticated', user: req.user, isLogin: true };
   }
 }

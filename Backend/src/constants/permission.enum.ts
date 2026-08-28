@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 export const Permission = {
   ROLE: {
     CREATE: 'ROLE_CREATE',
@@ -69,7 +68,7 @@ export const Permission = {
     READ: 'FOOD_READ',
     DELETE: 'FOOD_DELETE',
     ALL: 'FOOD_LIST',
-  }
+  },
 } as const;
 
 export type PermissionType = (typeof Permission)[keyof typeof Permission];

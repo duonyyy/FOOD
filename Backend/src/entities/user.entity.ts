@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
 import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { ApiHideProperty } from '@nestjs/swagger';

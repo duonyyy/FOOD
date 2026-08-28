@@ -43,6 +43,8 @@ describe('DeliveryAssignmentPolicy', () => {
     expect(() => DeliveryAssignmentPolicy.assertCanReassign('shipper-b', 'shipper-a')).toThrow(
       ForbiddenException,
     );
-    expect(() => DeliveryAssignmentPolicy.assertCanReassign('admin-1', 'shipper-a', 'admin')).not.toThrow();
+    expect(() =>
+      DeliveryAssignmentPolicy.assertCanReassign('admin-1', 'shipper-a', 'admin'),
+    ).not.toThrow();
   });
 });

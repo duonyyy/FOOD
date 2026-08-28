@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { DefaultRole } from '../entities/role.entity';
+import { CertificateStatus } from '../entities/shipperCertificateInfo.entity';
 import { SystemConstraint } from '../entities/systemConstaints.entity';
 import { User } from '../entities/user.entity';
 
@@ -21,19 +23,21 @@ export class SystemConstraintsService {
    */
   async getConstraints(): Promise<SystemConstraint> {
     const now = new Date();
-    
+
     // Check if cached constraints are still valid
-    if (this.cachedConstraints && 
-        (now.getTime() - this.lastCacheUpdate.getTime()) < this.CACHE_DURATION) {
+    if (
+      this.cachedConstraints &&
+      now.getTime() - this.lastCacheUpdate.getTime() < this.CACHE_DURATION
+    ) {
       return this.cachedConstraints;
     }
 
     try {
       this.logger.log('🔍 Fetching system constraints from database...');
-      
+
       // Try to get the first (and should be only) system constraint record
       let constraints = await this.systemConstraintsRepository.findOne({
-        where: {} // Empty where clause to get any record, or you can use order and take
+        where: {}, // Empty where clause to get any record, or you can use order and take
       });
 
       // If no constraints exist, create default ones
@@ -45,19 +49,21 @@ export class SystemConstraintsService {
       // Update cache
       this.cachedConstraints = constraints;
       this.lastCacheUpdate = now;
-      
-      this.logger.log(`✅ System constraints loaded: max_delivery_distance=${constraints.max_delivery_distance}km, min_completion_rate=${constraints.min_completion_rate}`);
-      
+
+      this.logger.log(
+        `✅ System constraints loaded: max_delivery_distance=${constraints.max_delivery_distance}km, min_completion_rate=${constraints.min_completion_rate}`,
+      );
+
       return constraints;
     } catch (error) {
       this.logger.error(`❌ Error fetching system constraints: ${error.message}`);
-      
+
       // If database query fails, return cached constraints if available
       if (this.cachedConstraints) {
         this.logger.warn('⚠️ Using cached constraints due to database error');
         return this.cachedConstraints;
       }
-      
+
       // Last resort: return hardcoded default constraints
       this.logger.warn('⚠️ Using hardcoded default constraints due to database error');
       return this.getHardcodedDefaults();
@@ -84,7 +90,7 @@ export class SystemConstraintsService {
 
       const savedConstraints = await this.systemConstraintsRepository.save(defaultConstraints);
       this.logger.log('✅ Default system constraints created successfully');
-      
+
       return savedConstraints;
     } catch (error) {
       this.logger.error(`❌ Error creating default constraints: ${error.message}`);
@@ -108,7 +114,7 @@ export class SystemConstraintsService {
     constraints.tier2_distance_km = 10;
     constraints.tier2_shipping_fee = 25000;
     constraints.tier3_shipping_fee = 35000;
-    
+
     return constraints;
   }
 
@@ -125,7 +131,7 @@ export class SystemConstraintsService {
         return {
           eligible: false,
           reasons: ['Shipper data not provided'],
-          score: 0
+          score: 0,
         };
       }
 
@@ -134,11 +140,11 @@ export class SystemConstraintsService {
       let score = 100; // Start with perfect score
 
       // Check role - essential requirement
-      if (!shipper.role || shipper.role.name !== 'shipper') {
+      if (!shipper.role || shipper.role.name !== DefaultRole.SHIPPER) {
         return {
           eligible: false,
           reasons: ['User is not a shipper'],
-          score: 0
+          score: 0,
         };
       }
 
@@ -147,17 +153,17 @@ export class SystemConstraintsService {
         return {
           eligible: false,
           reasons: ['Account is not active'],
-          score: 0
+          score: 0,
         };
       }
 
       // Certificate status check (if exists)
       if (shipper.shipperCertificateInfo) {
-        if (shipper.shipperCertificateInfo.status !== 'APPROVED') {
+        if (shipper.shipperCertificateInfo.status !== CertificateStatus.APPROVED) {
           return {
             eligible: false,
             reasons: ['Shipper certificate not approved'],
-            score: 0
+            score: 0,
           };
         }
       } else {
@@ -169,9 +175,12 @@ export class SystemConstraintsService {
       // Safely check completion rate
       const totalDeliveries = (shipper.completedDeliveries || 0) + (shipper.failedDeliveries || 0);
       if (totalDeliveries >= constraints.min_total_orders) {
-        const completionRate = totalDeliveries > 0 ? (shipper.completedDeliveries || 0) / totalDeliveries : 0;
+        const completionRate =
+          totalDeliveries > 0 ? (shipper.completedDeliveries || 0) / totalDeliveries : 0;
         if (completionRate < constraints.min_completion_rate) {
-          reasons.push(`Completion rate ${(completionRate * 100).toFixed(1)}% below minimum ${(constraints.min_completion_rate * 100)}%`);
+          reasons.push(
+            `Completion rate ${(completionRate * 100).toFixed(1)}% below minimum ${constraints.min_completion_rate * 100}%`,
+          );
           score -= 30;
         } else {
           // Bonus for high completion rate
@@ -186,7 +195,9 @@ export class SystemConstraintsService {
       // Check active deliveries
       const activeDeliveries = shipper.activeDeliveries || 0;
       if (activeDeliveries >= constraints.max_active_deliveries) {
-        reasons.push(`Too many active deliveries: ${activeDeliveries}/${constraints.max_active_deliveries}`);
+        reasons.push(
+          `Too many active deliveries: ${activeDeliveries}/${constraints.max_active_deliveries}`,
+        );
         score -= 40;
       } else {
         // Bonus for availability
@@ -216,15 +227,16 @@ export class SystemConstraintsService {
       return {
         eligible,
         reasons,
-        score: Math.max(0, Math.round(score * 100) / 100)
+        score: Math.max(0, Math.round(score * 100) / 100),
       };
-
     } catch (error) {
-      this.logger.error(`❌ Error checking shipper eligibility for ${shipper.id}: ${error.message}`);
+      this.logger.error(
+        `❌ Error checking shipper eligibility for ${shipper.id}: ${error.message}`,
+      );
       return {
         eligible: false,
         reasons: ['Error checking eligibility'],
-        score: 0
+        score: 0,
       };
     }
   }
@@ -238,7 +250,8 @@ export class SystemConstraintsService {
     try {
       // Performance metrics
       const totalDeliveries = (shipper.completedDeliveries || 0) + (shipper.failedDeliveries || 0);
-      const completionRate = totalDeliveries > 0 ? (shipper.completedDeliveries || 0) / totalDeliveries : 1;
+      const completionRate =
+        totalDeliveries > 0 ? (shipper.completedDeliveries || 0) / totalDeliveries : 1;
 
       // Experience bonus (completed deliveries)
       score += Math.min(25, (shipper.completedDeliveries || 0) * 0.5);
@@ -261,7 +274,8 @@ export class SystemConstraintsService {
       // Time-based factors
       const now = new Date();
       if (shipper.lastActiveAt) {
-        const minutesInactive = (now.getTime() - new Date(shipper.lastActiveAt).getTime()) / (1000 * 60);
+        const minutesInactive =
+          (now.getTime() - new Date(shipper.lastActiveAt).getTime()) / (1000 * 60);
         if (minutesInactive < 5) {
           score += 10; // Very recent activity
         } else if (minutesInactive < 30) {
@@ -273,7 +287,7 @@ export class SystemConstraintsService {
       const lateDeliveries = shipper.lateDeliveries || 0;
       const onTimeDeliveries = shipper.onTimeDeliveries || 0;
       const totalTimedDeliveries = lateDeliveries + onTimeDeliveries;
-      
+
       if (totalTimedDeliveries > 0) {
         const onTimeRate = onTimeDeliveries / totalTimedDeliveries;
         score += onTimeRate * 15; // Up to 15 points for perfect on-time delivery
@@ -307,7 +321,7 @@ export class SystemConstraintsService {
   async calculateShippingFee(distanceKm: number): Promise<number> {
     try {
       const constraints = await this.getConstraints();
-      
+
       if (distanceKm <= constraints.base_distance_km) {
         return constraints.base_shipping_fee;
       } else if (distanceKm <= constraints.tier2_distance_km) {
@@ -411,7 +425,7 @@ export class SystemConstraintsService {
         shipperEarnings,
         platformFee,
         commissionRate,
-        feeStructure
+        feeStructure,
       };
     } catch (error) {
       this.logger.error(`Error getting delivery fee breakdown: ${error.message}`);
@@ -425,7 +439,7 @@ export class SystemConstraintsService {
   async updateConstraints(updates: Partial<SystemConstraint>): Promise<SystemConstraint> {
     try {
       let constraints = await this.systemConstraintsRepository.findOne({
-        where: {} // Get any existing record
+        where: {}, // Get any existing record
       });
 
       if (!constraints) {
@@ -434,12 +448,12 @@ export class SystemConstraintsService {
 
       // Apply updates
       Object.assign(constraints, updates);
-      
+
       const updated = await this.systemConstraintsRepository.save(constraints);
-      
+
       // Clear cache to force reload
       this.clearCache();
-      
+
       this.logger.log('✅ System constraints updated successfully');
       return updated;
     } catch (error) {

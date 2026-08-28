@@ -9,9 +9,7 @@ import { DeliveryModule } from './delivery.module';
 describe('Delivery ownership boundary', () => {
   it('registers delivery persistence under DeliveryModule', () => {
     const metadata = Reflect.getMetadata('imports', DeliveryModule) as unknown[];
-    const typeOrmImport = metadata.find(
-      (item: any) => item?.module === TypeOrmModule,
-    ) as any;
+    const typeOrmImport = metadata.find((item: any) => item?.module === TypeOrmModule) as any;
 
     expect(typeOrmImport?.providers).toEqual(
       expect.arrayContaining([
@@ -32,8 +30,6 @@ describe('Delivery ownership boundary', () => {
   });
 
   it('exports a profile read contract', () => {
-    expect(Reflect.getMetadata('exports', DeliveryModule)).toContain(
-      SHIPPER_PROFILE_READER,
-    );
+    expect(Reflect.getMetadata('exports', DeliveryModule)).toContain(SHIPPER_PROFILE_READER);
   });
 });

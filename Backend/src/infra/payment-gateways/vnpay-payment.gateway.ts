@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as qs from 'qs'; // Replace querystring with qs to match VNPAY exactly
-import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import {
   mapPaymentGatewayError,
   missingPaymentGatewayConfiguration,
@@ -14,6 +13,7 @@ import {
   type PaymentResult,
   PaymentStatus,
 } from 'src/features/payments/contracts/payment-gateway.port';
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 
 /**
  * VNPAY Payment Gateway Implementation
@@ -23,7 +23,7 @@ import {
  */
 @Injectable()
 export class VnpayPaymentGateway implements PaymentGatewayPort {
-  readonly provider = 'vnpay' as const;
+  readonly provider = 'vnpay';
   private readonly logger = new Logger(VnpayPaymentGateway.name);
   private config: PaymentGatewayConfig;
   private baseUrl: string;
@@ -117,7 +117,11 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
       this.apiUrl = 'https://merchant.vnpay.vn/merchant_webapi/api/transaction';
     }
 
-    this.logger.log({ event: 'provider_initialized', provider: 'vnpay', environment: config.environment });
+    this.logger.log({
+      event: 'provider_initialized',
+      provider: 'vnpay',
+      environment: config.environment,
+    });
   }
 
   /**

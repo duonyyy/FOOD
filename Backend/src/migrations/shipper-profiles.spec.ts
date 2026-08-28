@@ -12,11 +12,7 @@ describe('CreateShipperProfiles migration', () => {
     expect(queryRunner.query.mock.calls[0][0]).toContain(
       'CREATE TABLE IF NOT EXISTS "shipper_profiles"',
     );
-    expect(queryRunner.query.mock.calls[1][0]).toContain(
-      'ON CONFLICT ("user_id") DO NOTHING',
-    );
-    expect(queryRunner.query.mock.calls[2][0]).toBe(
-      'DROP TABLE IF EXISTS "shipper_profiles"',
-    );
+    expect(queryRunner.query.mock.calls[1][0]).toContain('ON CONFLICT ("user_id") DO NOTHING');
+    expect(queryRunner.query.mock.calls[2][0]).toBe('DROP TABLE IF EXISTS "shipper_profiles"');
   });
 });

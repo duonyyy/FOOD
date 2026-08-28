@@ -1,5 +1,8 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { DELIVERY_COMPLETED_EVENT, DeliveryCompletedEvent } from 'src/common/events/delivery-completed.event';
+import {
+  DELIVERY_COMPLETED_EVENT,
+  DeliveryCompletedEvent,
+} from 'src/common/events/delivery-completed.event';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import { OrderCommandService } from './order-command.service';
 

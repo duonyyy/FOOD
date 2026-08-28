@@ -55,9 +55,10 @@ export class ChatLlmService {
   }
 
   private getAiServerUrl(): string {
-    return (
-      this.configService.get<string>('AI_SERVER_URL') || 'http://localhost:8000'
-    ).replace(/\/$/, '');
+    return (this.configService.get<string>('AI_SERVER_URL') || 'http://localhost:8000').replace(
+      /\/$/,
+      '',
+    );
   }
 
   private getTimeoutMs(): number {

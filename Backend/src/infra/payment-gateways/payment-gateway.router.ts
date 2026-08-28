@@ -21,6 +21,6 @@ export class PaymentGatewayRouter {
     if (provider === 'vnpay') {
       return this.vnpay;
     }
-    throw new BadRequestException(`Unsupported payment method: ${provider}`);
+    throw new BadRequestException('Unsupported payment method');
   }
 }

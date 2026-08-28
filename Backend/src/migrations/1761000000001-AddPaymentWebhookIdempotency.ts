@@ -25,7 +25,11 @@ export class AddPaymentWebhookIdempotency1761000000001 implements MigrationInter
     await queryRunner.query('DROP INDEX IF EXISTS "UQ_checkouts_webhook_idempotency_key"');
     await queryRunner.query('DROP INDEX IF EXISTS "UQ_checkouts_provider_transaction_id"');
     await queryRunner.query('DROP INDEX IF EXISTS "UQ_checkouts_payment_intent_id"');
-    await queryRunner.query('ALTER TABLE "checkouts" DROP COLUMN IF EXISTS "webhookIdempotencyKey"');
-    await queryRunner.query('ALTER TABLE "checkouts" DROP COLUMN IF EXISTS "providerTransactionId"');
+    await queryRunner.query(
+      'ALTER TABLE "checkouts" DROP COLUMN IF EXISTS "webhookIdempotencyKey"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "checkouts" DROP COLUMN IF EXISTS "providerTransactionId"',
+    );
   }
 }

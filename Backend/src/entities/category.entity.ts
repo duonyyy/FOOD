@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from 'typeorm';

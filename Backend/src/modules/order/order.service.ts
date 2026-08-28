@@ -1110,7 +1110,15 @@ export class OrderService {
 
     for (const assignment of expiredAssignments) {
       try {
-        const order = assignment.order;
+        const order = await this.orderRepository.findOne({
+          where: { id: assignment.order.id },
+          relations: ['shippingDetail', 'restaurant', 'user'],
+        });
+
+        if (!order) {
+          await this.pendingAssignmentService.removePendingAssignmentById(assignment.id);
+          continue;
+        }
 
         // Double-check order is still confirmed and unassigned
         if (order.status !== 'confirmed') {
@@ -1121,12 +1129,7 @@ export class OrderService {
         }
 
         // Check if order already has a shipper
-        const currentOrder = await this.orderRepository.findOne({
-          where: { id: order.id },
-          relations: ['shippingDetail'],
-        });
-
-        if (currentOrder?.shippingDetail) {
+        if (order.shippingDetail) {
           this.logger.log(`⏭️ Skipping order ${order.id} - already assigned to shipper`);
           // Clean up the pending assignment
           await this.pendingAssignmentService.removePendingAssignment(order.id);
