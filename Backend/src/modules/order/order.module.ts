@@ -31,6 +31,7 @@ import { OrderController } from './order.controller';
 import { OrderResolver } from './order.resolver';
 import { OrderService } from './order.service';
 import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler';
+import { DeliveryCompletedOrderHandler } from './delivery-completed-order.handler';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler'
     OrderQueryService,
     OrderResolver,
     PaymentSucceededOrderHandler,
+    DeliveryCompletedOrderHandler,
   ],
   exports: [OrderService],
 })

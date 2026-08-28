@@ -108,6 +108,43 @@ export class OrderCommandService {
     return this.updateStatus(orderId, OrderStatus.COMPLETED);
   }
 
+  async completeFromDelivery(orderId: string): Promise<Order> {
+    const result = await this.orderRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(Order);
+      const order = await repository.findOne({
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Order not found');
+
+      if (order.status === OrderStatus.COMPLETED) {
+        return { order, changed: false };
+      }
+
+      try {
+        order.status = this.stateMachine.complete(order.status);
+      } catch (error) {
+        if (
+          error instanceof InvalidOrderStatusError ||
+          error instanceof InvalidOrderTransitionError
+        ) {
+          throw new BadRequestException(
+            `Cannot complete order ${orderId} from status ${order.status}`,
+          );
+        }
+        throw error;
+      }
+
+      return { order: await repository.save(order), changed: true };
+    });
+
+    if (result.changed) {
+      await pubSub.publish('orderStatusUpdated', { orderStatusUpdated: result.order });
+    }
+
+    return result.order;
+  }
+
   async markPaid(orderId: string): Promise<Order> {
     const result = await this.orderRepository.manager.transaction(async (manager) => {
       const repository = manager.getRepository(Order);

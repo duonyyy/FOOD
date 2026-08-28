@@ -5,8 +5,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import {
+  DELIVERY_COMPLETED_EVENT,
+  DeliveryCompletedEvent,
+} from 'src/common/events/delivery-completed.event';
+import { OutboxService } from 'src/common/events/outbox.service';
 import { addDays, format, startOfDay, startOfWeek } from 'date-fns';
 import { Order } from 'src/entities/order.entity';
 import {
@@ -35,6 +41,7 @@ export class ShipperService {
     @InjectRepository(ShipperCertificateInfo)
     private readonly certRepo: Repository<ShipperCertificateInfo>,
     private pendingAssignmentService: PendingAssignmentService, // Inject the service
+    @Optional() private readonly outboxService?: OutboxService,
   ) {}
 
   /**
@@ -426,6 +433,7 @@ export class ShipperService {
         return {
           order,
           alreadyCompleted: true,
+          deliveryCompletedEventId: undefined,
           response: {
             message: 'Đơn hàng đã được hoàn thành trước đó',
             earnings: order.shipperEarnings || 0,
@@ -503,9 +511,26 @@ export class ShipperService {
       await orderRepository.save(order);
       await userRepository.save(shipper);
 
+      const deliveryCompletedEvent = this.outboxService
+        ? await this.outboxService.enqueue(manager, {
+            eventType: DELIVERY_COMPLETED_EVENT,
+            aggregateType: 'delivery',
+            aggregateId: order.id,
+            idempotencyKey: `delivery-completed:${order.id}`,
+            payload: {
+              orderId: order.id,
+              shipperId,
+              shippingDetailId: shippingDetail.id,
+              completedAt: shippingDetail.actualDeliveryTime.toISOString(),
+              earnings: shipperEarnings,
+            } satisfies DeliveryCompletedEvent,
+          })
+        : null;
+
       return {
         order,
         alreadyCompleted: false,
+        deliveryCompletedEventId: deliveryCompletedEvent?.id,
         response: {
           message: 'Đơn hàng đã được hoàn thành',
           earnings: shipperEarnings,
@@ -531,6 +556,17 @@ export class ShipperService {
       await pubSub.publish('orderStatusUpdated', {
         orderStatusUpdated: completion.order,
       });
+
+      if (completion.deliveryCompletedEventId && this.outboxService) {
+        try {
+          // The transaction has committed before dispatching the event.
+          await this.outboxService.dispatchAfterCommit(completion.deliveryCompletedEventId);
+        } catch (error) {
+          this.logger.error(
+            `DeliveryCompleted dispatch deferred for order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
     }
 
     return completion.response;

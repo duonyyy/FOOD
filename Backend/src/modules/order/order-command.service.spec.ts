@@ -108,4 +108,32 @@ describe('OrderCommandService', () => {
 
     expect(transactionalRepository.save).not.toHaveBeenCalled();
   });
+
+  it('completes an order from DeliveryCompleted', async () => {
+    const { service, transactionalRepository, order } = createCommandService();
+    const publishSpy = jest.spyOn(pubSub, 'publish').mockResolvedValue(undefined);
+    order.status = OrderStatus.DELIVERING;
+
+    await expect(service.completeFromDelivery(order.id)).resolves.toMatchObject({
+      status: OrderStatus.COMPLETED,
+    });
+
+    expect(transactionalRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ status: OrderStatus.COMPLETED }),
+    );
+    expect(publishSpy).toHaveBeenCalledWith('orderStatusUpdated', {
+      orderStatusUpdated: expect.objectContaining({ status: OrderStatus.COMPLETED }),
+    });
+  });
+
+  it('handles a retried DeliveryCompleted event idempotently', async () => {
+    const { service, transactionalRepository, order } = createCommandService();
+    const publishSpy = jest.spyOn(pubSub, 'publish').mockResolvedValue(undefined);
+    order.status = OrderStatus.COMPLETED;
+
+    await expect(service.completeFromDelivery(order.id)).resolves.toBe(order);
+
+    expect(transactionalRepository.save).not.toHaveBeenCalled();
+    expect(publishSpy).not.toHaveBeenCalled();
+  });
 });

@@ -17,6 +17,7 @@ describe('Shipper delivery transition and concurrency baseline', () => {
   let shippingRepository: Record<string, jest.Mock>;
   let userRepository: Record<string, jest.Mock>;
   let pending: Record<string, jest.Mock>;
+  let outbox: Record<string, jest.Mock>;
   let service: ShipperService;
 
   beforeEach(() => {
@@ -94,12 +95,17 @@ describe('Shipper delivery transition and concurrency baseline', () => {
       markOfferRejected: jest.fn().mockResolvedValue(undefined),
       removePendingAssignment: jest.fn().mockResolvedValue(undefined),
     };
+    outbox = {
+      enqueue: jest.fn().mockResolvedValue({ id: 'outbox-delivery-completed-1' }),
+      dispatchAfterCommit: jest.fn().mockResolvedValue(undefined),
+    };
     service = new ShipperService(
       orderRepository as never,
       shippingRepository as never,
       userRepository as never,
       {} as never,
       pending as never,
+      outbox as never,
     );
   });
 
@@ -202,6 +208,24 @@ describe('Shipper delivery transition and concurrency baseline', () => {
     expect(orderRepository.save).toHaveBeenCalledWith(order);
   });
 
+  it('rejects start and complete commands from invalid order states', async () => {
+    shippingDetail = Object.assign(new ShippingDetail(), {
+      order,
+      shipper: shippers.get('shipper-a'),
+      status: ShippingStatus.SHIPPING,
+    });
+    order.status = 'pending';
+
+    await expect(service.startOrder(order.id, 'shipper-a')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+
+    order.status = 'shipper_received';
+    await expect(service.markOrderCompleted(order.id, 'shipper-a')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
   it('completes and credits earnings once across concurrent retry', async () => {
     order.status = 'delivering';
     shippingDetail = Object.assign(new ShippingDetail(), {
@@ -221,5 +245,27 @@ describe('Shipper delivery transition and concurrency baseline', () => {
     expect(userRepository.save).toHaveBeenCalledTimes(1);
     expect(shippers.get('shipper-a')?.completedDeliveries).toBe(1);
     expect(shippers.get('shipper-a')?.totalEarnings).toBe(results[0].earnings);
+  });
+
+  it('enqueues and dispatches DeliveryCompleted only after the completion transaction', async () => {
+    order.status = 'delivering';
+    shippingDetail = Object.assign(new ShippingDetail(), {
+      id: 'shipping-1',
+      order,
+      shipper: shippers.get('shipper-a'),
+      status: ShippingStatus.SHIPPING,
+      estimatedDeliveryTime: new Date(Date.now() + 10 * 60_000),
+    });
+
+    await service.markOrderCompleted(order.id, 'shipper-a');
+
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: 'delivery.completed',
+        idempotencyKey: `delivery-completed:${order.id}`,
+      }),
+    );
+    expect(outbox.dispatchAfterCommit).toHaveBeenCalledWith('outbox-delivery-completed-1');
   });
 });
