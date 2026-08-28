@@ -4,6 +4,7 @@ import { DefaultRole } from 'src/entities/role.entity';
 import { CertificateStatus } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
+import { pubSub } from 'src/pubsub';
 import { ShipperService } from './shipper.service';
 
 jest.mock('src/pubsub', () => ({ pubSub: { publish: jest.fn().mockResolvedValue(true) } }));
@@ -124,6 +125,31 @@ describe('Shipper delivery transition and concurrency baseline', () => {
     });
     expect(shippingRepository.save).toHaveBeenCalledTimes(1);
     expect(order.status).toBe('shipper_received');
+  });
+
+  it('does not create a duplicate shipping detail when the winning accept is retried', async () => {
+    await service.assignOrderToShipper(order.id, 'shipper-a');
+
+    await expect(service.assignOrderToShipper(order.id, 'shipper-a')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(shippingRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reassign an order after a concurrent accept has committed', async () => {
+    shippingDetail = Object.assign(new ShippingDetail(), {
+      order,
+      shipper: shippers.get('shipper-a'),
+      status: ShippingStatus.SHIPPING,
+    });
+
+    await service.reassignOrder(order.id);
+
+    expect(pending.removePendingAssignment).toHaveBeenCalledWith(order.id);
+    expect(pubSub.publish).not.toHaveBeenCalledWith(
+      'orderReassignedToShippers',
+      expect.anything(),
+    );
   });
 
   it('rejects an expired offer and schedules it for another shipper', async () => {

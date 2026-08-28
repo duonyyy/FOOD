@@ -158,20 +158,45 @@ export class ShipperService {
    * Reassign order to other available shippers
    */
   private async reassignToOtherShippers(orderId: string) {
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: [
-        'restaurant',
-        'user',
-        'address',
-        'orderDetails',
-        'orderDetails.food',
-        'shippingDetail',
-      ],
+    // Serialize the availability check with acceptAssignment. Without this lock,
+    // a reject/reassign request could read the order before a concurrent accept
+    // commits and publish a stale offer for an already assigned order.
+    const order = await this.orderRepository.manager.transaction(async (manager) => {
+      const orderRepository = manager.getRepository(Order);
+      const shippingDetailRepository = manager.getRepository(ShippingDetail);
+
+      const lockedOrder = await orderRepository.findOne({
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!lockedOrder || lockedOrder.status !== 'confirmed') {
+        return null;
+      }
+
+      const existingShippingDetail = await shippingDetailRepository.findOne({
+        where: { order: { id: orderId } },
+      });
+
+      if (existingShippingDetail) {
+        return null;
+      }
+
+      return orderRepository.findOne({
+        where: { id: orderId },
+        relations: [
+          'restaurant',
+          'user',
+          'address',
+          'orderDetails',
+          'orderDetails.food',
+          'shippingDetail',
+        ],
+      });
     });
 
-    // Only reassign if order is still confirmed and not assigned
-    if (order && order.status === 'confirmed' && !order.shippingDetail) {
+    // Only reassign after the transaction confirms the order is still available.
+    if (order) {
       const excludedShipperIds = await this.pendingAssignmentService.getExcludedShipperIds(orderId);
 
       await pubSub.publish('orderReassignedToShippers', {
