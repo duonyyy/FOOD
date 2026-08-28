@@ -1,23 +1,8 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Address } from 'src/entities/address.entity';
-import { Category } from 'src/entities/category.entity';
-import { Checkout } from 'src/entities/checkout.entity';
-import { Food } from 'src/entities/food.entity';
-import { Order } from 'src/entities/order.entity';
-import { OrderDetail } from 'src/entities/orderDetail.entity';
-import { Promotion } from 'src/entities/promotion.entity';
-import { Restaurant } from 'src/entities/restaurant.entity';
-import { Review } from 'src/entities/review.entity';
-import { Role } from 'src/entities/role.entity';
-import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import { User } from 'src/entities/user.entity';
 import { StorageModule } from 'src/infra/storage/storage.module';
-import { PendingAssignmentService } from './pending-assignment.service';
 import { PendingAssignmentStore } from './pending-assignment-store.service';
-import { FindShipperProcessor } from './processors/find-shipper.processor';
 import { QueueNames } from './queue.constants';
 import { QueueService } from './queue.service';
 
@@ -50,27 +35,8 @@ import { QueueService } from './queue.service';
       },
     }),
     StorageModule,
-    TypeOrmModule.forFeature([
-      User,
-      ShippingDetail,
-      Order,
-      Address,
-      Promotion,
-      Food,
-      Restaurant,
-      Category,
-      OrderDetail,
-      Role,
-      Review,
-      Checkout,
-    ]),
   ],
-  providers: [
-    QueueService,
-    PendingAssignmentStore,
-    PendingAssignmentService,
-    FindShipperProcessor,
-  ],
-  exports: [QueueService, PendingAssignmentService],
+  providers: [QueueService, PendingAssignmentStore],
+  exports: [QueueService, PendingAssignmentStore],
 })
 export class QueueModule {}

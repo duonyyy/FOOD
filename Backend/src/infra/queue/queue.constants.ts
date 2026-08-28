@@ -14,6 +14,19 @@ export interface FindShipperJobData {
   readonly retryAttempt?: number;
 }
 
+export function isFindShipperJobData(data: unknown): data is FindShipperJobData {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  const job = data as Partial<FindShipperJobData>;
+  return (
+    typeof job.pendingAssignmentId === 'string' &&
+    typeof job.orderId === 'string' &&
+    typeof job.attempt === 'number'
+  );
+}
+
 export interface GcsUploadJobData {
   readonly tempFilePath: string;
   readonly originalname: string;

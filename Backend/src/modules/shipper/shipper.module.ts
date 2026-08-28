@@ -6,6 +6,7 @@ import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.enti
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
 import { QueueModule } from 'src/infra/queue/queue.module';
+import { DeliveryAssignmentScheduler } from 'src/features/delivery/services/delivery-assignment-scheduler.service';
 import { UsersModule } from '../users/users.module';
 import { ShipperController } from './shipper.controller';
 import { ShipperResolver } from './shipper.resolver';
@@ -19,7 +20,7 @@ import { ShipperService } from './shipper.service';
     QueueModule,
   ],
   controllers: [ShipperController],
-  providers: [ShipperService, ShipperResolver],
-  exports: [ShipperService],
+  providers: [ShipperService, ShipperResolver, DeliveryAssignmentScheduler],
+  exports: [ShipperService, DeliveryAssignmentScheduler],
 })
 export class ShipperModule {}

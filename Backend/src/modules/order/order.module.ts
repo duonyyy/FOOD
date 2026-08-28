@@ -18,10 +18,10 @@ import { Topping } from 'src/entities/topping.entity';
 import { User } from 'src/entities/user.entity';
 import { SystemConstraintsModule } from 'src/features/system-constraints/public-api';
 import { MapsModule } from 'src/infra/maps/maps.module';
-import { QueueModule } from 'src/infra/queue/queue.module';
 import { StorageModule } from 'src/infra/storage/storage.module';
 import { PaymentModule } from 'src/payment/payment.module';
 import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
+import { DeliveryModule } from '../../features/delivery/public-api';
 import { PromotionModule } from '../promotion/promotion.module';
 import { UsersModule } from '../users/users.module';
 import { OrderCommandService } from './order-command.service';
@@ -56,7 +56,7 @@ import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler'
     PromotionModule,
     UsersModule,
     RestaurantsModule,
-    QueueModule,
+    DeliveryModule,
     MapsModule,
     StorageModule,
     UsersModule,

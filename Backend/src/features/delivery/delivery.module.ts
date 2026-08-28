@@ -10,6 +10,7 @@ import { SHIPPER_PROFILE_READER } from './contracts/shipper-profile.port';
 import { DeliveryAssignmentController } from './delivery-assignment.controller';
 import { DeliveryAssignmentCommandService } from './services/delivery-assignment-command.service';
 import { ShipperProfileService } from './services/shipper-profile.service';
+import { FindShipperProcessor } from '../../infra/queue/processors/find-shipper.processor';
 
 /** Delivery owns delivery persistence; ShipperModule remains a compatibility adapter. */
 @Module({
@@ -25,10 +26,11 @@ import { ShipperProfileService } from './services/shipper-profile.service';
   ],
   controllers: [DeliveryAssignmentController],
   providers: [
+    FindShipperProcessor,
     DeliveryAssignmentCommandService,
     ShipperProfileService,
     { provide: SHIPPER_PROFILE_READER, useExisting: ShipperProfileService },
   ],
-  exports: [SHIPPER_PROFILE_READER, ShipperProfileService],
+  exports: [SHIPPER_PROFILE_READER, ShipperProfileService, ShipperModule],
 })
 export class DeliveryModule {}
