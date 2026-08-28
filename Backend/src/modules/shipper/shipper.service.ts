@@ -9,7 +9,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { addDays, format, startOfDay, startOfWeek } from 'date-fns';
 import { Order } from 'src/entities/order.entity';
-import { DefaultRole } from 'src/entities/role.entity';
 import {
   CertificateStatus,
   ShipperCertificateInfo,
@@ -20,6 +19,7 @@ import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.ser
 import { pubSub } from 'src/pubsub';
 import { LessThan, Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from './dto/update-driver-dto';
+import { DeliveryAssignmentPolicy } from 'src/features/delivery/contracts/delivery-assignment.policy';
 
 @Injectable()
 export class ShipperService {
@@ -51,13 +51,7 @@ export class ShipperService {
       throw new BadRequestException('Order not found');
     }
 
-    if (order.status !== 'confirmed') {
-      throw new BadRequestException('Order must be confirmed to assign to shipper');
-    }
-
-    if (order.shippingDetail) {
-      throw new ConflictException('Order already assigned to a shipper');
-    }
+    DeliveryAssignmentPolicy.assertOfferable(order.status, Boolean(order.shippingDetail));
 
     const existingAssignment =
       await this.pendingAssignmentService.getPendingAssignmentForShipper(shipperId);
@@ -78,13 +72,10 @@ export class ShipperService {
       relations: ['role', 'shipperCertificateInfo'],
     });
 
-    if (
-      !shipper ||
-      shipper.role?.name !== DefaultRole.SHIPPER ||
-      shipper.shipperCertificateInfo?.status !== CertificateStatus.APPROVED
-    ) {
-      throw new BadRequestException('Invalid or unapproved shipper');
-    }
+    DeliveryAssignmentPolicy.assertEligible(
+      shipper?.role?.name,
+      shipper?.shipperCertificateInfo?.status,
+    );
 
     const hold = await this.pendingAssignmentService.createShipperHold(orderId, shipperId);
 
@@ -108,17 +99,11 @@ export class ShipperService {
       throw new BadRequestException('Assignment not found or already processed');
     }
 
-    if (assignment.assignmentId !== assignmentId) {
-      throw new BadRequestException('Assignment not found or already processed');
-    }
-
-    if (assignment.shipperId !== shipperId) {
-      throw new BadRequestException('This assignment does not belong to you');
-    }
+    DeliveryAssignmentPolicy.assertOwnership(assignment, assignmentId, shipperId);
 
     if (assignment.expiresAt < new Date()) {
       await this.pendingAssignmentService.markOfferRejected(assignment.orderId, shipperId);
-      throw new BadRequestException('Assignment has expired');
+      DeliveryAssignmentPolicy.assertAcceptable(assignment.expiresAt);
     }
 
     // Finalize the order assignment
@@ -148,13 +133,7 @@ export class ShipperService {
       throw new BadRequestException('Assignment not found or already processed');
     }
 
-    if (assignment.assignmentId !== assignmentId) {
-      throw new BadRequestException('Assignment not found or already processed');
-    }
-
-    if (assignment.shipperId !== shipperId) {
-      throw new BadRequestException('This assignment does not belong to you');
-    }
+    DeliveryAssignmentPolicy.assertOwnership(assignment, assignmentId, shipperId);
 
     await this.pendingAssignmentService.markOfferRejected(assignment.orderId, shipperId);
 
@@ -208,6 +187,15 @@ export class ShipperService {
     }
   }
 
+  async getPendingAssignmentForOrder(orderId: string) {
+    return this.pendingAssignmentService.getPendingAssignmentForOrder(orderId);
+  }
+
+  async reassignOrder(orderId: string) {
+    await this.reassignToOtherShippers(orderId);
+    return { message: 'Order queued for reassignment' };
+  }
+
   /**
    * Original method - now only called internally after acceptance
    */
@@ -250,13 +238,13 @@ export class ShipperService {
         where: { id: shipperId },
         relations: ['role', 'shipperCertificateInfo'],
       });
-      if (
-        !shipper ||
-        shipper.role?.name !== DefaultRole.SHIPPER ||
-        shipper.shipperCertificateInfo?.status !== CertificateStatus.APPROVED
-      ) {
+      if (!shipper) {
         throw new BadRequestException('Invalid or unapproved shipper');
       }
+      DeliveryAssignmentPolicy.assertEligible(
+        shipper?.role?.name,
+        shipper?.shipperCertificateInfo?.status,
+      );
 
       const shippingDetail = shippingDetailRepository.create({
         order,

@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
+import { DELIVERY_ASSIGNMENT_POLICY } from 'src/features/delivery/contracts/delivery-assignment.policy';
 import { REDIS_CLIENT } from 'src/infra/cache/cache.constants';
 
 export interface PendingAssignmentState {
@@ -25,8 +26,8 @@ export interface ShipperAssignmentHold {
 @Injectable()
 export class PendingAssignmentStore {
   private readonly logger = new Logger(PendingAssignmentStore.name);
-  private readonly pendingTtlSeconds = 48 * 60 * 60;
-  private readonly shipperHoldTtlSeconds = 2 * 60;
+  private readonly pendingTtlSeconds = DELIVERY_ASSIGNMENT_POLICY.pendingAssignmentTtlSeconds;
+  private readonly shipperHoldTtlSeconds = DELIVERY_ASSIGNMENT_POLICY.offerHoldTtlSeconds;
   private readonly dueSetKey = 'pending-assignments:due';
 
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
+import { DELIVERY_ASSIGNMENT_POLICY } from 'src/features/delivery/contracts/delivery-assignment.policy';
 import { Order } from 'src/entities/order.entity';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { activeShipperTracker } from 'src/modules/order/order.resolver';
@@ -148,6 +149,10 @@ export class PendingAssignmentService {
     };
   }
 
+  async getPendingAssignmentForOrder(orderId: string) {
+    return this.getActiveHoldForOrder(orderId);
+  }
+
   async createShipperHold(orderId: string, shipperId: string, priority: number = 1) {
     const assignment = await this.addPendingAssignment(orderId, priority);
     assignment.isSentToShipper = true;
@@ -160,7 +165,9 @@ export class PendingAssignmentService {
       assignmentId: assignment.id,
       orderId,
       shipperId,
-      expiresAt: hold ? new Date(hold.expiresAt) : new Date(Date.now() + 2 * 60 * 1000),
+      expiresAt: hold
+        ? new Date(hold.expiresAt)
+        : new Date(Date.now() + DELIVERY_ASSIGNMENT_POLICY.offerHoldTtlSeconds * 1000),
     };
   }
 
@@ -233,7 +240,7 @@ export class PendingAssignmentService {
 
       setTimeout(() => {
         void this.handleShipperResponseTimeout(assignment.id, nearestShipper.shipperId);
-      }, 2 * 60 * 1000);
+      }, DELIVERY_ASSIGNMENT_POLICY.offerHoldTtlSeconds * 1000);
     } catch (error) {
       this.logger.error(`Error processing shipper assignment job ${jobId}:`, error);
       const latestAssignment = await this.store.getById(pendingAssignmentId);
@@ -277,8 +284,8 @@ export class PendingAssignmentService {
       return false;
     }
 
-    const maxAttempts = 15;
-    const maxAgeMinutes = 30;
+    const maxAttempts = DELIVERY_ASSIGNMENT_POLICY.pendingAssignmentMaxAttempts;
+    const maxAgeMinutes = DELIVERY_ASSIGNMENT_POLICY.pendingAssignmentMaxAgeMinutes;
     const assignmentAge = Date.now() - new Date(assignment.createdAt).getTime();
     const isExpired = assignmentAge > maxAgeMinutes * 60 * 1000;
 
@@ -362,7 +369,7 @@ export class PendingAssignmentService {
   }
 
   private async scheduleRetryForAssignment(assignment: PendingAssignmentState, baseDelayMinutes = 1): Promise<void> {
-    const maxRetries = 10;
+    const maxRetries = DELIVERY_ASSIGNMENT_POLICY.retryMaxAttempts;
     if (assignment.attemptCount >= maxRetries) {
       await this.store.remove(assignment);
       return;
