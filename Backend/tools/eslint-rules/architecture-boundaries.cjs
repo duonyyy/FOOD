@@ -29,6 +29,7 @@ function getFeatureName(projectPath) {
 
 const legacyEntityOwners = {
   'address.entity': 'locations',
+  'analyticsOrderMetric.entity': 'analytics',
   'category.entity': 'menu',
   'checkout.entity': 'payments',
   'conversation.entity': 'communications',

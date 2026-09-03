@@ -128,6 +128,13 @@ export class AddressService implements LocationReaderPort, LocationWriterPort {
     return snapshot?.isTemporary ? { ...snapshot, isTemporary: true } : null;
   }
 
+  async listOwnedAddresses(ownerUserId: string): Promise<AddressSnapshot[]> {
+    const addresses = await this.addressRepository.find({
+      where: { user: { id: ownerUserId } },
+    });
+    return addresses.map((address) => this.toSnapshot(address));
+  }
+
   private async loadAddress(id: string): Promise<Address> {
     const address = await this.addressRepository.findOne({
       where: { id },

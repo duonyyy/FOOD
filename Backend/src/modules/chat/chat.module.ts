@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from 'src/auth/auth.module';
-import { RestaurantsModule } from '../../features/restaurants/restaurants.module';
-import { AddressModule } from '../address/address.module';
-import { FoodModule } from '../food/food.module';
-import { OrderModule } from '../order/order.module';
+import { LocationsModule } from 'src/features/locations/public-api';
+import { MenuModule } from 'src/features/menu/public-api';
+import { OrdersModule } from 'src/features/orders/public-api';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { GeneralChatFlowService } from './flows/general-chat-flow.service';
@@ -12,17 +11,15 @@ import { QuickReorderFlowService } from './flows/quick-reorder-flow.service';
 import { ChatContextService } from './services/chat-context.service';
 import { ChatLlmService } from './services/chat-llm.service';
 import { ChatOrderValidationService } from './services/chat-order-validation.service';
-import { OrderCreatedPublisher } from './services/order-created-publisher.service';
 
 @Module({
-  imports: [AuthModule, FoodModule, OrderModule, AddressModule, RestaurantsModule],
+  imports: [AuthModule, MenuModule, OrdersModule, LocationsModule],
   controllers: [ChatController],
   providers: [
     ChatService,
     ChatContextService,
     ChatLlmService,
     ChatOrderValidationService,
-    OrderCreatedPublisher,
     QuickReorderFlowService,
     OrderConversationFlowService,
     GeneralChatFlowService,

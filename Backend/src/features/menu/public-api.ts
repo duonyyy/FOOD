@@ -1,4 +1,9 @@
 export {
+  CATALOG_CHAT_READER,
+  type CatalogChatFoodSnapshot,
+  type CatalogChatReaderPort,
+} from './contracts/catalog-chat-reader.port';
+export {
   CATEGORY_READER,
   type CategoryReaderPort,
   type CategorySnapshot,

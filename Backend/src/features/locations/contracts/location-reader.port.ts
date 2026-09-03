@@ -3,6 +3,7 @@ export const LOCATION_READER = Symbol('LOCATION_READER');
 export interface LocationReaderPort {
   findAddress(addressId: string): Promise<AddressSnapshot | null>;
   findTemporaryAddress(addressId: string): Promise<TemporaryAddressSnapshot | null>;
+  listOwnedAddresses(ownerUserId: string): Promise<AddressSnapshot[]>;
 }
 
 export interface AddressSnapshot {

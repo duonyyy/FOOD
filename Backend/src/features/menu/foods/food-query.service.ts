@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { Category } from 'src/entities/category.entity';
@@ -12,7 +12,7 @@ import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
 import { ROUTE_PORT, type RoutePort } from 'src/infra/contracts/route.port';
 import { buildMenuCacheKey, MENU_CACHE_TTL_SECONDS } from '../contracts/menu-cache.policy';
 
-import { Repository } from 'typeorm';
+import { Repository, type SelectQueryBuilder } from 'typeorm';
 
 type FoodSortType =
   | 'newest'
@@ -24,8 +24,44 @@ type FoodSortType =
   | 'price'
   | 'name';
 
+type FoodQueryRestaurant = {
+  id?: string;
+  name?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  distance?: number | null;
+  deliveryTime?: number | null;
+  [key: string]: unknown;
+};
+
+export interface FoodQueryItem {
+  id?: string;
+  name?: string;
+  description?: string;
+  image?: string;
+  price?: number;
+  rating?: number | null;
+  soldCount?: number;
+  purchasedNumber?: number;
+  createdAt?: Date;
+  restaurantId?: string;
+  restaurant?: FoodQueryRestaurant | null;
+  distance?: number | null;
+  reviews?: unknown[];
+  totalReviews?: number;
+  toppings?: unknown[];
+  reviewInfo?: unknown;
+}
+
+interface FoodReviewStats {
+  total_reviews: string;
+  average_rating: string | null;
+}
+
 @Injectable()
 export class FoodQueryService {
+  private readonly logger = new Logger(FoodQueryService.name);
+
   constructor(
     @InjectRepository(Food)
     private foodRepository: Repository<Food>,
@@ -52,7 +88,7 @@ export class FoodQueryService {
   /**
    * Get top foods by sold count for a restaurant
    */
-  async getTopFoodsByRestaurant(restaurantId: string, limit = 5): Promise<any[]> {
+  async getTopFoodsByRestaurant(restaurantId: string, limit = 5): Promise<object[]> {
     const cacheKey = buildMenuCacheKey('food:topByRestaurant', { restaurantId, limit });
     return this.cacheService.remember(cacheKey, MENU_CACHE_TTL_SECONDS.MEDIUM, async () => {
       const foods = await this.foodRepository.find({
@@ -85,7 +121,7 @@ export class FoodQueryService {
     status?: string,
     sortBy?: FoodSortType,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -159,14 +195,14 @@ export class FoodQueryService {
     sortBy?: FoodSortType,
     radius = 99999, // Large radius for admin search
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
     totalPages: number;
   }> {
-    console.log('=== searchFoodsForStore Debug ===');
-    console.log('Input parameters:', {
+    this.logger.debug('=== searchFoodsForStore Debug ===');
+    this.logger.debug('Input parameters:', {
       query,
       page,
       pageSize,
@@ -189,32 +225,32 @@ export class FoodQueryService {
         '(unaccent(food.name) ILIKE unaccent(:query) OR unaccent(food.description) ILIKE unaccent(:query))',
         { query: `%${query.trim()}%` },
       );
-      console.log('Added search filter (accent-insensitive):', query.trim());
+      this.logger.debug(`Added search filter (accent-insensitive): ${query.trim()}`);
     }
 
     // Add restaurant filter if provided
     if (restaurantId) {
       const whereMethod = query && query.trim() ? 'andWhere' : 'where';
       queryBuilder[whereMethod]('food.restaurant_id = :restaurantId', { restaurantId });
-      console.log('Added restaurant filter:', restaurantId);
+      this.logger.debug(`Added restaurant filter: ${restaurantId}`);
     }
 
     // Add category filter if provided
     if (categoryId) {
       const whereMethod = (query && query.trim()) || restaurantId ? 'andWhere' : 'where';
       queryBuilder[whereMethod]('food.category_id = :categoryId', { categoryId });
-      console.log('Added category filter:', categoryId);
+      this.logger.debug(`Added category filter: ${categoryId}`);
     }
 
-    console.log('Query SQL:', queryBuilder.getQuery());
-    console.log('Query parameters:', queryBuilder.getParameters());
+    this.logger.debug(`Query SQL: ${queryBuilder.getQuery()}`);
+    this.logger.debug(`Query parameters: ${JSON.stringify(queryBuilder.getParameters())}`);
 
     // Get all matching items first (don't apply DB sorting for distance-based sorts)
     let items = await queryBuilder.getMany();
-    console.log('Raw items found:', items.length);
+    this.logger.debug(`Raw items found: ${items.length}`);
 
     if (items.length > 0) {
-      console.log('First item example:', {
+      this.logger.debug('First item example:', {
         id: items[0].id,
         name: items[0].name,
         restaurant: items[0].restaurant?.name,
@@ -224,7 +260,7 @@ export class FoodQueryService {
 
     // Add distance and apply location filtering if coordinates provided
     if (lat && lng) {
-      console.log('Applying distance filtering...');
+      this.logger.debug('Applying distance filtering...');
       const beforeFilter = items.length;
 
       items = items
@@ -240,7 +276,7 @@ export class FoodQueryService {
         }))
         .filter((f) => f.distance <= radius);
 
-      console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
+      this.logger.debug(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
     } else {
       // Add null distance for consistency
       items = items.map((f) => ({ ...f, distance: null }));
@@ -254,13 +290,13 @@ export class FoodQueryService {
     const totalPages = Math.ceil(totalItems / pageSize);
     const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
 
-    console.log('Final result:', {
+    this.logger.debug('Final result:', {
       totalItems,
       pagedItemsCount: pagedItems.length,
       page,
       totalPages,
     });
-    console.log('=== End searchFoodsForStore Debug ===');
+    this.logger.debug('=== End searchFoodsForStore Debug ===');
 
     return {
       items: pagedItems,
@@ -290,7 +326,7 @@ export class FoodQueryService {
     status?: string,
     sortBy?: FoodSortType,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -307,7 +343,7 @@ export class FoodQueryService {
       sortBy,
     });
     return this.cacheService.remember(cacheKey, MENU_CACHE_TTL_SECONDS.MEDIUM, async () => {
-      const restaurant = await this.requireRestaurant(restaurantId);
+      await this.requireRestaurant(restaurantId);
 
       const category = await this.categoryRepository.findOne({
         where: { id: categoryId },
@@ -381,7 +417,7 @@ export class FoodQueryService {
     status?: string,
     sortBy?: FoodSortType,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -460,7 +496,7 @@ export class FoodQueryService {
     lng?: number,
     sortBy?: FoodSortType,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -537,7 +573,7 @@ export class FoodQueryService {
     lat?: number,
     lng?: number,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -587,7 +623,7 @@ export class FoodQueryService {
     lat?: number,
     lng?: number,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -639,7 +675,7 @@ export class FoodQueryService {
     lat?: number,
     lng?: number,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -696,7 +732,7 @@ export class FoodQueryService {
     lat?: number,
     lng?: number,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -756,7 +792,7 @@ export class FoodQueryService {
     lat?: number,
     lng?: number,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -812,7 +848,7 @@ export class FoodQueryService {
     lat?: number,
     lng?: number,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -862,9 +898,9 @@ export class FoodQueryService {
     lat?: number,
     lng?: number,
     radius = 5,
-  ): Promise<any> {
-    console.log('=== searchFoods Debug ===');
-    console.log('Input parameters:', {
+  ): Promise<object> {
+    this.logger.debug('=== searchFoods Debug ===');
+    this.logger.debug('Input parameters:', {
       query,
       page,
       pageSize,
@@ -884,20 +920,20 @@ export class FoodQueryService {
         '(unaccent(food.name) ILIKE unaccent(:query) OR unaccent(food.description) ILIKE unaccent(:query))',
         { query: `%${query.trim()}%` },
       );
-      console.log('Added search filter (accent-insensitive):', query);
+      this.logger.debug(`Added search filter (accent-insensitive): ${query}`);
     } else {
-      console.log('No search query provided, returning all foods');
+      this.logger.debug('No search query provided, returning all foods');
     }
 
-    console.log('Query SQL:', queryBuilder.getQuery());
-    console.log('Query parameters:', queryBuilder.getParameters());
+    this.logger.debug(`Query SQL: ${queryBuilder.getQuery()}`);
+    this.logger.debug(`Query parameters: ${JSON.stringify(queryBuilder.getParameters())}`);
 
     // Get all matching items first
     let items = await queryBuilder.getMany();
-    console.log('Raw items found:', items.length);
+    this.logger.debug(`Raw items found: ${items.length}`);
 
     if (items.length > 0) {
-      console.log('First item example:', {
+      this.logger.debug('First item example:', {
         id: items[0].id,
         name: items[0].name,
         restaurant: items[0].restaurant?.name,
@@ -906,7 +942,7 @@ export class FoodQueryService {
 
     // Add distance and apply location filtering if coordinates provided
     if (lat && lng) {
-      console.log('Applying distance filtering...');
+      this.logger.debug('Applying distance filtering...');
       const beforeFilter = items.length;
 
       items = items
@@ -923,10 +959,10 @@ export class FoodQueryService {
         .filter((f) => f.distance <= radius)
         .sort((a, b) => a.distance - b.distance);
 
-      console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
+      this.logger.debug(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
 
       if (items.length > 0) {
-        console.log(
+        this.logger.debug(
           'Distance examples:',
           items.slice(0, 3).map((f) => ({
             name: f.name,
@@ -949,13 +985,13 @@ export class FoodQueryService {
     const totalPages = Math.ceil(totalItems / pageSize);
     const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
 
-    console.log('Final result:', {
+    this.logger.debug('Final result:', {
       totalItems,
       pagedItemsCount: pagedItems.length,
       page,
       totalPages,
     });
-    console.log('=== End searchFoods Debug ===');
+    this.logger.debug('=== End searchFoods Debug ===');
 
     return {
       items: pagedItems,
@@ -971,9 +1007,9 @@ export class FoodQueryService {
    * @param id The food ID
    * @returns The food details
    */
-  async findOne(id: string, lat?: number, lng?: number): Promise<any> {
-    console.log('=== findOne Debug ===');
-    console.log('Looking for food with ID:', id);
+  async findOne(id: string, lat?: number, lng?: number): Promise<FoodQueryItem> {
+    this.logger.debug('=== findOne Debug ===');
+    this.logger.debug(`Looking for food with ID: ${id}`);
 
     // First get the food with basic relations
     const food = await this.foodRepository
@@ -1010,22 +1046,22 @@ export class FoodQueryService {
       .where('food.id = :id', { id })
       .andWhere('allReviews.type = :type', { type: 'food' })
       .andWhere('allReviews.rating IS NOT NULL')
-      .getRawOne();
+      .getRawOne<FoodReviewStats>();
 
-    console.log('Food found:', food.id, food.name);
-    console.log('Top 3 reviews found:', topReviews?.reviews?.length || 0);
-    console.log('Total reviews stats:', allReviewsData);
+    this.logger.debug(`Food found: ${food.id} ${food.name}`);
+    this.logger.debug(`Top 3 reviews found: ${topReviews?.reviews?.length || 0}`);
+    this.logger.debug(`Total reviews stats: ${JSON.stringify(allReviewsData)}`);
 
     // Calculate statistics
-    const totalReviews = parseInt(allReviewsData?.total_reviews || '0');
+    const totalReviews = parseInt(allReviewsData?.total_reviews || '0', 10);
     const averageRating = allReviewsData?.average_rating
       ? Number(parseFloat(allReviewsData.average_rating).toFixed(1))
       : null;
 
-    console.log('Calculated stats - Total:', totalReviews, 'Average:', averageRating);
+    this.logger.debug(`Calculated stats - Total: ${totalReviews}, Average: ${averageRating}`);
 
     // Prepare clean result
-    const result: any = {
+    const result: FoodQueryItem = {
       ...food,
       rating: averageRating,
       totalReviews,
@@ -1095,10 +1131,10 @@ export class FoodQueryService {
       );
     }
 
-    console.log('Final result - Reviews count:', result.reviews?.length || 0);
-    console.log('Final result - Total reviews:', result.totalReviews);
-    console.log('Final result - Average rating:', result.rating);
-    console.log('=== End findOne Debug ===');
+    this.logger.debug(`Final result - Reviews count: ${result.reviews?.length || 0}`);
+    this.logger.debug(`Final result - Total reviews: ${result.totalReviews}`);
+    this.logger.debug(`Final result - Average rating: ${result.rating}`);
+    this.logger.debug('=== End findOne Debug ===');
 
     return result;
   }
@@ -1139,7 +1175,7 @@ export class FoodQueryService {
     minPrice?: number,
     maxPrice?: number,
   ): Promise<{
-    items: any[];
+    items: object[];
     totalItems: number;
     page: number;
     pageSize: number;
@@ -1164,14 +1200,14 @@ export class FoodQueryService {
       } else {
         queryBuilder.where('food.category_id IN (:...categoryIds)', { categoryIds });
       }
-      console.log('Added category filter:', categoryIds);
+      this.logger.debug(`Added category filter: ${categoryIds.join(', ')}`);
     }
 
     if (minPrice !== undefined) {
       const whereMethod =
         (name && name.trim()) || (categoryIds && categoryIds.length > 0) ? 'andWhere' : 'where';
       queryBuilder[whereMethod]('food.price >= :minPrice', { minPrice });
-      console.log('Added minPrice filter:', minPrice);
+      this.logger.debug(`Added minPrice filter: ${minPrice}`);
     }
 
     if (maxPrice !== undefined) {
@@ -1180,13 +1216,13 @@ export class FoodQueryService {
           ? 'andWhere'
           : 'where';
       queryBuilder[whereMethod]('food.price <= :maxPrice', { maxPrice });
-      console.log('Added maxPrice filter:', maxPrice);
+      this.logger.debug(`Added maxPrice filter: ${maxPrice}`);
     }
 
     const items = await queryBuilder.getMany();
 
     // --- Tính distance & deliveryTime bằng Mapbox (batch 5/lần) ---
-    const itemsWithData: any[] = [];
+    const itemsWithData: FoodQueryItem[] = [];
 
     for (let i = 0; i < items.length; i += 5) {
       const batch = items.slice(i, i + 5);
@@ -1226,15 +1262,16 @@ export class FoodQueryService {
     // Lọc theo radius nếu có lat/lng
     const filtered =
       lat && lng
-        ? itemsWithData.filter(
-            (f) => f.restaurant?.distance !== null && f.restaurant.distance <= radius,
-          )
+        ? itemsWithData.filter((f) => {
+            const distance = f.restaurant?.distance;
+            return distance !== null && distance !== undefined && distance <= radius;
+          })
         : itemsWithData;
 
     // Sort theo distance nếu có
     if (lat && lng) {
       filtered.sort(
-        (a, b) => (a.restaurant.distance ?? Infinity) - (b.restaurant.distance ?? Infinity),
+        (a, b) => (a.restaurant?.distance ?? Infinity) - (b.restaurant?.distance ?? Infinity),
       );
     }
 
@@ -1257,7 +1294,7 @@ export class FoodQueryService {
     });
     const restaurants = new Map<
       string,
-      { id: string; name: string; address: unknown; foods: any[] }
+      { id: string; name: string; address: unknown; foods: FoodQueryItem[] }
     >();
 
     for (const food of foods) {
@@ -1286,48 +1323,56 @@ export class FoodQueryService {
   /**
    * Helper function to apply sorting to food items
    */
-  private applySorting(items: any[], sortBy?: FoodSortType, lat?: number, lng?: number): any[] {
+  private applySorting<T extends object>(
+    items: T[],
+    sortBy?: FoodSortType,
+    lat?: number,
+    lng?: number,
+  ): T[] {
+    const sortableItems = items as FoodQueryItem[];
     if (!sortBy) return items;
 
     switch (sortBy) {
       case 'newest':
-        return items.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
+        return sortableItems.sort(
+          (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime(),
+        ) as T[];
 
       case 'nearby':
         if (lat && lng) {
-          return items.sort((a, b) => {
+          return sortableItems.sort((a, b) => {
             const distanceA = a.restaurant?.distance ?? Infinity;
             const distanceB = b.restaurant?.distance ?? Infinity;
             return distanceA - distanceB;
-          });
+          }) as T[];
         }
         return items;
 
       case 'hot':
         // Sort by combination of rating and recent sales
-        return items.sort((a, b) => {
+        return sortableItems.sort((a, b) => {
           const scoreA = (a.rating || 0) * 0.7 + (a.soldCount || 0) * 0.3;
           const scoreB = (b.rating || 0) * 0.7 + (b.soldCount || 0) * 0.3;
           return scoreB - scoreA;
-        });
+        }) as T[];
 
       case 'most_review':
         // Sort by number of reviews (using purchasedNumber as proxy)
-        return items.sort((a, b) => (b.purchasedNumber || 0) - (a.purchasedNumber || 0));
+        return sortableItems.sort(
+          (a, b) => (b.purchasedNumber || 0) - (a.purchasedNumber || 0),
+        ) as T[];
 
       case 'most_buy':
-        return items.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0));
+        return sortableItems.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0)) as T[];
 
       case 'rating':
-        return items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        return sortableItems.sort((a, b) => (b.rating || 0) - (a.rating || 0)) as T[];
 
       case 'price':
-        return items.sort((a, b) => (a.price || 0) - (b.price || 0));
+        return sortableItems.sort((a, b) => (a.price || 0) - (b.price || 0)) as T[];
 
       case 'name':
-        return items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        return sortableItems.sort((a, b) => (a.name || '').localeCompare(b.name || '')) as T[];
 
       default:
         return items;
@@ -1337,7 +1382,10 @@ export class FoodQueryService {
   /**
    * Helper function to apply sorting to query builder
    */
-  private applySortingToQueryBuilder(queryBuilder: any, sortBy?: FoodSortType): void {
+  private applySortingToQueryBuilder(
+    queryBuilder: SelectQueryBuilder<Food>,
+    sortBy?: FoodSortType,
+  ): void {
     if (!sortBy) {
       queryBuilder.orderBy('food.createdAt', 'DESC');
       return;

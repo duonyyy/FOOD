@@ -1,7 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { Food } from 'src/entities/food.entity';
-import { AddressService } from 'src/modules/address/address.service';
-import { FoodService } from 'src/modules/food/food.service';
+import { Inject, Injectable } from '@nestjs/common';
+import { LOCATION_READER, type LocationReaderPort } from 'src/features/locations/public-api';
+import { CATALOG_CHAT_READER, type CatalogChatReaderPort } from 'src/features/menu/public-api';
 import { ChatMetadata } from '../types/chat.types';
 
 export interface ValidatedChatOrderItem {
@@ -29,16 +28,14 @@ export interface ChatOrderValidationResult {
 @Injectable()
 export class ChatOrderValidationService {
   constructor(
-    private readonly foodService: FoodService,
-    private readonly addressService: AddressService,
+    @Inject(CATALOG_CHAT_READER)
+    private readonly catalogReader: CatalogChatReaderPort,
+    @Inject(LOCATION_READER)
+    private readonly locationReader: LocationReaderPort,
   ) {}
 
-  async validate(
-    userId: string,
-    userMessage: string,
-    metadata: ChatMetadata,
-  ): Promise<ChatOrderValidationResult> {
-    const paymentMethod = this.parsePaymentMethod(userMessage);
+  async validate(userId: string, metadata: ChatMetadata): Promise<ChatOrderValidationResult> {
+    const paymentMethod = metadata.selectedPaymentMethod;
     if (!paymentMethod) {
       return {
         valid: false,
@@ -56,8 +53,8 @@ export class ChatOrderValidationService {
       };
     }
 
-    const userAddresses = await this.addressService.getAddresseByUser(userId);
-    const addressBelongsToUser = userAddresses.some((address) => address.id === addressId);
+    const userAddresses = await this.locationReader.listOwnedAddresses(userId);
+    const addressBelongsToUser = userAddresses.some((address) => address.addressId === addressId);
     if (!addressBelongsToUser) {
       return {
         valid: false,
@@ -87,7 +84,7 @@ export class ChatOrderValidationService {
         };
       }
 
-      const food = await this.findFood(item.id);
+      const food = await this.catalogReader.findAvailableFood(item.id, item.restaurantId);
       if (!food) {
         return {
           valid: false,
@@ -96,7 +93,7 @@ export class ChatOrderValidationService {
         };
       }
 
-      const foodRestaurantId = food?.restaurant?.id;
+      const foodRestaurantId = food.restaurantId;
       if (!foodRestaurantId) {
         return {
           valid: false,
@@ -118,10 +115,10 @@ export class ChatOrderValidationService {
       }
 
       validatedItems.push({
-        foodId: food.id,
+        foodId: food.foodId,
         name: food.name,
         quantity,
-        price: Number(food.price || 0),
+        price: food.price,
         restaurantId: foodRestaurantId,
       });
     }
@@ -145,7 +142,7 @@ export class ChatOrderValidationService {
     };
   }
 
-  private parsePaymentMethod(userMessage: string): 'cod' | 'card' | null {
+  parsePaymentMethod(userMessage: string): 'cod' | 'card' | null {
     const lowerMessage = userMessage.toLowerCase().trim();
 
     if (lowerMessage.includes('cod') || lowerMessage.includes('tiền mặt')) {
@@ -157,15 +154,5 @@ export class ChatOrderValidationService {
     }
 
     return null;
-  }
-
-  private async findFood(foodId: string): Promise<Food | null> {
-    try {
-      return await this.foodService.findOne(foodId);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error('[ChatOrderValidation] Cannot find food:', message);
-      return null;
-    }
   }
 }

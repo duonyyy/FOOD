@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { GeneralChatFlowService } from './flows/general-chat-flow.service';
 import { OrderConversationFlowService } from './flows/order-conversation-flow.service';
 import { QuickReorderFlowService } from './flows/quick-reorder-flow.service';
@@ -8,6 +8,7 @@ import { createInitialChatMetadata, normalizeChatMetadata } from './utils/chat-m
 
 @Injectable()
 export class ChatService {
+  private readonly logger = new Logger(ChatService.name);
   constructor(
     private readonly chatContextService: ChatContextService,
     private readonly quickReorderFlowService: QuickReorderFlowService,
@@ -59,8 +60,9 @@ export class ChatService {
       }
 
       return this.generalChatFlowService.reply(normalizedMessage, context);
-    } catch (error: any) {
-      console.error('[ChatService.generateReply] Error:', error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`[ChatService.generateReply] Error: ${message}`);
       throw new Error('Không thể tạo phản hồi từ hệ thống.');
     }
   }

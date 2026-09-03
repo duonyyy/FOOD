@@ -1,4 +1,5 @@
-import mbxDirections from '@mapbox/mapbox-sdk/services/directions';
+import * as mbxDirections from '@mapbox/mapbox-sdk/services/directions';
+import { type DirectionsRequest } from '@mapbox/mapbox-sdk/services/directions';
 import { Injectable, Logger } from '@nestjs/common';
 import 'dotenv/config';
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
@@ -6,7 +7,7 @@ import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/pr
 @Injectable()
 export class MapboxService {
   private readonly logger = new Logger(MapboxService.name);
-  private directionsService;
+  private readonly directionsService: DirectionsRequest;
 
   constructor() {
     const accessToken = process.env.MAPBOX_ACCESS_TOKEN;
@@ -82,7 +83,7 @@ export class MapboxService {
     fromLng: number,
     toLat: number,
     toLng: number,
-  ): Promise<{ distance: number; duration: number; route: any }> {
+  ): Promise<{ distance: number; duration: number; route: unknown }> {
     try {
       // Call the existing method with proper coordinate order [lng, lat]
       const result = await this.getDistanceAndDurationFromMapbox(

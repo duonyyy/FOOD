@@ -5,6 +5,7 @@ import {
   DefaultValuePipe,
   Delete,
   Get,
+  Logger,
   Param,
   ParseFloatPipe,
   ParseIntPipe,
@@ -20,6 +21,7 @@ import { plainToInstance } from 'class-transformer';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { Permission } from 'src/constants/permission.enum';
 import { Food } from 'src/entities/food.entity';
 import { FoodQueryService } from '../../features/menu/foods/food-query.service';
@@ -33,6 +35,7 @@ import { UpdateToppingDto } from './dto/update-topping.dto';
 @Controller('foods')
 @ApiTags('foods')
 export class FoodController {
+  private readonly logger = new Logger(FoodController.name);
   constructor(
     private readonly foodService: FoodQueryService,
     private readonly foodCommandService: FoodCommandService,
@@ -41,7 +44,10 @@ export class FoodController {
 
   @Post()
   @UseGuards(AuthGuard)
-  async create(@Body() createFoodDto: CreateFoodDto, @Req() req: any): Promise<Food> {
+  async create(
+    @Body() createFoodDto: CreateFoodDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<Food> {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     // Clean up empty string UUIDs
@@ -82,7 +88,7 @@ export class FoodController {
       status && status !== 'all' && status.trim() !== '' ? status : undefined;
     const normalizedSearch = search && search.trim() !== '' ? search.trim() : undefined;
 
-    console.log('Normalized parameters:', {
+    this.logger.debug('Normalized parameters', {
       normalizedRestaurantId,
       normalizedCategoryId,
       normalizedStatus,
@@ -95,7 +101,7 @@ export class FoodController {
 
     // If search is provided, use search functionality
     if (normalizedSearch) {
-      console.log('Using search functionality');
+      this.logger.debug('Using search functionality');
       return await this.foodService.searchFoodsForStore(
         normalizedSearch,
         page,
@@ -222,7 +228,7 @@ export class FoodController {
     @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
     @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5, // km
   ) {
-    return await this.foodService.searchFoods(query, page, pageSize, lat, lng, 99999);
+    return await this.foodService.searchFoods(query, page, pageSize, lat, lng, radius);
   }
 
   @Get('by-name')
@@ -237,8 +243,8 @@ export class FoodController {
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,
   ) {
-    console.log('=== Controller findByName ===');
-    console.log('Raw query parameters received:', {
+    this.logger.debug('Controller findByName');
+    this.logger.debug('Raw query parameters received', {
       name,
       page,
       pageSize,
@@ -257,13 +263,13 @@ export class FoodController {
         .split(',')
         .map((id) => id.trim())
         .filter(Boolean);
-      console.log('Parsed categoryIds:', categoryIdList);
+      this.logger.debug(`Parsed categoryIds: ${categoryIdList.join(',')}`);
     }
     if (name && name.trim() === '') {
       name = undefined; // Treat empty name as undefined
     }
 
-    console.log('Calling service with parameters:', {
+    this.logger.debug('Calling service with parameters', {
       name,
       page,
       pageSize,
@@ -287,13 +293,13 @@ export class FoodController {
       maxPrice !== undefined ? Number(maxPrice) : undefined,
     );
 
-    console.log('Service returned:', {
+    this.logger.debug('Service returned', {
       totalItems: result.totalItems,
       itemsCount: result.items.length,
       page: result.page,
       totalPages: result.totalPages,
     });
-    console.log('=== End Controller findByName ===');
+    this.logger.debug('End Controller findByName');
 
     return result;
   }
@@ -406,7 +412,11 @@ export class FoodController {
 
   @Put(':id')
   @UseGuards(AuthGuard)
-  async update(@Param('id') id: string, @Body() updateFoodDto: UpdateFoodDto, @Req() req: any) {
+  async update(
+    @Param('id') id: string,
+    @Body() updateFoodDto: UpdateFoodDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     // Convert to DTO instance for validation and transformation
@@ -416,7 +426,7 @@ export class FoodController {
 
   @Delete(':id')
   @UseGuards(AuthGuard)
-  async remove(@Param('id') id: string, @Req() req: any) {
+  async remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     return await this.foodCommandService.remove(id, userId);
@@ -424,7 +434,11 @@ export class FoodController {
 
   @Put(':id/status')
   @UseGuards(AuthGuard)
-  async updateStatus(@Param('id') id: string, @Body('status') status: string, @Req() req: any) {
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     if (status !== 'available' && status !== 'hidden') {
@@ -436,7 +450,7 @@ export class FoodController {
   @Delete(':id/admin')
   @UseGuards(RolesGuard)
   @Permissions(Permission.FOOD.DELETE)
-  async deleteFood(@Param('id') id: string, @Req() req: any) {
+  async deleteFood(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     return await this.foodCommandService.delete(id);
@@ -447,8 +461,8 @@ export class FoodController {
   async addTopping(
     @Param('id') foodId: string,
     @Body() createToppingDto: CreateToppingDto,
-    @Req() req: any,
-  ): Promise<any> {
+    @Req() req: AuthenticatedRequest,
+  ): Promise<import('src/entities/topping.entity').Topping> {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 
@@ -460,8 +474,8 @@ export class FoodController {
   async updateTopping(
     @Param('toppingId') toppingId: string,
     @Body() updateToppingDto: UpdateToppingDto,
-    @Req() req: any,
-  ): Promise<any> {
+    @Req() req: AuthenticatedRequest,
+  ): Promise<import('src/entities/topping.entity').Topping> {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 
@@ -470,7 +484,10 @@ export class FoodController {
 
   @Delete('toppings/:toppingId')
   @UseGuards(AuthGuard)
-  async removeTopping(@Param('toppingId') toppingId: string, @Req() req: any): Promise<void> {
+  async removeTopping(
+    @Param('toppingId') toppingId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<void> {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 

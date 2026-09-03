@@ -15,6 +15,27 @@ import {
 } from 'src/features/payments/contracts/payment-gateway.port';
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 
+interface VnpayMetadata {
+  orderInfo?: string;
+  redirectUrl?: string;
+  ipAddress?: string;
+  orderType?: string;
+  expireMinutes?: number;
+  [key: string]: unknown;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function stringifyProviderValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return JSON.stringify(value) ?? '';
+}
+
 /**
  * VNPAY Payment Gateway Implementation
  *
@@ -136,8 +157,9 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
     orderId: string,
     amount: number,
     currency: string,
-    metadata?: Record<string, any>,
+    metadata?: VnpayMetadata,
   ): Promise<PaymentIntent> {
+    await Promise.resolve();
     try {
       this.assertConfigured('create_payment_intent');
 
@@ -214,7 +236,7 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
           vnp_CreateDate: createDateFormat,
         },
       };
-    } catch (error) {
+    } catch (error: unknown) {
       const mapped = mapPaymentGatewayError('vnpay', 'create_payment_intent', error);
       this.logProviderError('create_payment_intent', mapped);
       throw mapped;
@@ -227,6 +249,7 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
    * @returns Payment result
    */
   async confirmPaymentIntent(paymentIntentId: string): Promise<PaymentResult> {
+    await Promise.resolve();
     try {
       // For VNPAY, confirmation happens via return URL
       // This method is mainly a placeholder as VNPAY doesn't have direct confirmation API
@@ -234,11 +257,11 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
         success: true,
         paymentIntentId,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logProviderError('confirm_payment_intent', error);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage(error),
       };
     }
   }
@@ -249,6 +272,7 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
    * @returns Payment result
    */
   async cancelPaymentIntent(paymentIntentId: string): Promise<PaymentResult> {
+    await Promise.resolve();
     try {
       // VNPAY doesn't support direct cancellation of pending payments
       // Payments will expire if not completed within the expiration window
@@ -256,11 +280,11 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
         success: true,
         paymentIntentId,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logProviderError('cancel_payment_intent', error);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage(error),
       };
     }
   }
@@ -271,7 +295,8 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
    * @param amount Amount to refund
    * @returns Payment result
    */
-  async refundPayment(paymentIntentId: string, amount?: number): Promise<PaymentResult> {
+  async refundPayment(_paymentIntentId: string, _amount?: number): Promise<PaymentResult> {
+    await Promise.resolve();
     // VNPAY requires manual refund process through their merchant portal
     // This is a placeholder for future implementation if VNPAY provides an API
     return {
@@ -286,6 +311,7 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
    * @returns Payment intent
    */
   async getPaymentIntent(paymentIntentId: string): Promise<PaymentIntent> {
+    await Promise.resolve();
     try {
       // VNPAY doesn't have a direct API to check payment status in this implementation
       // You would need to use their transaction query API if available
@@ -298,7 +324,7 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
           orderId: paymentIntentId,
         },
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logProviderError('get_payment_intent', error);
       throw error;
     }
@@ -366,11 +392,11 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
           },
         };
       }
-    } catch (error) {
+    } catch (error: unknown) {
       this.logProviderError('process_return_url', error);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage(error),
       };
     }
   }
@@ -411,9 +437,9 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
       // This is a simplified implementation matching VNPAY documentation format
 
       return { RspCode: '00', Message: 'success' };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logProviderError('process_ipn_notification', error);
-      return { RspCode: '99', Message: `Internal error: ${error.message}` };
+      return { RspCode: '99', Message: `Internal error: ${errorMessage(error)}` };
     }
   }
 
@@ -452,7 +478,7 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
       const calculatedSignature = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 
       return calculatedSignature.toLowerCase() === signature.toLowerCase();
-    } catch (error) {
+    } catch (error: unknown) {
       this.logProviderError('verify_webhook_signature', error);
       return false;
     }
@@ -463,6 +489,7 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
    * @param payload Webhook payload
    */
   async handleWebhookEvent(_payload: Record<string, unknown>): Promise<void> {
+    await Promise.resolve();
     // VNPAY webhook handling is typically done in the payment service
     // This method is a placeholder for interface implementation
     this.logger.debug({ event: 'webhook_event_received', provider: 'vnpay' });
@@ -509,7 +536,7 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
    * @param obj Object to sort
    * @returns Sorted object with encoded values
    */
-  private sortObject(obj: Record<string, any>): Record<string, string> {
+  private sortObject(obj: Record<string, unknown>): Record<string, string> {
     // Implement exactly as in the VNPAY sample
     const sorted: Record<string, string> = {};
     const str: string[] = [];
@@ -529,7 +556,10 @@ export class VnpayPaymentGateway implements PaymentGatewayPort {
       const k = str[i];
       const decodedKey = decodeURIComponent(k);
       if (obj[decodedKey] !== undefined && obj[decodedKey] !== null && obj[decodedKey] !== '') {
-        sorted[k] = encodeURIComponent(obj[decodedKey]).replace(/%20/g, '+');
+        sorted[k] = encodeURIComponent(stringifyProviderValue(obj[decodedKey])).replace(
+          /%20/g,
+          '+',
+        );
       }
     }
 

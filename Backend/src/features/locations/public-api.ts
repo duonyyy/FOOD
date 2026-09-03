@@ -1,3 +1,5 @@
+export { CreateAddressDto } from './addresses/dto/create-address.dto';
+export { UpdateAddressDto } from './addresses/dto/update-address.dto';
 export {
   GEOCODING_PORT,
   type GeocodeAddressRequest,

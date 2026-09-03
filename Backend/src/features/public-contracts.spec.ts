@@ -13,6 +13,7 @@ import {
   type MenuReaderPort,
 } from './menu/public-api';
 import {
+  ORDER_ANALYTICS_READER,
   ORDER_REVIEW_ELIGIBILITY_READER,
   type OrderReviewEligibilityReaderPort,
 } from './orders/public-api';
@@ -32,6 +33,7 @@ describe('feature public contracts', () => {
       IDENTITY_READER,
       FOOD_REVIEW_TARGET_READER,
       FOOD_DISCOVERY_READER,
+      ORDER_ANALYTICS_READER,
       ORDER_REVIEW_ELIGIBILITY_READER,
     ];
 
@@ -63,6 +65,7 @@ describe('feature public contracts', () => {
     const locationReader: LocationReaderPort = {
       findAddress: () => Promise.resolve(null),
       findTemporaryAddress: () => Promise.resolve(null),
+      listOwnedAddresses: () => Promise.resolve([]),
     };
     const identityReader: IdentityReaderPort = {
       findIdentityUser: () => Promise.resolve(null),
@@ -95,6 +98,7 @@ describe('feature public contracts', () => {
       'src/features/menu/contracts/food-review-target-reader.port.ts',
       'src/features/menu/contracts/food-discovery-reader.port.ts',
       'src/features/orders/contracts/order-review-eligibility-reader.port.ts',
+      'src/features/orders/contracts/order-analytics-reader.port.ts',
     ];
 
     for (const contractPath of contractPaths) {

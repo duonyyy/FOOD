@@ -34,5 +34,5 @@ export class SendMessageDto {
 
   @Field(() => GraphQLJSON, { nullable: true })
   @IsOptional()
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }

@@ -27,6 +27,27 @@ import { pubSub } from 'src/pubsub';
 import { LessThan, Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from './dto/update-driver-dto';
 
+interface EarningsReportRow {
+  grouped_date: string | Date;
+  total_earnings: string | number | null;
+  delivery_count: string | number | null;
+  avg_earnings_per_delivery: string | number | null;
+  total_shipping_fees: string | number | null;
+  avg_distance: string | number | null;
+}
+
+interface EarningsReportData {
+  earnings: number;
+  deliveryCount: number;
+  avgEarningsPerDelivery: number;
+  totalShippingFees: number;
+  avgDistance: number;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 @Injectable()
 export class ShipperService {
   private readonly logger = new Logger(ShipperService.name);
@@ -155,7 +176,7 @@ export class ShipperService {
   /**
    * Auto-reject expired assignments
    */
-  private async autoRejectAssignment(assignmentId: string) {
+  private autoRejectAssignment(assignmentId: string): void {
     this.logger.warn(
       `autoRejectAssignment(${assignmentId}) is handled by Redis TTL and pending assignment cron`,
     );
@@ -306,9 +327,9 @@ export class ShipperService {
       this.logger.log(
         `Removed order ${orderId} from pending assignments after assignment to shipper`,
       );
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Failed to remove order ${orderId} from pending assignments: ${error.message}`,
+        `Failed to remove order ${orderId} from pending assignments: ${errorMessage(error)}`,
       );
     }
 
@@ -667,12 +688,12 @@ export class ShipperService {
       .andWhere(`sd."actualDeliveryTime" >= :fromDate`, { fromDate })
       .groupBy('grouped_date')
       .orderBy('grouped_date', 'ASC')
-      .getRawMany();
+      .getRawMany<EarningsReportRow>();
 
     // Normalize data with better date handling
-    const dateMap = new Map();
+    const dateMap = new Map<string, EarningsReportData>();
 
-    raw.forEach((r: any) => {
+    raw.forEach((r) => {
       const date = new Date(r.grouped_date);
       const key = format(date, 'yyyy-MM-dd');
 
@@ -883,7 +904,7 @@ export class ShipperService {
     }
 
     // Publish the location update
-    const result = await pubSub.publish('shipperLocationUpdated', {
+    await pubSub.publish('shipperLocationUpdated', {
       shipperLocationUpdated: {
         shipperId,
         latitude,
@@ -933,7 +954,16 @@ export class ShipperService {
     await this.userRepository.save(shipper);
   }
 
-  async rejectOrder(orderId: string, shipperId: string, responseTimeSeconds: number) {
+  async rejectOrder(
+    orderId: string,
+    shipperId: string,
+    responseTimeSeconds: number,
+  ): Promise<{
+    message: string;
+    warning?: string;
+    rejectionRatio?: number;
+    stats?: { rejectedOrders: number; completedDeliveries: number; totalOrders: number };
+  }> {
     const pendingAssignment =
       await this.pendingAssignmentService.getPendingAssignmentForShipper(shipperId);
     if (!pendingAssignment || pendingAssignment.orderId !== orderId) {
@@ -964,9 +994,9 @@ export class ShipperService {
       this.logger.log(
         `Reset isSentToShipper flag to false for order ${orderId} after rejection by shipper ${shipperId}`,
       );
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Failed to reset isSentToShipper flag for order ${orderId}: ${error.message}`,
+        `Failed to reset isSentToShipper flag for order ${orderId}: ${errorMessage(error)}`,
       );
     }
 
@@ -1002,7 +1032,12 @@ export class ShipperService {
     await this.userRepository.save(shipper);
 
     // Return response with warning if applicable
-    const response: any = { message: 'Order rejected successfully' };
+    const response: {
+      message: string;
+      warning?: string;
+      rejectionRatio?: number;
+      stats?: { rejectedOrders: number; completedDeliveries: number; totalOrders: number };
+    } = { message: 'Order rejected successfully' };
 
     if (rejectionCheckResult.warning) {
       response.warning = rejectionCheckResult.warning;

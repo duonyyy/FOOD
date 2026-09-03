@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import {
   CertificateStatus,
   ShipperCertificateInfo,
@@ -11,7 +12,6 @@ import { RolesService } from 'src/modules/role/role.service';
 import { CreateUserDto } from 'src/modules/users/dto/create-users.dto';
 import { UsersService } from 'src/modules/users/users.service';
 import { Repository } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
 import { DefaultRole, Role } from '../entities/role.entity';
 import { CreateShipperDto } from './dto/create-shipper.dto';
 import { GoogleRegisterDto } from './dto/google-register.dto';
@@ -21,6 +21,12 @@ import { AuthProvider } from './enums/auth-provider.enum';
 import { OtpService } from './services/otp.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { SocialAuthService } from './services/social-auth.service';
+
+type AuthResponse = Record<string, unknown>;
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 @Injectable()
 export class AuthService {
@@ -96,7 +102,7 @@ export class AuthService {
    * @param isNewUser - Cờ đánh dấu user mới tạo
    * @returns Object chứa thông tin user và quyền hạn
    */
-  private async createUserResponse(user: any, isNewUser: boolean = false): Promise<any> {
+  private async createUserResponse(user: User, isNewUser = false): Promise<AuthResponse> {
     // Lấy danh sách quyền (permissions) của user dựa trên role
     const permissions = await this.rolesService.getUserPermissions(user.role.id, true);
     return {
@@ -118,7 +124,7 @@ export class AuthService {
    * @param password
    * @returns Token JWT và thông tin user
    */
-  async loginWithEmailPassword(email: string, password: string): Promise<any> {
+  async loginWithEmailPassword(email: string, password: string): Promise<AuthResponse> {
     try {
       // Tìm user theo email
       const user = await this.usersService.findByEmail(email);
@@ -165,11 +171,11 @@ export class AuthService {
         token,
         message: 'Login successful',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Email/password authentication failed: ' + error.message);
+      throw new BadRequestException('Email/password authentication failed: ' + errorMessage(error));
     }
   }
 
@@ -177,7 +183,7 @@ export class AuthService {
    * Đăng xuất user (hiện tại chỉ là log, client cần xóa token)
    * @param userId
    */
-  async logout(userId: string): Promise<any> {
+  logout(userId: string): { message: string; success: boolean } {
     this.logger.log(`User logged out: ${userId}`);
     // Client cần tự xóa token khỏi storage
 
@@ -208,7 +214,7 @@ export class AuthService {
     }
 
     // Tạo ID cho tài xế
-    const driverID = uuidv4().substring(0, 28);
+    const driverID = randomUUID().substring(0, 28);
     this.logger.log(`Generated driver ID: ${driverID}`);
 
     // Tạo user mới
@@ -294,7 +300,7 @@ export class AuthService {
    * @param password Mật khẩu
    * @returns Token và thông tin user nếu đăng nhập thành công
    */
-  async loginDriver(username: string, password: string): Promise<any> {
+  async loginDriver(username: string, password: string): Promise<AuthResponse> {
     const user = await this.userRepo.findOne({
       where: { username },
       relations: ['shipperCertificateInfo', 'role'], // Load kèm thông tin chứng chỉ và role
@@ -368,7 +374,7 @@ export class AuthService {
    * @param registerDto
    * @returns User response
    */
-  async register(registerDto: RegisterDto): Promise<any> {
+  async register(registerDto: RegisterDto): Promise<AuthResponse> {
     const { email, password, name } = registerDto;
 
     try {
@@ -399,11 +405,11 @@ export class AuthService {
       );
 
       return await this.createUserResponse(user, true);
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Registration failed: ' + error.message);
+      throw new BadRequestException('Registration failed: ' + errorMessage(error));
     }
   }
 
@@ -414,30 +420,30 @@ export class AuthService {
    * @param googleDto
    * @returns User response và token
    */
-  async registerWithGoogle(googleDto: GoogleRegisterDto): Promise<any> {
-    return this.socialAuthService.registerWithGoogle(googleDto);
+  async registerWithGoogle(googleDto: GoogleRegisterDto): Promise<AuthResponse> {
+    return (await this.socialAuthService.registerWithGoogle(googleDto)) as AuthResponse;
   }
 
   /**
    * Khởi tạo quy trình quên mật khẩu: Tạo token reset và gửi email
    * @param email Email người dùng yêu cầu reset mật khẩu
    */
-  async forgotPassword(email: string): Promise<any> {
-    return this.passwordResetService.forgotPassword(email);
+  async forgotPassword(email: string): Promise<AuthResponse> {
+    return (await this.passwordResetService.forgotPassword(email)) as AuthResponse;
   }
 
   /**
    * Đặt lại mật khẩu mới sử dụng token hợp lệ
    * @param resetPasswordDto Chứa token, email và password mới
    */
-  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<any> {
-    return this.passwordResetService.resetPassword(resetPasswordDto);
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<AuthResponse> {
+    return (await this.passwordResetService.resetPassword(resetPasswordDto)) as AuthResponse;
   }
 
   /**
    * Kiểm tra tính hợp lệ của token reset mật khẩu (dùng khi user click vào link từ email)
    */
-  async verifyResetToken(token: string, email: string): Promise<any> {
-    return this.passwordResetService.verifyResetToken(token, email);
+  async verifyResetToken(token: string, email: string): Promise<AuthResponse> {
+    return (await this.passwordResetService.verifyResetToken(token, email)) as AuthResponse;
   }
 }

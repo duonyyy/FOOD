@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -23,6 +24,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 
 @Injectable()
 export class MessengerService {
+  private readonly logger = new Logger(MessengerService.name);
   constructor(
     @InjectRepository(Conversation)
     private conversationRepository: Repository<Conversation>,
@@ -190,8 +192,8 @@ export class MessengerService {
    * Get available chat partners for a user
    */
   async getAvailableChatPartners(userId: string): Promise<{
-    shopOwners: { user: User; restaurant: any }[];
-    shippers: { user: User; order: any }[];
+    shopOwners: { user: User; restaurant: { id: string; name: string } }[];
+    shippers: { user: User; order: { id: string; status: string } }[];
   }> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -318,13 +320,13 @@ export class MessengerService {
     await this.conversationRepository.save(conversation);
 
     // Publish message event for real-time updates
-    console.log('📨 Publishing message to channel messageSent:', {
+    this.logger.debug('Publishing message to channel messageSent', {
       id: savedMessage.id,
       conversationId: savedMessage.conversation.id,
       text: savedMessage.content.substring(0, 20), // For privacy, just show the start
     });
 
-    pubSub.publish('messageSent', {
+    await pubSub.publish('messageSent', {
       messageSent: savedMessage,
       conversationId: savedMessage.conversation.id,
     });
@@ -337,6 +339,7 @@ export class MessengerService {
 
     // Publish notification event — Communications owns persistence
     await this.eventBus.publish<NotificationRequestedEvent>(NOTIFICATION_REQUESTED_EVENT, {
+      idempotencyKey: `Message:${savedMessage.id}:notification`,
       recipientUserId: receiverId,
       description: 'Bạn có tin nhắn mới',
       content: message.content,
@@ -459,8 +462,8 @@ export class MessengerService {
       .execute();
 
     // Publish read receipt event
-    console.log('📬 Publishing read receipt for conversation:', conversationId);
-    pubSub.publish('messagesRead', {
+    this.logger.debug(`Publishing read receipt for conversation: ${conversationId}`);
+    await pubSub.publish('messagesRead', {
       messagesRead: true,
       conversationId: conversationId,
     });

@@ -60,7 +60,6 @@ import { PaymentSucceededOrderHandler } from './payment-succeeded-order.handler'
     DeliveryModule,
     MapsModule,
     StorageModule,
-    UsersModule,
     SystemConstraintsModule,
   ],
 

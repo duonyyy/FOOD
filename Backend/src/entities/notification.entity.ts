@@ -1,9 +1,10 @@
 // src/users/entities/user.entity.ts
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @ObjectType() // Thêm ObjectType decorator cho class
 @Entity({ name: 'notifications' })
+@Index('UQ_notifications_idempotency_key', ['idempotencyKey'], { unique: true })
 export class Notification {
   @Field(() => ID) // Thêm Field decorator cho ID
   @PrimaryGeneratedColumn('uuid')
@@ -32,4 +33,8 @@ export class Notification {
   @Field({ nullable: true })
   @Column({ nullable: true })
   type: string;
+
+  /** Stable source-event key used to make event replay safe. */
+  @Column({ name: 'idempotency_key', type: 'varchar', length: 200, nullable: true })
+  idempotencyKey: string | null;
 }

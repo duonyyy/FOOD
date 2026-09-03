@@ -10,6 +10,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiBody } from '@nestjs/swagger';
+import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { AuthService } from './auth.service';
 import { CreateShipperDto } from './dto/create-shipper.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -53,8 +54,8 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(AuthGuard)
-  async logout(@Req() req) {
-    return await this.authService.logout(req.user.uid);
+  logout(@Req() req: AuthenticatedRequest) {
+    return this.authService.logout(req.user.uid ?? req.user.id);
   }
 
   @Post('forgot-password')
@@ -102,7 +103,7 @@ export class AuthController {
 
   @Post('check')
   @UseGuards(AuthGuard)
-  async checkAuth(@Req() req) {
+  checkAuth(@Req() req: AuthenticatedRequest) {
     return { message: 'User is authenticated', user: req.user, isLogin: true };
   }
 }

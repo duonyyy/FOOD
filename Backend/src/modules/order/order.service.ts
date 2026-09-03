@@ -10,6 +10,7 @@ import { Address } from 'src/entities/address.entity';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
 import { Food } from 'src/entities/food.entity';
 import { Order } from 'src/entities/order.entity';
+import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../../features/orders/contracts/order-analytics-reader.port';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
@@ -496,6 +497,14 @@ export class OrderService {
 
   async getOrderById(id: string, includeReviewInfo: boolean = false): Promise<Order> {
     return this.orderQueryService.getOrderById(id, includeReviewInfo);
+  }
+
+  async getAnalyticsSnapshot(orderId: string): Promise<OrderAnalyticsSnapshot> {
+    return this.orderQueryService.getAnalyticsSnapshot(orderId);
+  }
+
+  async getAnalyticsSnapshots(page: number, pageSize: number): Promise<OrderAnalyticsPage> {
+    return this.orderQueryService.getAnalyticsSnapshots(page, pageSize);
   }
 
   // Add a new method specifically for getting order with review info
@@ -1180,6 +1189,7 @@ export class OrderService {
   ): Promise<void> {
     try {
       await this.eventBus.publish<NotificationRequestedEvent>(NOTIFICATION_REQUESTED_EVENT, {
+        idempotencyKey: `Order:${order.id}:canceled`,
         recipientUserId: order.user?.id ?? '',
         description: 'Đơn hàng đã bị hủy',
         content: `Đơn hàng #${order.id} đã bị hủy: ${reason}`,

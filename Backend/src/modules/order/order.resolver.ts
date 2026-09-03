@@ -29,6 +29,29 @@ interface ShipperQueue {
   distanceKm: number;
 }
 
+interface OrderCreatedPayload {
+  orderCreated: Order;
+}
+
+interface OrderStatusUpdatedPayload {
+  orderStatusUpdated: Order;
+}
+
+interface ShipperOrderPayload {
+  orderConfirmedForShippers: Order;
+  targetShipperId: string;
+  distanceKm?: number;
+  priorityScore?: number;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function errorStack(error: unknown): string | undefined {
+  return error instanceof Error ? error.stack : undefined;
+}
+
 // Enhanced service to track active shippers with constraint validation
 class ActiveShipperTracker {
   private activeShippers: Map<string, EligibleShipper> = new Map();
@@ -44,7 +67,7 @@ class ActiveShipperTracker {
     // Setup periodic cleanup
     this.cleanupInterval = setInterval(
       () => {
-        this.cleanup();
+        void this.cleanup();
       },
       5 * 60 * 1000,
     ); // Every 5 minutes
@@ -58,9 +81,9 @@ class ActiveShipperTracker {
     userRepository: Repository<User>,
     reviewRepository: Repository<Review>,
   ) {
-    (this as any).systemConstraintsService = systemConstraintsService;
-    (this as any).userRepository = userRepository;
-    (this as any).reviewRepository = reviewRepository;
+    this.systemConstraintsService = systemConstraintsService;
+    this.userRepository = userRepository;
+    this.reviewRepository = reviewRepository;
   }
 
   /**
@@ -151,9 +174,9 @@ class ActiveShipperTracker {
         shipper.lastActiveAt = new Date();
         await this.userRepository.save(shipper);
         this.logger.log(`✅ Updated last active time for shipper ${shipperId}`);
-      } catch (saveError) {
+      } catch (saveError: unknown) {
         this.logger.warn(
-          `⚠️ Failed to update last active time for shipper ${shipperId}: ${saveError.message}`,
+          `⚠️ Failed to update last active time for shipper ${shipperId}: ${errorMessage(saveError)}`,
         );
         // Don't fail the whole operation for this
       }
@@ -170,8 +193,11 @@ class ActiveShipperTracker {
         message: 'Successfully added to shipper pool',
         score: enhancedScore,
       };
-    } catch (error) {
-      this.logger.error(`❌ Error adding shipper ${shipperId}: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(
+        `❌ Error adding shipper ${shipperId}: ${errorMessage(error)}`,
+        errorStack(error),
+      );
       return { success: false, message: 'Internal error occurred' };
     }
   }
@@ -245,9 +271,9 @@ class ActiveShipperTracker {
       }
 
       return Math.max(0, Math.round(enhancedScore * 100) / 100);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Error calculating enhanced score for shipper ${shipper.id}: ${error.message}`,
+        `Error calculating enhanced score for shipper ${shipper.id}: ${errorMessage(error)}`,
       );
       return baseScore;
     }
@@ -273,7 +299,7 @@ class ActiveShipperTracker {
 
           try {
             // Get order details (you'll need to implement this method)
-            const orderDetails = await this.getOrderById(orderId);
+            const orderDetails = this.getOrderById(orderId);
 
             if (
               orderDetails &&
@@ -292,9 +318,9 @@ class ActiveShipperTracker {
               // Limit assignments per shipper per session
               if (assignedCount >= 3) break;
             }
-          } catch (error) {
+          } catch (error: unknown) {
             this.logger.error(
-              `❌ Failed to send order ${orderId} to shipper ${shipperId}: ${error.message}`,
+              `❌ Failed to send order ${orderId} to shipper ${shipperId}: ${errorMessage(error)}`,
             );
           }
         }
@@ -303,9 +329,9 @@ class ActiveShipperTracker {
       if (assignedCount > 0) {
         this.logger.log(`📦 Sent ${assignedCount} pending orders to shipper ${shipperId}`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `❌ Error processing pending assignments for shipper ${shipperId}: ${error.message}`,
+        `❌ Error processing pending assignments for shipper ${shipperId}: ${errorMessage(error)}`,
       );
     }
   }
@@ -329,7 +355,7 @@ class ActiveShipperTracker {
       const eligibleShippers: Array<EligibleShipper & { finalScore: number; distance: number }> =
         [];
 
-      for (const [shipperId, shipper] of this.activeShippers.entries()) {
+      for (const [, shipper] of this.activeShippers.entries()) {
         // Calculate distance
         const distance = haversineDistance(
           shipper.latitude,
@@ -411,8 +437,8 @@ class ActiveShipperTracker {
         score: bestShipper.finalScore,
         distance: bestShipper.distance,
       };
-    } catch (error) {
-      this.logger.error(`❌ Error finding best shipper: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`❌ Error finding best shipper: ${errorMessage(error)}`);
       return null;
     }
   }
@@ -550,8 +576,10 @@ class ActiveShipperTracker {
           shipper.lastActiveAt = new Date();
           await this.userRepository.save(shipper);
         }
-      } catch (error) {
-        this.logger.error(`Error updating shipper ${shipperId} last active time: ${error.message}`);
+      } catch (error: unknown) {
+        this.logger.error(
+          `Error updating shipper ${shipperId} last active time: ${errorMessage(error)}`,
+        );
       }
     }
 
@@ -668,7 +696,7 @@ class ActiveShipperTracker {
   /**
    * Helper method to get order details
    */
-  private async getOrderById(orderId: string): Promise<Order | null> {
+  private getOrderById(_orderId: string): Order | null {
     // This should be injected from OrderService
     // For now, we'll return null and handle in the calling method
     return null;
@@ -679,7 +707,7 @@ class ActiveShipperTracker {
   }
 
   cleanupInactiveShippers() {
-    this.cleanup();
+    void this.cleanup();
   }
 
   /**
@@ -726,15 +754,15 @@ export class OrderResolver {
 
   // Subscription for new pending orders for a restaurant
   @Subscription(() => Order, {
-    filter: (payload, variables, context) => {
+    filter: (payload: OrderCreatedPayload, variables: { restaurantId: string }) => {
       return (
         payload.orderCreated.restaurant.id === variables.restaurantId &&
         payload.orderCreated.status === 'pending'
       );
     },
-    resolve: (payload) => payload.orderCreated,
+    resolve: (payload: OrderCreatedPayload) => payload.orderCreated,
   })
-  orderCreated(@Args('restaurantId') restaurantId: string, @Context() context) {
+  orderCreated(@Args('restaurantId') restaurantId: string, @Context() _context: unknown) {
     if (!restaurantId) {
       throw new Error('restaurantId is required for orderCreated subscription');
     }
@@ -743,7 +771,7 @@ export class OrderResolver {
 
   // Subscription for users to get order status updates
   @Subscription(() => Order, {
-    filter: (payload, variables, context) => {
+    filter: (payload: OrderStatusUpdatedPayload, variables: { userId: string }) => {
       return (
         payload.orderStatusUpdated.user.id === variables.userId &&
         ['confirmed', 'delivering', 'shipper_received', 'completed', 'canceled'].includes(
@@ -751,9 +779,9 @@ export class OrderResolver {
         )
       );
     },
-    resolve: (payload) => payload.orderStatusUpdated,
+    resolve: (payload: OrderStatusUpdatedPayload) => payload.orderStatusUpdated,
   })
-  orderStatusUpdated(@Args('userId') userId: string, @Context() context) {
+  orderStatusUpdated(@Args('userId') userId: string, @Context() _context: unknown) {
     if (!userId) {
       throw new Error('userId is required for orderStatusUpdated subscription');
     }
@@ -762,7 +790,7 @@ export class OrderResolver {
 
   // Enhanced subscription for shippers with comprehensive delivery info
   @Subscription(() => Order, {
-    filter: (payload, variables, context) => {
+    filter: (payload: ShipperOrderPayload, variables: { shipperId: string }) => {
       const logger = new Logger('OrderSubscriptionFilter');
       const order = payload.orderConfirmedForShippers;
       const targetShipperId = payload.targetShipperId;
@@ -785,7 +813,7 @@ export class OrderResolver {
 
       return shouldSend;
     },
-    resolve: (payload) => {
+    resolve: (payload: ShipperOrderPayload) => {
       const order = payload.orderConfirmedForShippers;
 
       // Calculate enhanced shipping information
@@ -848,7 +876,7 @@ export class OrderResolver {
     @Args('latitude') latitude: string,
     @Args('longitude') longitude: string,
     @Args('maxDistance', { nullable: true, defaultValue: 20 }) maxDistance: number,
-    @Context() context,
+    @Context() _context: unknown,
   ) {
     this.logger.log(
       `🔗 Shipper ${shipperId} attempting to subscribe with location ${latitude}, ${longitude}`,
@@ -883,7 +911,7 @@ export class OrderResolver {
    * Query to get comprehensive shipper statistics
    */
   @Query(() => String)
-  async getShipperStats() {
+  getShipperStats() {
     if (!activeShipperTracker) {
       return JSON.stringify({ error: 'ActiveShipperTracker not initialized' });
     }
@@ -919,7 +947,7 @@ export class OrderResolver {
    * Get shipper queue status for an order
    */
   @Query(() => String)
-  async getShipperQueueStatus(@Args('orderId') orderId: string) {
+  getShipperQueueStatus(@Args('orderId') orderId: string) {
     if (!activeShipperTracker) {
       return JSON.stringify({ error: 'ActiveShipperTracker not initialized' });
     }

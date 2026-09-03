@@ -54,6 +54,7 @@ export class OrderCommandService {
     this.logger.log(`Order ${id} status updated to ${nextStatus}`);
 
     await this.eventBus.publish<NotificationRequestedEvent>(NOTIFICATION_REQUESTED_EVENT, {
+      idempotencyKey: `Order:${order.id}:status:${nextStatus}`,
       recipientUserId: order.user.id,
       description: 'Cập nhật trạng thái đơn hàng',
       content: `Đơn hàng của bạn đã chuyển sang trạng thái: ${nextStatus}`,

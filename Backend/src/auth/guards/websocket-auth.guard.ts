@@ -4,6 +4,21 @@ import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
 import { extractBearerToken } from '../utils/auth-token.util';
 
+interface JwtPayload {
+  sub: string;
+  [key: string]: unknown;
+}
+
+interface WebSocketContext {
+  headers?: { authorization?: string; Authorization?: string };
+  Authorization?: string;
+  user?: JwtPayload & { id: string; uid: string };
+}
+
+interface GraphqlWebSocketContext {
+  connection?: { context: WebSocketContext };
+}
+
 @Injectable()
 export class WebSocketAuthGuard implements CanActivate {
   constructor(
@@ -13,7 +28,7 @@ export class WebSocketAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const gqlContext = GqlExecutionContext.create(context);
-    const ctx = gqlContext.getContext();
+    const ctx = gqlContext.getContext<GraphqlWebSocketContext>();
 
     // For WebSocket subscriptions
     if (!ctx.connection) {
@@ -31,17 +46,15 @@ export class WebSocketAuthGuard implements CanActivate {
         throw new Error('JWT_SECRET is not configured');
       }
 
-      const payload = await this.jwtService.verifyAsync(token, {
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
         secret: jwtSecret,
       });
 
       // Attach the payload to the connection context (same as AuthGuard does to request)
-      connectionContext.user = payload;
-      connectionContext.user.id = payload.sub;
-      connectionContext.user.uid = payload.sub;
+      connectionContext.user = { ...payload, id: payload.sub, uid: payload.sub };
 
       return true;
-    } catch (error) {
+    } catch (_error: unknown) {
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

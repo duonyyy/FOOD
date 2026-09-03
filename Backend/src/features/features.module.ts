@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AnalyticsModule } from './analytics/public-api';
 import { CommunicationsModule } from './communications/public-api';
 import { DashboardModule } from './dashboard/public-api';
 import { DeliveryModule } from './delivery/public-api';
@@ -14,6 +15,7 @@ import { SystemConstraintsModule } from './system-constraints/public-api';
 
 @Module({
   imports: [
+    AnalyticsModule,
     IdentityModule,
     LocationsModule,
     RestaurantsModule,

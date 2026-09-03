@@ -1,9 +1,36 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Address } from 'src/entities/address.entity';
+import { Food } from 'src/entities/food.entity';
 import { Order } from 'src/entities/order.entity';
+import { Promotion } from 'src/entities/promotion.entity';
+import { Restaurant } from 'src/entities/restaurant.entity';
 import { Review } from 'src/entities/review.entity';
+import { Role } from 'src/entities/role.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { User } from 'src/entities/user.entity';
 import { In, Repository } from 'typeorm';
+import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../../features/orders/contracts/order-analytics-reader.port';
+
+interface ReviewInfo {
+  hasReviewedFood: boolean;
+  hasReviewedShipper: boolean;
+  foodReviews: Array<{
+    id: string;
+    foodId: string;
+    rating: number;
+    comment: string;
+    createdAt: Date;
+  }>;
+  shipperReview: {
+    id: string;
+    rating: number;
+    comment: string;
+    createdAt: Date;
+  } | null;
+  canReviewFood: boolean;
+  canReviewShipper: boolean | undefined;
+}
 
 @Injectable()
 export class OrderQueryService {
@@ -83,7 +110,8 @@ export class OrderQueryService {
         });
       }
 
-      (order as any).reviewInfo = {
+      const orderWithReviewInfo = order as Order & { reviewInfo: ReviewInfo };
+      orderWithReviewInfo.reviewInfo = {
         hasReviewedFood: foodReviews.length > 0,
         hasReviewedShipper: !!shipperReview,
         foodReviews: foodReviews.map((review) => ({
@@ -108,6 +136,33 @@ export class OrderQueryService {
     }
 
     return this.cleanSensitiveData(order);
+  }
+
+  async getAnalyticsSnapshot(orderId: string): Promise<OrderAnalyticsSnapshot> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['user', 'restaurant', 'shippingDetail', 'shippingDetail.shipper'],
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    return this.toAnalyticsSnapshot(order);
+  }
+
+  async getAnalyticsSnapshots(page = 1, pageSize = 200): Promise<OrderAnalyticsPage> {
+    const safePage = Math.max(1, page);
+    const safePageSize = Math.min(Math.max(1, pageSize), 500);
+    const [orders, totalItems] = await this.orderRepository.findAndCount({
+      relations: ['user', 'restaurant', 'shippingDetail', 'shippingDetail.shipper'],
+      order: { createdAt: 'ASC' },
+      skip: (safePage - 1) * safePageSize,
+      take: safePageSize,
+    });
+    return {
+      items: orders.map((order) => this.toAnalyticsSnapshot(order)),
+      page: safePage,
+      pageSize: safePageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / safePageSize),
+    };
   }
 
   async getOrdersByUser(userId: string, page = 1, pageSize = 10, status?: string) {
@@ -186,6 +241,7 @@ export class OrderQueryService {
       restaurantId: order.orderDetails?.[0]?.food?.restaurant?.id,
       totalAmount: order.total,
       orderDetails: order.orderDetails.map((detail) => ({
+        foodId: detail.food?.id,
         foodName: detail.foodNameSnapshot ?? detail.food?.name,
         quantity: detail.quantity,
         price: detail.unitPriceSnapshot ?? detail.price,
@@ -232,64 +288,75 @@ export class OrderQueryService {
 
   private cleanSensitiveData(order: Order): Order {
     if (order.user) {
-      delete (order.user as any).password;
-      delete (order.user as any).resetPasswordToken;
-      delete (order.user as any).resetPasswordExpires;
-      delete (order.user as any).birthday;
-      delete (order.user as any).lastLoginAt;
-      delete (order.user as any).createdAt;
-      delete (order.user as any).googleId;
+      delete (order.user as Partial<User>).password;
+      delete (order.user as Partial<User>).resetPasswordToken;
+      delete (order.user as Partial<User>).resetPasswordExpires;
+      delete (order.user as Partial<User>).birthday;
+      delete (order.user as Partial<User>).lastLoginAt;
+      delete (order.user as Partial<User>).createdAt;
+      delete (order.user as Partial<User>).googleId;
       if (order.user.role) {
-        delete (order.user.role as any).isSystem;
-        delete (order.user.role as any).description;
-        delete (order.user.role as any).createdAt;
-        delete (order.user.role as any).updatedAt;
+        delete (order.user.role as Partial<Role>).isSystem;
+        delete (order.user.role as Partial<Role>).description;
+        delete (order.user.role as Partial<Role>).createdAt;
+        delete (order.user.role as Partial<Role>).updatedAt;
       }
       if (order.user.address) {
         order.user.address.forEach((address) => {
-          delete (address as any).latitude;
-          delete (address as any).longitude;
+          delete (address as Partial<Address>).latitude;
+          delete (address as Partial<Address>).longitude;
         });
       }
     }
 
     if (order.restaurant) {
-      delete (order.restaurant as any).openTime;
-      delete (order.restaurant as any).closeTime;
-      delete (order.restaurant as any).licenseCode;
-      delete (order.restaurant as any).certificateImage;
-      delete (order.restaurant as any).updatedAt;
-      delete (order.restaurant as any).createdAt;
+      delete (order.restaurant as Partial<Restaurant>).openTime;
+      delete (order.restaurant as Partial<Restaurant>).closeTime;
+      delete (order.restaurant as Partial<Restaurant>).licenseCode;
+      delete (order.restaurant as Partial<Restaurant>).certificateImage;
+      delete (order.restaurant as Partial<Restaurant>).updatedAt;
+      delete (order.restaurant as Partial<Restaurant>).createdAt;
     }
 
     order.orderDetails?.forEach((detail) => {
       if (detail.food) {
-        delete (detail.food as any).soldCount;
-        delete (detail.food as any).purchasedNumber;
+        delete (detail.food as Partial<Food>).soldCount;
+        delete (detail.food as Partial<Food>).purchasedNumber;
       }
     });
 
     if (order.shippingDetail?.shipper) {
       const shipper = order.shippingDetail.shipper;
-      delete (shipper as any).password;
-      delete (shipper as any).resetPasswordToken;
-      delete (shipper as any).resetPasswordExpires;
-      delete (shipper as any).email;
-      delete (shipper as any).birthday;
-      delete (shipper as any).lastLoginAt;
-      delete (shipper as any).createdAt;
-      delete (shipper as any).googleId;
-      delete (shipper as any).address;
-      delete (shipper as any).role;
+      delete (shipper as Partial<User>).password;
+      delete (shipper as Partial<User>).resetPasswordToken;
+      delete (shipper as Partial<User>).resetPasswordExpires;
+      delete (shipper as Partial<User>).email;
+      delete (shipper as Partial<User>).birthday;
+      delete (shipper as Partial<User>).lastLoginAt;
+      delete (shipper as Partial<User>).createdAt;
+      delete (shipper as Partial<User>).googleId;
+      delete (shipper as Partial<User>).address;
+      delete (shipper as Partial<User>).role;
     }
 
     if (order.promotionCode) {
-      delete (order.promotionCode as any).usageLimit;
-      delete (order.promotionCode as any).usageCount;
-      delete (order.promotionCode as any).createdAt;
-      delete (order.promotionCode as any).updatedAt;
+      delete (order.promotionCode as Partial<Promotion>).maxUsage;
+      delete (order.promotionCode as Partial<Promotion>).numberOfUsed;
     }
 
     return order;
+  }
+
+  private toAnalyticsSnapshot(order: Order): OrderAnalyticsSnapshot {
+    return {
+      orderId: order.id,
+      restaurantId: order.restaurant?.id ?? null,
+      customerId: order.user?.id ?? null,
+      shipperId: order.shippingDetail?.shipper?.id ?? null,
+      total: Number(order.total ?? 0),
+      status: order.status ?? 'pending',
+      createdAt: order.createdAt,
+      deliveryCompletedAt: order.shippingDetail?.actualDeliveryTime ?? null,
+    };
   }
 }

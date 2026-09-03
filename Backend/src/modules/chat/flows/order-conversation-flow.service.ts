@@ -1,23 +1,19 @@
-import { Injectable } from '@nestjs/common';
-import { RestaurantDiscoveryService } from 'src/features/restaurants/services/restaurant-discovery.service';
-import { AddressService } from 'src/modules/address/address.service';
-import { CreateOrderDetailDto } from 'src/modules/order/dto/create-order.dto';
-import { OrderService } from 'src/modules/order/order.service';
+import { Inject, Injectable } from '@nestjs/common';
+import { LOCATION_READER, type LocationReaderPort } from 'src/features/locations/public-api';
+import { CHAT_ORDERING, type ChatOrderingPort } from 'src/features/orders/public-api';
 import { ChatLlmService } from '../services/chat-llm.service';
 import { ChatOrderValidationService } from '../services/chat-order-validation.service';
-
-import { OrderCreatedPublisher } from '../services/order-created-publisher.service';
-import { ChatContext, ChatMetadata, ChatReply } from '../types/chat.types';
+import { ChatAddress, ChatContext, ChatMetadata, ChatReply } from '../types/chat.types';
 
 @Injectable()
 export class OrderConversationFlowService {
   constructor(
-    private readonly addressService: AddressService,
-    private readonly orderService: OrderService,
-    private readonly restaurantService: RestaurantDiscoveryService,
+    @Inject(LOCATION_READER)
+    private readonly locationReader: LocationReaderPort,
+    @Inject(CHAT_ORDERING)
+    private readonly ordering: ChatOrderingPort,
     private readonly orderValidationService: ChatOrderValidationService,
     private readonly llmService: ChatLlmService,
-    private readonly orderCreatedPublisher: OrderCreatedPublisher,
   ) {}
 
   isStartRequest(userMessage: string): boolean {
@@ -25,7 +21,7 @@ export class OrderConversationFlowService {
     return lowerMessage.includes('đặt món') || lowerMessage.includes('đặt đơn');
   }
 
-  async start(metadata: ChatMetadata): Promise<ChatReply> {
+  start(metadata: ChatMetadata): ChatReply {
     metadata.isOrdering = true;
 
     return {
@@ -54,6 +50,10 @@ export class OrderConversationFlowService {
     }
 
     if (metadata.isAddressConfirmed && !metadata.isPaymentConfirmed) {
+      return this.choosePayment(userMessage, metadata);
+    }
+
+    if (metadata.isPaymentConfirmed) {
       return this.placeOrder(userMessage, userId, metadata);
     }
 
@@ -124,10 +124,7 @@ export class OrderConversationFlowService {
       return this.continue('', userId, metadata, context);
     }
 
-    const restaurantId = metadata.orderItems[0]?.restaurantId;
-    const restaurantName = restaurantId
-      ? await this.restaurantService.getNameById(restaurantId)
-      : 'đã chọn';
+    const restaurantName = metadata.orderItems[0]?.restaurantName || 'đã chọn';
 
     return {
       reply: `Món ăn đã được xác nhận. Bạn muốn giao hàng từ cửa hàng ${restaurantName} phải không?`,
@@ -140,7 +137,7 @@ export class OrderConversationFlowService {
     userMessage: string,
     userId: string,
     metadata: ChatMetadata,
-    context: ChatContext,
+    _context: ChatContext,
   ): Promise<ChatReply> {
     if (this.isPositiveConfirmation(userMessage) && metadata.selectedAddress) {
       metadata.isAddressConfirmed = true;
@@ -151,7 +148,14 @@ export class OrderConversationFlowService {
       };
     }
 
-    metadata.addresses = await this.addressService.getAddresseByUser(userId);
+    const addresses = await this.locationReader.listOwnedAddresses(userId);
+    metadata.addresses = addresses.map((address) => ({
+      id: address.addressId,
+      street: address.street,
+      ward: address.ward,
+      district: address.district,
+      city: address.city,
+    }));
 
     if (!metadata.addresses.length) {
       return {
@@ -189,12 +193,40 @@ export class OrderConversationFlowService {
     };
   }
 
+  private choosePayment(userMessage: string, metadata: ChatMetadata): ChatReply {
+    const paymentMethod = this.orderValidationService.parsePaymentMethod(userMessage);
+    if (!paymentMethod) {
+      return {
+        reply: 'Bạn muốn thanh toán bằng COD hay card?',
+        action: 'choosePayment',
+        metadata,
+      };
+    }
+
+    metadata.selectedPaymentMethod = paymentMethod;
+    metadata.isPaymentConfirmed = true;
+    return {
+      reply: `Bạn chọn thanh toán bằng ${paymentMethod.toUpperCase()}. Bạn có xác nhận tạo đơn không?`,
+      action: 'confirmCreateOrder',
+      metadata,
+    };
+  }
+
   private async placeOrder(
     userMessage: string,
     userId: string,
     metadata: ChatMetadata,
   ): Promise<ChatReply> {
-    const validation = await this.orderValidationService.validate(userId, userMessage, metadata);
+    if (!this.isPositiveConfirmation(userMessage)) {
+      return {
+        reply:
+          'Mình chưa tạo đơn. Bạn hãy trả lời "có" nếu muốn xác nhận tạo đơn, hoặc "hủy" để dừng.',
+        action: 'confirmCreateOrder',
+        metadata,
+      };
+    }
+
+    const validation = await this.orderValidationService.validate(userId, metadata);
     if (!validation.valid || !validation.order) {
       return {
         reply:
@@ -205,24 +237,19 @@ export class OrderConversationFlowService {
       };
     }
 
-    const orderDetails: CreateOrderDetailDto[] = validation.order.orderItems.map((item) => ({
-      foodId: item.foodId,
-      quantity: item.quantity.toString(),
-      price: item.price.toString(),
-    }));
-
-    const orderResponse = await this.orderService.createOrder({
-      userId,
+    const orderResponse = await this.ordering.createOrder({
+      customerId: userId,
       restaurantId: validation.order.restaurantId,
       addressId: validation.order.addressId,
-      orderDetails,
       paymentMethod: validation.order.paymentMethod,
-      promotionCode: undefined,
+      items: validation.order.orderItems.map((item) => ({
+        foodId: item.foodId,
+        quantity: item.quantity,
+      })),
     });
 
-    await this.orderCreatedPublisher.publish(orderResponse);
-
     metadata.isPaymentConfirmed = false;
+    metadata.selectedPaymentMethod = undefined;
     metadata.isOrdering = false;
     metadata.isFoodConfirmed = false;
     metadata.isRestaurantConfirmed = false;
@@ -231,22 +258,30 @@ export class OrderConversationFlowService {
     metadata.selectedAddress = undefined;
 
     return {
-      reply: `Đơn hàng của bạn đã được tạo thành công. Bạn có thể xem chi tiết đơn hàng tại: https://foodee-fe.onrender.com/order/${orderResponse.id}. Tổng tiền: ${orderResponse.total}. Cảm ơn bạn đã sử dụng dịch vụ của Foodee <3.`,
+      reply: `Đơn hàng của bạn đã được tạo thành công. Bạn có thể xem chi tiết đơn hàng tại: https://foodee-fe.onrender.com/order/${orderResponse.orderId}. Tổng tiền: ${orderResponse.total}. Cảm ơn bạn đã sử dụng dịch vụ của Foodee <3.`,
       action: 'placeOrder',
-      metadata: { orderId: orderResponse.id, total: orderResponse.total, ...metadata },
+      metadata: { ...metadata, orderId: orderResponse.orderId, total: orderResponse.total },
     };
   }
 
   private isPositiveConfirmation(userMessage: string): boolean {
-    const lowerMessage = userMessage.toLowerCase();
-    return (
-      lowerMessage.includes('xác nhận') ||
-      lowerMessage.includes('tiếp tục') ||
-      lowerMessage.includes('có')
-    );
+    const lowerMessage = userMessage.normalize('NFC').toLowerCase();
+    const tokenBoundary = '(?:^|[^\\p{L}\\p{N}_])';
+    const endBoundary = '(?=$|[^\\p{L}\\p{N}_])';
+
+    if (
+      new RegExp(`${tokenBoundary}(không|hủy|huỷ|no|cancel)${endBoundary}`, 'u').test(lowerMessage)
+    ) {
+      return false;
+    }
+
+    return new RegExp(
+      `${tokenBoundary}(có|ok|okay|đồng ý|xác nhận|tiếp tục|yes)${endBoundary}`,
+      'u',
+    ).test(lowerMessage);
   }
 
-  private formatAddress(address: any): string {
+  private formatAddress(address: ChatAddress): string {
     return [address?.street, address?.ward, address?.district, address?.city]
       .filter(Boolean)
       .join(', ');

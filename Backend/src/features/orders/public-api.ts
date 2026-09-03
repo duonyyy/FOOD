@@ -1,4 +1,22 @@
 export {
+  CHAT_ORDERING,
+  type ChatOrderingPort,
+  type ChatReorderOrder,
+  type CreateChatOrderRequest,
+  type CreatedChatOrderSnapshot,
+} from './contracts/chat-ordering.port';
+export {
+  ORDER_ANALYTICS_READER,
+  type OrderAnalyticsPage,
+  type OrderAnalyticsReaderPort,
+  type OrderAnalyticsSnapshot,
+} from './contracts/order-analytics-reader.port';
+export {
+  ORDER_NOTIFICATION_READER,
+  type OrderNotificationReaderPort,
+  type OrderNotificationRecipient,
+} from './contracts/order-notification-reader.port';
+export {
   ORDER_REVIEW_ELIGIBILITY_READER,
   type FindOrderReviewEligibilityRequest,
   type OrderReviewEligibilityReaderPort,

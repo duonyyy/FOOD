@@ -22,6 +22,7 @@ export class NotificationService {
     description: string;
     content: string;
     type: string;
+    idempotencyKey?: string;
   }): Promise<Notification> {
     const notification = await this.notificationRepo.save({
       receiveUser: params.recipientUserId,
@@ -29,6 +30,7 @@ export class NotificationService {
       content: params.content,
       type: params.type,
       isRead: false,
+      idempotencyKey: params.idempotencyKey ?? null,
     });
 
     this.logger.log(
@@ -36,6 +38,36 @@ export class NotificationService {
     );
 
     return notification;
+  }
+
+  /**
+   * Event consumers must use this method. The database unique index makes an
+   * event replay safe even when two handlers race.
+   */
+  async createFromEvent(params: {
+    recipientUserId: string;
+    description: string;
+    content: string;
+    type: string;
+    idempotencyKey: string;
+  }): Promise<{ notification: Notification; created: boolean }> {
+    const existing = await this.notificationRepo.findOne({
+      where: { idempotencyKey: params.idempotencyKey },
+    });
+    if (existing) return { notification: existing, created: false };
+
+    try {
+      const notification = await this.create(params);
+      return { notification, created: true };
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+
+      const duplicate = await this.notificationRepo.findOne({
+        where: { idempotencyKey: params.idempotencyKey },
+      });
+      if (duplicate) return { notification: duplicate, created: false };
+      throw error;
+    }
   }
 
   /**
@@ -89,5 +121,14 @@ export class NotificationService {
     dto.isRead = entity.isRead;
     dto.createdAt = entity.createdAt;
     return dto;
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === '23505'
+    );
   }
 }

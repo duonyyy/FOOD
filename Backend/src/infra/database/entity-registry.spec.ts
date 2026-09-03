@@ -14,12 +14,15 @@ describe('database entity registry', () => {
   it('contains every current persistence entity exactly once', () => {
     expect(DATABASE_ENTITY_NAMES).toEqual([
       'Address',
+      'AnalyticsOrderMetric',
       'Category',
       'Checkout',
       'Conversation',
+      'DeliveryEarningsEvent',
       'Food',
       'Message',
       'Notification',
+      'NotificationDeadLetter',
       'Order',
       'OrderDetail',
       'OutboxEvent',
@@ -31,6 +34,7 @@ describe('database entity registry', () => {
       'Review',
       'Role',
       'ShipperCertificateInfo',
+      'ShipperProfile',
       'ShippingDetail',
       'SystemConstraint',
       'Topping',

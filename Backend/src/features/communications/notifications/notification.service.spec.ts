@@ -60,8 +60,41 @@ describe('NotificationService', () => {
         content: 'Content',
         type: 'order',
         isRead: false,
+        idempotencyKey: null,
       });
       expect(result).toBe(saved);
+    });
+
+    it('returns an existing notification for a replayed event key', async () => {
+      const existing = mockNotification({ idempotencyKey: 'payment.succeeded:checkout-1:user-1' });
+      repo.findOne.mockResolvedValue(existing);
+
+      const result = await service.createFromEvent({
+        recipientUserId: 'user-1',
+        description: 'Thanh toán thành công',
+        content: 'Đã thanh toán',
+        type: 'payment',
+        idempotencyKey: 'payment.succeeded:checkout-1:user-1',
+      });
+
+      expect(result).toEqual({ notification: existing, created: false });
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('treats a unique-key race as an event replay', async () => {
+      const existing = mockNotification({ idempotencyKey: 'delivery.completed:order-1:user-1' });
+      repo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+      repo.save.mockRejectedValue({ code: '23505' });
+
+      const result = await service.createFromEvent({
+        recipientUserId: 'user-1',
+        description: 'Đơn hàng đã hoàn thành',
+        content: 'Đã giao hàng',
+        type: 'delivery',
+        idempotencyKey: 'delivery.completed:order-1:user-1',
+      });
+
+      expect(result).toEqual({ notification: existing, created: false });
     });
   });
 

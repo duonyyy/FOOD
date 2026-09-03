@@ -1,10 +1,12 @@
 import { Address } from '../../entities/address.entity';
+import { AnalyticsOrderMetric } from '../../entities/analyticsOrderMetric.entity';
 import { Category } from '../../entities/category.entity';
 import { Checkout } from '../../entities/checkout.entity';
 import { Conversation } from '../../entities/conversation.entity';
 import { DeliveryEarningsEvent } from '../../entities/deliveryEarningsEvent.entity';
 import { Food } from '../../entities/food.entity';
 import { Message } from '../../entities/message.entity';
+import { NotificationDeadLetter } from '../../entities/notification-dead-letter.entity';
 import { Notification } from '../../entities/notification.entity';
 import { Order } from '../../entities/order.entity';
 import { OrderDetail } from '../../entities/orderDetail.entity';
@@ -25,6 +27,7 @@ import { User } from '../../entities/user.entity';
 
 export const DATABASE_ENTITIES = [
   Address,
+  AnalyticsOrderMetric,
   Category,
   Checkout,
   Conversation,
@@ -32,6 +35,7 @@ export const DATABASE_ENTITIES = [
   Food,
   Message,
   Notification,
+  NotificationDeadLetter,
   Order,
   OrderDetail,
   OutboxEvent,

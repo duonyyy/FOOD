@@ -1,4 +1,4 @@
-import { Controller, DefaultValuePipe, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, DefaultValuePipe, Get, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
@@ -36,5 +36,13 @@ export class DashboardController {
     @Query('period', new DefaultValuePipe('year')) period: 'year' | 'month' | 'week',
   ) {
     return await this.dashboardService.getOrderCompletionStats(period);
+  }
+
+  @Get('restaurant-performance')
+  async getRestaurantPerformance(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
+  ) {
+    return this.dashboardService.getRestaurantPerformance(page, pageSize);
   }
 }
