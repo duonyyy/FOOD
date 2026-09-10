@@ -20,6 +20,10 @@ describe('Shipper delivery transition and concurrency baseline', () => {
   let outbox: Record<string, jest.Mock>;
   let service: ShipperService;
 
+  type TransactionManagerMock = {
+    getRepository: (entity: unknown) => unknown;
+  };
+
   beforeEach(() => {
     order = Object.assign(new Order(), {
       id: 'order-1',
@@ -45,32 +49,41 @@ describe('Shipper delivery transition and concurrency baseline', () => {
     );
 
     shippingRepository = {
-      findOne: jest.fn(async () => shippingDetail),
-      create: jest.fn((value) => Object.assign(new ShippingDetail(), value)),
-      save: jest.fn(async (value) => {
+      findOne: jest.fn(() => Promise.resolve(shippingDetail)),
+      create: jest.fn((value: Partial<ShippingDetail>) =>
+        Object.assign(new ShippingDetail(), value),
+      ),
+      save: jest.fn((value: ShippingDetail) => {
         shippingDetail = value;
-        return value;
+        return Promise.resolve(value);
       }),
     };
     userRepository = {
-      findOne: jest.fn(async ({ where }) => shippers.get(where.id) || null),
-      save: jest.fn(async (value) => value),
+      findOne: jest.fn(({ where }: { where: { id: string } }) =>
+        Promise.resolve(shippers.get(where.id) || null),
+      ),
+      save: jest.fn((value: User) => Promise.resolve(value)),
     };
 
     let transactionTail = Promise.resolve();
-    const manager = {
-      getRepository: (entity: { name: string }) => {
+    const manager: TransactionManagerMock = {
+      getRepository: (entity: unknown) => {
         if (entity === Order) return orderRepository;
         if (entity === ShippingDetail) return shippingRepository;
         if (entity === User) return userRepository;
-        throw new Error(`Unexpected repository ${entity.name}`);
+        throw new Error('Unexpected repository');
       },
     };
     orderRepository = {
-      findOne: jest.fn(async () => order),
-      save: jest.fn(async (value) => value),
+      findOne: jest.fn(() => Promise.resolve(order)),
+      createQueryBuilder: jest.fn(() => ({
+        where: jest.fn().mockReturnThis(),
+        setLock: jest.fn().mockReturnThis(),
+        getOne: jest.fn(() => Promise.resolve(order)),
+      })),
+      save: jest.fn((value: Order) => Promise.resolve(value)),
       manager: {
-        transaction: jest.fn((callback) => {
+        transaction: jest.fn((callback: (manager: TransactionManagerMock) => unknown) => {
           const result = transactionTail.then(() => callback(manager));
           transactionTail = result.then(
             () => undefined,
@@ -81,12 +94,14 @@ describe('Shipper delivery transition and concurrency baseline', () => {
       },
     };
     pending = {
-      getPendingAssignmentForShipper: jest.fn(async (shipperId) => ({
-        assignmentId: `assignment-${shipperId}`,
-        orderId: order.id,
-        shipperId,
-        expiresAt: new Date(Date.now() + 60_000),
-      })),
+      getPendingAssignmentForShipper: jest.fn((shipperId: string) =>
+        Promise.resolve({
+          assignmentId: `assignment-${shipperId}`,
+          orderId: order.id,
+          shipperId,
+          expiresAt: new Date(Date.now() + 60_000),
+        }),
+      ),
       getActiveHoldForOrder: jest.fn().mockResolvedValue(null),
       createShipperHold: jest.fn().mockResolvedValue({
         assignmentId: 'assignment-1',
@@ -127,7 +142,7 @@ describe('Shipper delivery transition and concurrency baseline', () => {
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
     expect(results.find((result) => result.status === 'rejected')).toMatchObject({
-      reason: expect.any(ConflictException),
+      reason: expect.any(ConflictException) as unknown,
     });
     expect(shippingRepository.save).toHaveBeenCalledTimes(1);
     expect(order.status).toBe('shipper_received');

@@ -33,6 +33,6 @@ export interface GcsUploadJobData {
   readonly mimetype: string;
   readonly folder: string;
   readonly isPublic: boolean;
-  readonly transcodingConfig?: any;
+  readonly transcodingConfig?: Record<string, unknown>;
   readonly contentId?: string;
 }

@@ -3,7 +3,7 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 import { Job, JobsOptions, Queue } from 'bullmq';
 import { type DeliveryQueueJobOptions } from 'src/features/delivery/contracts/delivery-assignment-queue.port';
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
-import { QueueNames } from './queue.constants';
+import { FindShipperJobData, QueueNames } from './queue.constants';
 
 export type QueueJobOptions = DeliveryQueueJobOptions;
 
@@ -13,14 +13,14 @@ export class QueueService {
 
   constructor(
     @InjectQueue(QueueNames.FIND_SHIPPER)
-    private readonly findShipperQueue: Queue,
+    private readonly findShipperQueue: Queue<FindShipperJobData>,
   ) {
     this.logger.log({ event: 'provider_initialized', provider: 'queue' });
   }
 
-  async addJob<T extends object>(
+  async addJob(
     queueName: string,
-    jobData: T,
+    jobData: FindShipperJobData,
     options?: QueueJobOptions,
   ): Promise<string> {
     try {
@@ -57,7 +57,7 @@ export class QueueService {
     }
   }
 
-  async getPendingJobs(queueName: string, limit = 10): Promise<Job[]> {
+  async getPendingJobs(queueName: string, limit = 10): Promise<Job<FindShipperJobData>[]> {
     try {
       const queue = this.getQueue(queueName);
       const end = Math.max(limit - 1, 0);
@@ -74,7 +74,7 @@ export class QueueService {
 
   async getQueueStats(queueName: string): Promise<{
     size: number;
-    pendingJobs: Array<{ id: string; data: any }>;
+    pendingJobs: Array<{ id: string; data: FindShipperJobData }>;
   }> {
     const [size, jobs] = await Promise.all([
       this.getQueueSize(queueName),
@@ -110,14 +110,14 @@ export class QueueService {
     }
   }
 
-  async completeJob(): Promise<boolean> {
+  completeJob(): boolean {
     this.logger.warn(
       'completeJob is not used with BullMQ. Jobs complete when the processor returns.',
     );
     return false;
   }
 
-  async failJob(): Promise<boolean> {
+  failJob(): boolean {
     this.logger.warn('failJob is not used with BullMQ. Throw inside the processor to fail a job.');
     return false;
   }
@@ -146,7 +146,7 @@ export class QueueService {
     }
   }
 
-  private getQueue(queueName: string): Queue {
+  private getQueue(queueName: string): Queue<FindShipperJobData> {
     if (queueName === QueueNames.FIND_SHIPPER) {
       return this.findShipperQueue;
     }

@@ -1,4 +1,5 @@
 import { Job, UnrecoverableError } from 'bullmq';
+import { type DeliveryAssignmentJobData } from 'src/features/delivery/contracts/delivery-assignment-queue.port';
 import { FindShipperProcessor } from './find-shipper.processor';
 
 describe('FindShipperProcessor', () => {
@@ -7,10 +8,14 @@ describe('FindShipperProcessor', () => {
     attemptsMade: 0,
     opts: { attempts: 3 },
     data: { pendingAssignmentId: 'assignment-1', orderId: 'order-1', attempt: 1 },
-  } as Job<any>;
+  } as unknown as Job<DeliveryAssignmentJobData>;
 
   it('only forwards a valid job to the Delivery application service', async () => {
-    const scheduler = { processShipperAssignmentJobData: jest.fn().mockResolvedValue(undefined) };
+    const scheduler = {
+      processShipperAssignmentJobData: jest.fn(
+        (_jobId: string, _data: DeliveryAssignmentJobData): Promise<void> => Promise.resolve(),
+      ),
+    };
     const processor = new FindShipperProcessor(scheduler as never);
 
     await processor.process(validJob);
@@ -21,7 +26,10 @@ describe('FindShipperProcessor', () => {
   it('routes malformed payloads to dead-letter without calling business logic', async () => {
     const scheduler = { processShipperAssignmentJobData: jest.fn() };
     const processor = new FindShipperProcessor(scheduler as never);
-    const job = { ...validJob, data: { orderId: 'order-1' } } as Job<any>;
+    const job = {
+      ...validJob,
+      data: { orderId: 'order-1' },
+    } as unknown as Job<DeliveryAssignmentJobData>;
 
     await expect(processor.process(job)).rejects.toBeInstanceOf(UnrecoverableError);
     expect(scheduler.processShipperAssignmentJobData).not.toHaveBeenCalled();
@@ -29,14 +37,16 @@ describe('FindShipperProcessor', () => {
 
   it('logs a dead-letter event after the final retry and rethrows retryable errors', async () => {
     const scheduler = {
-      processShipperAssignmentJobData: jest
-        .fn()
-        .mockRejectedValue(new Error('temporary Redis failure')),
+      processShipperAssignmentJobData: jest.fn(
+        (_jobId: string, _data: DeliveryAssignmentJobData): Promise<void> =>
+          Promise.reject(new Error('temporary Redis failure')),
+      ),
     };
     const processor = new FindShipperProcessor(scheduler as never);
-    const logger = (processor as any).logger;
+    const logger = (processor as unknown as { logger: { error: (...args: unknown[]) => void } })
+      .logger;
     const loggerSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined);
-    const job = { ...validJob, attemptsMade: 2 } as Job<any>;
+    const job = { ...validJob, attemptsMade: 2 } as unknown as Job<DeliveryAssignmentJobData>;
 
     await expect(processor.process(job)).rejects.toThrow('temporary Redis failure');
     expect(loggerSpy).toHaveBeenCalledWith(

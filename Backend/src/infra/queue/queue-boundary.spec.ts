@@ -8,8 +8,17 @@ describe('Queue adapter boundary', () => {
     const imports = Reflect.getMetadata('imports', QueueModule) as unknown[];
     const providers = Reflect.getMetadata('providers', QueueModule) as unknown[];
 
-    expect(imports.some((item: any) => item?.module === TypeOrmModule)).toBe(false);
+    expect(imports.some((item) => isTypeOrmImport(item))).toBe(false);
     expect(providers).toEqual(expect.arrayContaining([QueueService, PendingAssignmentStore]));
     expect(providers).not.toContain(expect.objectContaining({ name: 'PendingAssignmentService' }));
   });
 });
+
+function isTypeOrmImport(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'module' in value &&
+    value.module === TypeOrmModule
+  );
+}

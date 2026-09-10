@@ -193,10 +193,11 @@ export class ShipperService {
       const orderRepository = manager.getRepository(Order);
       const shippingDetailRepository = manager.getRepository(ShippingDetail);
 
-      const lockedOrder = await orderRepository.findOne({
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const lockedOrder = await orderRepository
+        .createQueryBuilder('order')
+        .where('order.id = :orderId', { orderId })
+        .setLock('pessimistic_write')
+        .getOne();
 
       if (!lockedOrder || lockedOrder.status !== 'confirmed') {
         return null;
@@ -268,10 +269,11 @@ export class ShipperService {
       const shippingDetailRepository = manager.getRepository(ShippingDetail);
       const userRepository = manager.getRepository(User);
 
-      const order = await orderRepository.findOne({
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const order = await orderRepository
+        .createQueryBuilder('order')
+        .where('order.id = :orderId', { orderId })
+        .setLock('pessimistic_write')
+        .getOne();
 
       if (!order) {
         throw new BadRequestException('Order not found');

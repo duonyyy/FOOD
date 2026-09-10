@@ -17,29 +17,57 @@ describe('DeliveryEarningsProjectionService', () => {
       weeklyEarnings: 0,
       monthlyEarnings: 0,
     });
-    const eventRepository = {
-      manager: { transaction: jest.fn(async (callback) => callback(manager)) },
-      findOne: jest.fn(
-        async ({ where }) =>
+    type EventRepositoryMock = {
+      manager: { transaction: jest.Mock };
+      findOne: jest.Mock;
+      create: jest.Mock;
+      save: jest.Mock;
+      find: jest.Mock;
+    };
+    type ProfileRepositoryMock = {
+      findOne: jest.Mock;
+      create: jest.Mock;
+      save: jest.Mock;
+      find: jest.Mock;
+    };
+    type TransactionManagerMock = {
+      getRepository: (
+        entity: typeof DeliveryEarningsEvent | typeof ShipperProfile,
+      ) => EventRepositoryMock | ProfileRepositoryMock;
+    };
+
+    const eventRepository: EventRepositoryMock = {
+      manager: { transaction: jest.fn() },
+      findOne: jest.fn(({ where }: { where: { idempotencyKey: string } }) =>
+        Promise.resolve(
           entries.find((entry) => entry.idempotencyKey === where.idempotencyKey) ?? null,
+        ),
       ),
-      create: jest.fn((value) => Object.assign(new DeliveryEarningsEvent(), value)),
-      save: jest.fn(async (entry) => {
+      create: jest.fn((value: Partial<DeliveryEarningsEvent>) =>
+        Object.assign(new DeliveryEarningsEvent(), value),
+      ),
+      save: jest.fn((entry: DeliveryEarningsEvent) => {
         entries.push(entry);
-        return entry;
+        return Promise.resolve(entry);
       }),
-      find: jest.fn(async () => entries),
+      find: jest.fn(() => Promise.resolve(entries)),
     };
-    const profileRepository = {
-      findOne: jest.fn(async () => profile),
-      create: jest.fn((value) => Object.assign(new ShipperProfile(), value)),
-      save: jest.fn(async (value) => value),
-      find: jest.fn(async () => [profile]),
+    const profileRepository: ProfileRepositoryMock = {
+      findOne: jest.fn(() => Promise.resolve(profile)),
+      create: jest.fn((value: Partial<ShipperProfile>) =>
+        Object.assign(new ShipperProfile(), value),
+      ),
+      save: jest.fn((value: ShipperProfile) => Promise.resolve(value)),
+      find: jest.fn(() => Promise.resolve([profile])),
     };
-    const manager = {
-      getRepository: (entity: { name: string }) =>
+    const manager: TransactionManagerMock = {
+      getRepository: (entity) =>
         entity === DeliveryEarningsEvent ? eventRepository : profileRepository,
     };
+    eventRepository.manager.transaction.mockImplementation(
+      (callback: (transactionManager: TransactionManagerMock) => unknown) =>
+        Promise.resolve(callback(manager)),
+    );
     const service = new DeliveryEarningsProjectionService(
       eventRepository as never,
       profileRepository as never,

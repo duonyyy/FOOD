@@ -16,8 +16,13 @@ export {
   type DeliveryQuoteSnapshot,
 } from './contracts/delivery-quote.port';
 export {
+  SHIPPER_PROFILE_COMMANDS,
   SHIPPER_PROFILE_READER,
+  SHIPPER_PROFILE_STATUS,
+  type CreateShipperProfileCommand,
+  type ShipperProfileCommandPort,
   type ShipperProfileReaderPort,
   type ShipperProfileSnapshot,
+  type ShipperProfileStatus,
 } from './contracts/shipper-profile.port';
 export { DeliveryModule } from './delivery.module';

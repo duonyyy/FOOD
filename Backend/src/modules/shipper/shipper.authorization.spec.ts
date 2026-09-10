@@ -11,15 +11,23 @@ describe('Shipper assignment authorization characterization', () => {
     orderRepository = {
       findOne: jest.fn(),
       manager: {
-        transaction: jest.fn(async (callback) =>
-          callback({
-            getRepository: (entity: { name: string }) =>
-              entity.name === 'Order'
-                ? orderRepository
-                : entity.name === 'ShippingDetail'
-                  ? shippingDetailRepository
-                  : {},
-          }),
+        transaction: jest.fn(
+          (callback: (manager: { getRepository: (entity: unknown) => unknown }) => unknown) =>
+            Promise.resolve(
+              callback({
+                getRepository: (entity: unknown) => {
+                  const entityName =
+                    typeof entity === 'function' && 'name' in entity
+                      ? String(entity.name)
+                      : undefined;
+                  return entityName === 'Order'
+                    ? orderRepository
+                    : entityName === 'ShippingDetail'
+                      ? shippingDetailRepository
+                      : {};
+                },
+              }),
+            ),
         ),
       },
     };
