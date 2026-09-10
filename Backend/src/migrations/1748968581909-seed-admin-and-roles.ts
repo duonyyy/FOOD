@@ -1,6 +1,6 @@
 import * as bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
 
 const standardGroups = [
   'user',
@@ -116,34 +116,30 @@ export class SeedAdminAndRoles1748968581909 implements MigrationInterface {
     // 7. SHIPPER role gets no permissions by default
 
     // 8. Create admin address if not exists
-    let addressId: string | null = null;
-    const addressRes = await queryRunner.query(
+    const addressRes = (await queryRunner.query(
       `SELECT id FROM "address" WHERE street = $1 AND ward = $2 AND district = $3 AND city = $4 LIMIT 1`,
       ['Admin Street', 'Admin Ward', 'Admin District', 'Admin City'],
-    );
-    if (addressRes.length > 0) {
-      addressId = addressRes[0].id;
-    } else {
-      const insertRes = await queryRunner.query(
+    )) as Array<{ id: string }>;
+    if (addressRes.length === 0) {
+      await queryRunner.query(
         `INSERT INTO "address" (street, ward, district, city) VALUES ($1, $2, $3, $4) RETURNING id`,
         ['Admin Street', 'Admin Ward', 'Admin District', 'Admin City'],
       );
-      addressId = insertRes[0].id;
     }
 
     // 9. Create admin user if not exists
-    const adminUserRes = await queryRunner.query(
+    const adminUserRes = (await queryRunner.query(
       `SELECT id FROM "users" WHERE username = $1 LIMIT 1`,
       ['admin'],
-    );
+    )) as Array<{ id: string }>;
     if (adminUserRes.length === 0) {
-      const adminId = uuidv4().substring(0, 28);
+      const adminId = randomUUID().substring(0, 28);
       const hashedPassword = await bcrypt.hash('admin123', 10);
 
       // Get super admin role id (FIXED)
-      const superAdminRoleRes = await queryRunner.query(
+      const superAdminRoleRes = (await queryRunner.query(
         `SELECT id FROM "roles" WHERE name = 'super_admin' LIMIT 1`,
-      );
+      )) as Array<{ id: string }>;
       const superAdminRoleId = superAdminRoleRes[0].id;
 
       await queryRunner.query(

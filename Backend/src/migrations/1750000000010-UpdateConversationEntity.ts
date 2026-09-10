@@ -43,8 +43,6 @@ export class UpdateConversationEntity1750000000010 implements MigrationInterface
             CREATE INDEX "IDX_conversations_type_order" 
             ON "conversations" ("conversationType", "orderId")
         `);
-
-    console.log('Updated conversation entity with business logic fields');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -69,7 +67,5 @@ export class UpdateConversationEntity1750000000010 implements MigrationInterface
             ALTER TABLE "conversations" 
             ADD COLUMN "conversationType" character varying DEFAULT 'direct'
         `);
-
-    console.log('Reverted conversation entity changes');
   }
 }

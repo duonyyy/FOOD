@@ -28,8 +28,6 @@ export class AddIsTemporaryToAddress1750000000023 implements MigrationInterface 
             ON "address" ("isTemporary", "createdAt") 
             WHERE "isTemporary" = true
         `);
-
-    console.log('Added isTemporary field to address table with indexes');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -52,7 +50,5 @@ export class AddIsTemporaryToAddress1750000000023 implements MigrationInterface 
             ALTER TABLE "address" 
             DROP COLUMN IF EXISTS "createdAt"
         `);
-
-    console.log('Removed isTemporary and createdAt fields from address table');
   }
 }

@@ -1,5 +1,9 @@
+import { randomUUID } from 'crypto';
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+
+interface IdRow {
+  id: string;
+}
 
 export class AddReviewsToFood1750000000005 implements MigrationInterface {
   name = 'AddReviewsToFood1750000000005';
@@ -15,16 +19,16 @@ export class AddReviewsToFood1750000000005 implements MigrationInterface {
     if (reviewsTableExists) {
       // Add some sample reviews for testing
       // Get some sample food IDs and user IDs
-      const foods = await queryRunner.query(`SELECT id FROM "foods" LIMIT 15`);
-      const users = await queryRunner.query(
+      const foods = (await queryRunner.query(`SELECT id FROM "foods" LIMIT 15`)) as IdRow[];
+      const users = (await queryRunner.query(
         `SELECT id FROM "users" WHERE username LIKE 'khachhang%' LIMIT 4`,
-      );
+      )) as IdRow[];
 
       // Check if we have sufficient data
       if (foods.length >= 6 && users.length >= 2) {
         // Only create as many reviews as we have foods and users for
         const numReviews = Math.min(15, foods.length);
-        const reviewIds = Array.from({ length: numReviews }, () => uuidv4());
+        const reviewIds = Array.from({ length: numReviews }, () => randomUUID());
 
         // Create reviews one by one to avoid parameter mapping issues
         for (let i = 0; i < numReviews; i++) {
@@ -86,10 +90,7 @@ export class AddReviewsToFood1750000000005 implements MigrationInterface {
           );
         }
 
-        console.log(`Inserted ${numReviews} sample reviews`);
-
         // Update food ratings based on reviews
-        console.log('Updating food ratings...');
         await queryRunner.query(`
                     UPDATE "foods" 
                     SET "rating" = (
@@ -108,7 +109,6 @@ export class AddReviewsToFood1750000000005 implements MigrationInterface {
                 `);
 
         // Update restaurant ratings based on their foods' reviews
-        console.log('Updating restaurant ratings...');
         await queryRunner.query(`
                     UPDATE "restaurants" 
                     SET "rating" = (
@@ -127,10 +127,6 @@ export class AddReviewsToFood1750000000005 implements MigrationInterface {
                         AND r.rating IS NOT NULL
                     )
                 `);
-
-        console.log('Updated food and restaurant ratings successfully');
-      } else {
-        console.log(`Insufficient data for reviews: ${foods.length} foods, ${users.length} users`);
       }
     }
   }

@@ -1,28 +1,28 @@
 import * as bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
 
 export class AddTenRestaurantsWithFoodsAndToppings1750000000024 implements MigrationInterface {
   name = 'AddTenRestaurantsWithFoodsAndToppings1750000000024';
 
   // Generate IDs for the new data
-  private readonly newAddressIds = Array.from({ length: 10 }, () => uuidv4());
-  private readonly newUserIds = Array.from({ length: 10 }, () => uuidv4().substring(0, 28));
-  private readonly newRestaurantIds = Array.from({ length: 10 }, () => uuidv4());
-  private readonly newFoodIds = Array.from({ length: 50 }, () => uuidv4()); // 10 restaurants * 5 foods each
-  private readonly newToppingIds = Array.from({ length: 100 }, () => uuidv4()); // 50 foods * 2 toppings each
+  private readonly newAddressIds = Array.from({ length: 10 }, () => randomUUID());
+  private readonly newUserIds = Array.from({ length: 10 }, () => randomUUID().substring(0, 28));
+  private readonly newRestaurantIds = Array.from({ length: 10 }, () => randomUUID());
+  private readonly newFoodIds = Array.from({ length: 50 }, () => randomUUID()); // 10 restaurants * 5 foods each
+  private readonly newToppingIds = Array.from({ length: 100 }, () => randomUUID()); // 50 foods * 2 toppings each
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Get existing role ID for shop_owner
-    const shopOwnerRoleRes = await queryRunner.query(
+    const shopOwnerRoleRes = (await queryRunner.query(
       `SELECT id FROM "roles" WHERE name = 'shop_owner' LIMIT 1`,
-    );
+    )) as Array<{ id: string }>;
     const shopOwnerRoleId = shopOwnerRoleRes[0]?.id;
 
     // Get existing category IDs (assuming they exist from previous migration)
-    const categoryRes = await queryRunner.query(
+    const categoryRes = (await queryRunner.query(
       `SELECT id FROM "categories" ORDER BY name LIMIT 8`,
-    );
+    )) as Array<{ id: string }>;
     const categoryIds = categoryRes.map((c) => c.id);
 
     // Hash passwords for new users
@@ -71,7 +71,7 @@ export class AddTenRestaurantsWithFoodsAndToppings1750000000024 implements Migra
         // Hashed passwords (11-20)
         ...hashedPasswords,
         // Role IDs (21-30)
-        ...Array(10).fill(shopOwnerRoleId),
+        ...Array.from({ length: 10 }, () => shopOwnerRoleId),
         // Avatar URLs (31-40)
         ...this.newUserIds.map(
           (id) => `https://testingbot.com/free-online-tools/random-avatar/128?u=${id}`,
@@ -127,9 +127,7 @@ export class AddTenRestaurantsWithFoodsAndToppings1750000000024 implements Migra
     );
 
     // 4. Insert foods for each restaurant (5 foods per restaurant)
-    const foodInserts = [];
-    const foodParams: any[] = []; // Add explicit type annotation
-    const paramIndex = 1;
+    const foodParams: Array<string | number | boolean | null | undefined> = [];
 
     // Restaurant 1: Pizza Amore
     const restaurant1Foods = [
@@ -531,7 +529,7 @@ export class AddTenRestaurantsWithFoodsAndToppings1750000000024 implements Migra
 
     // 5. Insert toppings for each food (2 toppings per food)
     const toppingInserts: string[] = []; // Add explicit type annotation
-    const toppingParams: any[] = []; // Add explicit type annotation
+    const toppingParams: Array<string | number | boolean | null | undefined> = [];
     let toppingParamIndex = 1;
 
     const commonToppings = [
@@ -587,10 +585,6 @@ export class AddTenRestaurantsWithFoodsAndToppings1750000000024 implements Migra
         `,
       toppingParams,
     );
-
-    console.log(
-      '✅ Successfully inserted 10 new restaurants with 5 foods each and 2 toppings per food!',
-    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -615,7 +609,5 @@ export class AddTenRestaurantsWithFoodsAndToppings1750000000024 implements Migra
       `DELETE FROM "address" WHERE id IN (${this.newAddressIds.map((_, i) => `$${i + 1}`).join(', ')})`,
       this.newAddressIds,
     );
-
-    console.log('✅ Successfully removed 10 restaurants and related data!');
   }
 }

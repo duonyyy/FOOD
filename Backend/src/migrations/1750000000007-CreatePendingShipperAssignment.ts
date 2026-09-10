@@ -37,8 +37,6 @@ export class CreatePendingShipperAssignment1750000000007 implements MigrationInt
             CREATE INDEX "IDX_pending_shipper_assignments_priority_createdAt" 
             ON "pending_shipper_assignments" ("priority", "createdAt")
         `);
-
-    console.log('Created pending_shipper_assignments table with indexes');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -56,7 +54,5 @@ export class CreatePendingShipperAssignment1750000000007 implements MigrationInt
 
     // Drop the table
     await queryRunner.query(`DROP TABLE IF EXISTS "pending_shipper_assignments"`);
-
-    console.log('Dropped pending_shipper_assignments table');
   }
 }

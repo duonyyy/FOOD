@@ -15,8 +15,6 @@ export class AddIsSentToShipperField1750000000008 implements MigrationInterface 
             CREATE INDEX "IDX_pending_shipper_assignments_isSentToShipper" 
             ON "pending_shipper_assignments" ("isSentToShipper")
         `);
-
-    console.log('Added isSentToShipper field to pending_shipper_assignments table');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -30,7 +28,5 @@ export class AddIsSentToShipperField1750000000008 implements MigrationInterface 
             ALTER TABLE "pending_shipper_assignments" 
             DROP COLUMN IF EXISTS "isSentToShipper"
         `);
-
-    console.log('Removed isSentToShipper field from pending_shipper_assignments table');
   }
 }

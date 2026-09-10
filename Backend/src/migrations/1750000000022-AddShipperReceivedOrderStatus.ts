@@ -9,8 +9,6 @@ export class AddShipperReceivedOrderStatus1750000000022 implements MigrationInte
             ALTER TYPE "public"."orders_status_enum" 
             ADD VALUE 'shipper_received' AFTER 'delivering'
         `);
-
-    console.log('Added "shipper_received" status to orders_status_enum');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -44,7 +42,5 @@ export class AddShipperReceivedOrderStatus1750000000022 implements MigrationInte
             ALTER TYPE "orders_status_enum_old" 
             RENAME TO "orders_status_enum"
         `);
-
-    console.log('Removed "shipper_received" status from orders_status_enum');
   }
 }

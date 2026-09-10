@@ -3,7 +3,7 @@ import { CreateCatalogNameConstraints1760000000002 } from './1760000000002-Creat
 describe('Catalog name constraints migration', () => {
   it('creates normalized unique indexes without touching order snapshots', async () => {
     const queries: string[] = [];
-    const queryRunner = { query: jest.fn(async (sql: string) => queries.push(sql)) };
+    const queryRunner = { query: jest.fn((sql: string) => queries.push(sql)) };
     const migration = new CreateCatalogNameConstraints1760000000002();
 
     await migration.up(queryRunner as never);

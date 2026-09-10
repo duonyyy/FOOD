@@ -1,21 +1,21 @@
 import * as bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
 
 export class AddSampleData1750000000003 implements MigrationInterface {
   name = 'AddSampleData1750000000003';
 
   // Move UUID arrays to class level so they're accessible in both up() and down()
-  private readonly addressIds = Array.from({ length: 6 }, () => uuidv4());
-  private readonly userIds = Array.from({ length: 6 }, () => uuidv4().substring(0, 28)); // varchar(28)
-  private readonly categoryIds = Array.from({ length: 8 }, () => uuidv4());
-  private readonly restaurantIds = Array.from({ length: 4 }, () => uuidv4());
-  private readonly foodIds = Array.from({ length: 35 }, () => uuidv4()); // full UUIDs
-  private readonly promoIds = Array.from({ length: 3 }, () => uuidv4());
-  private readonly orderIds = Array.from({ length: 4 }, () => uuidv4());
-  private readonly orderDetailIds = Array.from({ length: 8 }, () => uuidv4());
-  private readonly reviewIds = Array.from({ length: 12 }, () => uuidv4());
-  private readonly shipperCertIds = Array.from({ length: 1 }, () => uuidv4());
+  private readonly addressIds = Array.from({ length: 6 }, () => randomUUID());
+  private readonly userIds = Array.from({ length: 6 }, () => randomUUID().substring(0, 28)); // varchar(28)
+  private readonly categoryIds = Array.from({ length: 8 }, () => randomUUID());
+  private readonly restaurantIds = Array.from({ length: 4 }, () => randomUUID());
+  private readonly foodIds = Array.from({ length: 35 }, () => randomUUID()); // full UUIDs
+  private readonly promoIds = Array.from({ length: 3 }, () => randomUUID());
+  private readonly orderIds = Array.from({ length: 4 }, () => randomUUID());
+  private readonly orderDetailIds = Array.from({ length: 8 }, () => randomUUID());
+  private readonly reviewIds = Array.from({ length: 12 }, () => randomUUID());
+  private readonly shipperCertIds = Array.from({ length: 1 }, () => randomUUID());
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Insert Addresses - Fix table name to match entity
@@ -34,15 +34,15 @@ export class AddSampleData1750000000003 implements MigrationInterface {
     );
 
     // 2. Get role IDs
-    const userRoleRes = await queryRunner.query(
+    const userRoleRes = (await queryRunner.query(
       `SELECT id FROM "roles" WHERE name = 'user' LIMIT 1`,
-    );
-    const shopOwnerRoleRes = await queryRunner.query(
+    )) as Array<{ id: string }>;
+    const shopOwnerRoleRes = (await queryRunner.query(
       `SELECT id FROM "roles" WHERE name = 'shop_owner' LIMIT 1`,
-    );
-    const shipperRoleRes = await queryRunner.query(
+    )) as Array<{ id: string }>;
+    const shipperRoleRes = (await queryRunner.query(
       `SELECT id FROM "roles" WHERE name = 'shipper' LIMIT 1`,
-    );
+    )) as Array<{ id: string }>;
 
     const userRoleId = userRoleRes[0]?.id;
     const shopOwnerRoleId = shopOwnerRoleRes[0]?.id;
@@ -355,7 +355,6 @@ export class AddSampleData1750000000003 implements MigrationInterface {
         this.foodIds[32],
       ],
     );
-    console.log('✅ Vietnamese sample data with 35 foods inserted successfully!');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

@@ -134,10 +134,6 @@ export class CreateMessengerTables1750000000009 implements MigrationInterface {
                 GREATEST("participant1_id", "participant2_id")
             ) WHERE "conversationType" = 'direct'
         `);
-
-    console.log(
-      'Created messenger tables (conversations and messages) with indexes and constraints',
-    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -172,7 +168,5 @@ export class CreateMessengerTables1750000000009 implements MigrationInterface {
     // Drop tables
     await queryRunner.query(`DROP TABLE IF EXISTS "messages"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "conversations"`);
-
-    console.log('Removed messenger tables (conversations and messages)');
   }
 }

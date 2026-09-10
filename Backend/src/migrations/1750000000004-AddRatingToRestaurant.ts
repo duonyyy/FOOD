@@ -10,10 +10,7 @@ export class AddRatingToRestaurant1750000000004 implements MigrationInterface {
             ADD COLUMN IF NOT EXISTS "rating" DECIMAL(3,2) NULL
         `);
 
-    console.log('Added rating column to restaurants table');
-
     // Update existing restaurant ratings based on their foods' reviews
-    console.log('Calculating and updating restaurant ratings...');
 
     await queryRunner.query(`
             UPDATE "restaurants" 
@@ -33,8 +30,6 @@ export class AddRatingToRestaurant1750000000004 implements MigrationInterface {
                 AND r.rating IS NOT NULL
             )
         `);
-
-    console.log('Updated restaurant ratings based on food reviews');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -43,7 +38,5 @@ export class AddRatingToRestaurant1750000000004 implements MigrationInterface {
             ALTER TABLE "restaurants" 
             DROP COLUMN IF EXISTS "rating"
         `);
-
-    console.log('Removed rating column from restaurants table');
   }
 }
