@@ -9,7 +9,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { AuthService } from './auth.service';
 import { CreateShipperDto } from './dto/create-shipper.dto';
@@ -54,6 +54,7 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   logout(@Req() req: AuthenticatedRequest) {
     return this.authService.logout(req.user.uid ?? req.user.id);
   }
@@ -103,6 +104,7 @@ export class AuthController {
 
   @Post('check')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   checkAuth(@Req() req: AuthenticatedRequest) {
     return { message: 'User is authenticated', user: req.user, isLogin: true };
   }

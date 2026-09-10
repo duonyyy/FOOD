@@ -5,8 +5,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Address } from 'src/entities/address.entity';
 import { Permission } from 'src/entities/permission.entity';
 import { Role } from 'src/entities/role.entity';
-import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { User } from 'src/entities/user.entity';
+import { ShipperProfileModule } from 'src/features/delivery/shipper-profile.module';
 import { MailModule } from 'src/infra/mail/mail.module';
 import { RoleModule } from 'src/modules/role/role.module';
 import { UsersModule } from 'src/modules/users/users.module';
@@ -20,7 +20,7 @@ import { SocialAuthService } from './services/social-auth.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, Permission, Address, ShipperCertificateInfo]),
+    TypeOrmModule.forFeature([User, Role, Permission, Address]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -32,6 +32,7 @@ import { SocialAuthService } from './services/social-auth.service';
       inject: [ConfigService],
     }),
     UsersModule,
+    ShipperProfileModule,
     RoleModule,
     MailModule,
   ],

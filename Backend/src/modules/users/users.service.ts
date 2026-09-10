@@ -1,17 +1,20 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as moment from 'moment';
+import { randomUUID } from 'node:crypto';
 import { AuthProvider } from 'src/auth/enums/auth-provider.enum';
 import { Address } from 'src/entities/address.entity';
 import { DefaultRole, Role } from 'src/entities/role.entity';
-import {
-  CertificateStatus,
-  ShipperCertificateInfo,
-} from 'src/entities/shipperCertificateInfo.entity';
 import { User } from 'src/entities/user.entity';
-import { DataSource, Repository } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  SHIPPER_PROFILE_COMMANDS,
+  SHIPPER_PROFILE_READER,
+  type ShipperProfileCommandPort,
+  type ShipperProfileReaderPort,
+  type ShipperProfileStatus,
+} from 'src/features/delivery/contracts/shipper-profile.port';
+import { In, Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-users.dto';
 import { UpdateUserDto } from './dto/update-users.dto';
 import { UserResponse } from './interface/user-response.interface';
@@ -26,7 +29,10 @@ export class UsersService {
     private readonly addressRepository: Repository<Address>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-    private readonly dataSource: DataSource,
+    @Inject(SHIPPER_PROFILE_READER)
+    private readonly shipperProfileReader: ShipperProfileReaderPort,
+    @Inject(SHIPPER_PROFILE_COMMANDS)
+    private readonly shipperProfileCommands: ShipperProfileCommandPort,
   ) {}
 
   async updateUserProvider(
@@ -114,7 +120,7 @@ export class UsersService {
       }
 
       // Generate UUID for user ID
-      const userId = uuidv4().substring(0, 28); // Generate a new UUID if not provided
+      const userId = randomUUID().substring(0, 28); // Generate a new UUID if not provided
 
       // Hash password
       const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
@@ -139,7 +145,7 @@ export class UsersService {
   async findByPhone(phone: string) {
     return this.usersRepository.findOne({
       where: { phone },
-      relations: ['role', 'shipperCertificateInfo'],
+      relations: ['role'],
     });
   }
 
@@ -152,7 +158,7 @@ export class UsersService {
       throw new Error('Default User role not found');
     }
     if (!id) {
-      const uuid: string = uuidv4().substring(0, 28); // Generate a new UUID if not provided
+      const uuid: string = randomUUID().substring(0, 28); // Generate a new UUID if not provided
       id = uuid; // Generate a new UUID if not provided
     }
     const user = this.usersRepository.create({
@@ -248,40 +254,27 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  async getShippersByStatus(status?: CertificateStatus, userId?: string) {
-    const shipperRepo = this.dataSource.getRepository(ShipperCertificateInfo);
-
-    const query = shipperRepo
-      .createQueryBuilder('shipper')
-      .leftJoinAndSelect('shipper.user', 'user')
-      .leftJoinAndSelect('user.role', 'role')
-      .leftJoinAndSelect('user.orders', 'orders')
-      .where('role.name = :role', { role: 'shipper' });
-
-    if (status) {
-      query.andWhere('shipper.status = :status', { status });
+  async getShippersByStatus(status?: ShipperProfileStatus, userId?: string) {
+    const profiles = await this.shipperProfileReader.findByStatus(status, userId);
+    if (profiles.length === 0) {
+      return [];
     }
 
-    if (userId) {
-      query.andWhere('user.id = :userId', { userId });
-    }
+    const users = await this.usersRepository.find({
+      where: { id: In(profiles.map((profile) => profile.userId)) },
+      relations: ['role'],
+    });
+    const usersById = new Map(users.map((user) => [user.id, user]));
 
-    return query.getMany();
+    return profiles.map((profile) => ({
+      id: profile.userId,
+      status: profile.certificateStatus,
+      verifiedAt: profile.certificateVerifiedAt,
+      user: usersById.get(profile.userId) ?? null,
+    }));
   }
 
-  async updateShipperStatus(userId: string, status: CertificateStatus) {
-    const repo = this.dataSource.getRepository(ShipperCertificateInfo);
-
-    const shipper = await repo.findOne({
-      where: { user: { id: userId } },
-      relations: ['user'],
-    });
-
-    if (!shipper) {
-      throw new NotFoundException('Shipper not found');
-    }
-
-    shipper.status = status;
-    return repo.save(shipper);
+  async updateShipperStatus(userId: string, status: ShipperProfileStatus) {
+    return this.shipperProfileCommands.updateCertificateStatus(userId, status);
   }
 }

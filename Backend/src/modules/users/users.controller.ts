@@ -16,7 +16,10 @@ import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Permission } from 'src/constants/permission.enum';
-import { CertificateStatus } from 'src/entities/shipperCertificateInfo.entity';
+import {
+  SHIPPER_PROFILE_STATUS,
+  type ShipperProfileStatus,
+} from 'src/features/delivery/contracts/shipper-profile.port';
 import {
   CurrentActor,
   type CurrentActor as CurrentActorData,
@@ -41,7 +44,7 @@ export class UsersController {
   @ApiBearerAuth('bearer')
   @ApiOperation({ summary: 'List shipper compatibility projections' })
   @ApiResponse({ status: 200, description: 'Safe user projections for delivery compatibility' })
-  async getShippers(@Query('status') status?: CertificateStatus) {
+  async getShippers(@Query('status') status?: ShipperProfileStatus) {
     const shippers = await this.usersService.getShippersByStatus(status);
     return shippers.map((shipper) => ({
       id: shipper.id,
@@ -104,7 +107,7 @@ export class UsersController {
   @Permissions(Permission.SHIPPER.WRITE)
   @ApiBearerAuth('bearer')
   approveShipper(@Param('userId') userId: string) {
-    return this.usersService.updateShipperStatus(userId, CertificateStatus.APPROVED);
+    return this.usersService.updateShipperStatus(userId, SHIPPER_PROFILE_STATUS.APPROVED);
   }
 
   @Patch('shippers/:userId/reject')
@@ -112,6 +115,6 @@ export class UsersController {
   @Permissions(Permission.SHIPPER.WRITE)
   @ApiBearerAuth('bearer')
   rejectShipper(@Param('userId') userId: string) {
-    return this.usersService.updateShipperStatus(userId, CertificateStatus.REJECTED);
+    return this.usersService.updateShipperStatus(userId, SHIPPER_PROFILE_STATUS.REJECTED);
   }
 }

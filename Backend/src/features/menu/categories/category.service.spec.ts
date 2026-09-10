@@ -5,7 +5,7 @@ import { CategoryService } from './category.service';
 describe('CategoryService', () => {
   const cache: CachePort & { deleteByPattern: jest.Mock } = {
     remember: async <T>(_key: string, _ttl: number, loader: () => Promise<T>) => loader(),
-    deleteByPattern: jest.fn(async () => 0),
+    deleteByPattern: jest.fn(() => Promise.resolve(0)),
   };
 
   beforeEach(() => {
@@ -72,8 +72,8 @@ describe('CategoryService', () => {
     const category = { id: 'category-1', name: 'Old', image: null, foods: [] };
     const repository = {
       findOne: jest.fn().mockResolvedValue(category),
-      create: jest.fn((value) => value),
-      save: jest.fn().mockImplementation(async (value) => value),
+      create: jest.fn((value: unknown) => value),
+      save: jest.fn().mockImplementation((value: unknown) => Promise.resolve(value)),
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     const service = new CategoryService(repository as never, cache);

@@ -1,7 +1,7 @@
 import { ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsDate, IsOptional, IsString, ValidateNested } from 'class-validator';
-import { CreateAddressDto } from 'src/features/locations/public-api';
+import { CreateAddressDto } from 'src/features/locations/contracts/address-dto.contract';
 
 export class UpdateMeAddressDto extends OmitType(CreateAddressDto, ['id', 'userId'] as const) {}
 

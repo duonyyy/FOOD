@@ -1,14 +1,14 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
+import { randomUUID } from 'node:crypto';
 import { initializeFirebaseAdmin } from 'src/config/firebase-admin.config';
 import { DefaultRole } from 'src/entities/role.entity';
 import { User } from 'src/entities/user.entity';
 import { RolesService } from 'src/modules/role/role.service';
 import { CreateUserDto } from 'src/modules/users/dto/create-users.dto';
 import { UsersService } from 'src/modules/users/users.service';
-import { v4 as uuidv4 } from 'uuid';
 import { GoogleRegisterDto } from '../dto/google-register.dto';
 import { AuthProvider } from '../enums/auth-provider.enum';
 
@@ -23,7 +23,7 @@ export class SocialAuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async registerWithGoogle(googleDto: GoogleRegisterDto): Promise<any> {
+  async registerWithGoogle(googleDto: GoogleRegisterDto): Promise<GoogleAuthResponse> {
     const decodedToken = await this.verifyFirebaseToken(googleDto.accessToken);
     const email = decodedToken.email;
     const googleId = decodedToken.uid;
@@ -64,7 +64,7 @@ export class SocialAuthService {
           googleId,
           birthday: new Date(),
         };
-        user = await this.usersService.register(createUserDto, uuidv4().substring(0, 28));
+        user = await this.usersService.register(createUserDto, randomUUID().substring(0, 28));
       }
 
       return this.createGoogleAuthResponse(user, isNewUser);
@@ -79,22 +79,32 @@ export class SocialAuthService {
     }
   }
 
-  private async verifyFirebaseToken(accessToken: string) {
+  private async verifyFirebaseToken(accessToken: string): Promise<VerifiedFirebaseToken> {
     if (!accessToken) {
       throw new BadRequestException('Google accessToken is required');
     }
 
     try {
-      const app = initializeFirebaseAdmin(this.configService);
-      return await app.auth().verifyIdToken(accessToken);
+      const app = initializeFirebaseAdmin(this.configService) as unknown as FirebaseAuthApp;
+      const decodedToken = await app.auth().verifyIdToken(accessToken);
+      return {
+        uid: decodedToken.uid,
+        email: decodedToken.email,
+        name: decodedToken.name,
+      };
     } catch (error) {
       this.logger.warn(`Invalid Firebase ID token: ${(error as Error).message}`);
       throw new BadRequestException('Invalid Google token');
     }
   }
 
-  private async createGoogleAuthResponse(user: User, isNewUser: boolean): Promise<any> {
-    const permissions = await this.rolesService.getUserPermissions(user.role.id, true);
+  private async createGoogleAuthResponse(
+    user: User,
+    isNewUser: boolean,
+  ): Promise<GoogleAuthResponse> {
+    const permissions = (await this.rolesService.getUserPermissions(user.role.id, true)).map(
+      (permission) => String(permission),
+    );
     const accessToken = this.jwtService.sign(
       {
         sub: user.id,
@@ -122,4 +132,30 @@ export class SocialAuthService {
       token: accessToken,
     };
   }
+}
+
+interface VerifiedFirebaseToken {
+  uid: string;
+  email?: string;
+  name?: string;
+}
+
+interface FirebaseAuthApp {
+  auth(): {
+    verifyIdToken(accessToken: string): Promise<VerifiedFirebaseToken>;
+  };
+}
+
+interface GoogleAuthResponse {
+  message: string;
+  user: {
+    id: string;
+    email?: string;
+    name?: string;
+    role: string;
+    permissions: string[];
+  };
+  isNewUser: boolean;
+  accessToken: string;
+  token: string;
 }

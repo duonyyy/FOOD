@@ -10,29 +10,29 @@ import { CategoryController } from './categories/category.controller';
 describe('Catalog resource policies', () => {
   it('requires merchant authentication for Food writes and admin capability for admin delete', () => {
     for (const methodName of ['create', 'update', 'remove', 'updateStatus', 'addTopping']) {
-      const method = Object.getOwnPropertyDescriptor(FoodController.prototype, methodName)?.value;
-      expect(Reflect.getMetadata(GUARDS_METADATA, method)).toContain(AuthGuard);
+      const method = Object.getOwnPropertyDescriptor(FoodController.prototype, methodName)
+        ?.value as unknown as object;
+      const guards = Reflect.getMetadata(GUARDS_METADATA, method) as unknown[] | undefined;
+      expect(guards).toContain(AuthGuard);
     }
 
-    const adminDelete = Object.getOwnPropertyDescriptor(
-      FoodController.prototype,
-      'deleteFood',
-    )?.value;
-    expect(Reflect.getMetadata(GUARDS_METADATA, adminDelete)).toContain(RolesGuard);
-    expect(Reflect.getMetadata(PERMISSIONS_KEY, adminDelete)).toEqual([Permission.FOOD.DELETE]);
+    const adminDelete = Object.getOwnPropertyDescriptor(FoodController.prototype, 'deleteFood')
+      ?.value as unknown as object;
+    const adminGuards = Reflect.getMetadata(GUARDS_METADATA, adminDelete) as unknown[] | undefined;
+    expect(adminGuards).toContain(RolesGuard);
+    expect(Reflect.getMetadata(PERMISSIONS_KEY, adminDelete) as unknown).toEqual([
+      Permission.FOOD.DELETE,
+    ]);
   });
 
   it('protects Catalog category writes and keeps reads public', () => {
-    const readMethod = Object.getOwnPropertyDescriptor(
-      CategoryController.prototype,
-      'findAll',
-    )?.value;
-    expect(Reflect.getMetadata(GUARDS_METADATA, readMethod)).toBeUndefined();
-    const writeMethod = Object.getOwnPropertyDescriptor(
-      CategoryController.prototype,
-      'create',
-    )?.value;
-    expect(Reflect.getMetadata(GUARDS_METADATA, writeMethod)).toContain(RolesGuard);
+    const readMethod = Object.getOwnPropertyDescriptor(CategoryController.prototype, 'findAll')
+      ?.value as unknown as object;
+    expect(Reflect.getMetadata(GUARDS_METADATA, readMethod) as unknown).toBeUndefined();
+    const writeMethod = Object.getOwnPropertyDescriptor(CategoryController.prototype, 'create')
+      ?.value as unknown as object;
+    const writeGuards = Reflect.getMetadata(GUARDS_METADATA, writeMethod) as unknown[] | undefined;
+    expect(writeGuards).toContain(RolesGuard);
   });
 
   it('does not expose TypeORM entities from the snapshot contract', () => {

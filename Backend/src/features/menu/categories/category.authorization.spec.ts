@@ -7,10 +7,9 @@ import { CategoryController } from './category.controller';
 
 describe('Category authorization policy', () => {
   it('keeps category reads public', () => {
-    const guards = Reflect.getMetadata(
-      GUARDS_METADATA,
-      Object.getOwnPropertyDescriptor(CategoryController.prototype, 'findAll')?.value,
-    );
+    const method = Object.getOwnPropertyDescriptor(CategoryController.prototype, 'findAll')
+      ?.value as unknown as object;
+    const guards = Reflect.getMetadata(GUARDS_METADATA, method) as unknown[] | undefined;
 
     expect(guards).toBeUndefined();
   });
@@ -20,7 +19,8 @@ describe('Category authorization policy', () => {
     ['update', Permission.CATEGORY.WRITE],
     ['remove', Permission.CATEGORY.DELETE],
   ])('protects %s with the catalog permission', (methodName, permission) => {
-    const method = Object.getOwnPropertyDescriptor(CategoryController.prototype, methodName)?.value;
+    const method = Object.getOwnPropertyDescriptor(CategoryController.prototype, methodName)
+      ?.value as unknown as object;
     const guards = Reflect.getMetadata(GUARDS_METADATA, method) as unknown[];
     const permissions = Reflect.getMetadata(PERMISSIONS_KEY, method) as string[];
 

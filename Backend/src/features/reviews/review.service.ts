@@ -140,7 +140,7 @@ export class ReviewService {
       .andWhere('review.type = :type', { type: ReviewType.FOOD })
       .andWhere('review.rating IS NOT NULL')
       .groupBy('review.rating')
-      .getRawMany();
+      .getRawMany<{ rating: string; count: string }>();
     const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     for (const row of stats) ratingDistribution[Number(row.rating)] = Number(row.count);
     const averageRating = stats.length

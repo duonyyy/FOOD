@@ -48,7 +48,7 @@ export class RolesGuard implements CanActivate {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {
-    const jwtSecret = this.configService.get('JWT_SECRET');
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
     this.logger.debug(`JWT_SECRET in RolesGuard: ${jwtSecret ? 'Present' : 'Missing'}`);
   }
 
@@ -80,7 +80,7 @@ export class RolesGuard implements CanActivate {
     try {
       const token = this.extractTokenFromRequest(request);
 
-      const userId = await this.verifyTokenAndGetUserId(token);
+      const userId = this.verifyTokenAndGetUserId(token);
 
       request.user = { id: userId };
 
@@ -125,7 +125,7 @@ export class RolesGuard implements CanActivate {
    * @returns The user ID from the verified token.
    * @throws UnauthorizedException if token verification fails.
    */
-  private async verifyTokenAndGetUserId(token: string): Promise<string> {
+  private verifyTokenAndGetUserId(token: string): string {
     try {
       const jwtSecret = this.configService.get<string>('JWT_SECRET');
 

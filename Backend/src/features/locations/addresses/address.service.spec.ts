@@ -4,8 +4,10 @@ import { AddressService } from './address.service';
 describe('AddressService', () => {
   it('derives ownership from the authenticated actor and never persists client ids', async () => {
     const repository = {
-      create: jest.fn((value) => value),
-      save: jest.fn(async (value) => ({ id: 'address-a', ...value })),
+      create: jest.fn((value: unknown) => value),
+      save: jest.fn((value: Record<string, unknown>) =>
+        Promise.resolve({ id: 'address-a', ...value }),
+      ),
       findOne: jest.fn(),
       find: jest.fn(),
       update: jest.fn(),

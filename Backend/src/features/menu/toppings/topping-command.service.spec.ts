@@ -23,8 +23,10 @@ describe('ToppingCommandService', () => {
         food,
       }),
       createQueryBuilder: jest.fn().mockReturnValue(duplicateQuery),
-      create: jest.fn((value) => value),
-      save: jest.fn(async (value) => ({ id: 'topping-1', ...value })),
+      create: jest.fn((value: unknown) => value),
+      save: jest.fn((value: Record<string, unknown>) =>
+        Promise.resolve({ id: 'topping-1', ...value }),
+      ),
       remove: jest.fn(),
     };
     const cache = { deleteByPattern: jest.fn().mockResolvedValue(0) };

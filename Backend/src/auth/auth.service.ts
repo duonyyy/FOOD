@@ -1,13 +1,21 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
-import {
-  CertificateStatus,
-  ShipperCertificateInfo,
-} from 'src/entities/shipperCertificateInfo.entity';
 import { User } from 'src/entities/user.entity';
+import {
+  SHIPPER_PROFILE_COMMANDS,
+  SHIPPER_PROFILE_READER,
+  type ShipperProfileCommandPort,
+  type ShipperProfileReaderPort,
+} from 'src/features/delivery/contracts/shipper-profile.port';
 import { RolesService } from 'src/modules/role/role.service';
 import { CreateUserDto } from 'src/modules/users/dto/create-users.dto';
 import { UsersService } from 'src/modules/users/users.service';
@@ -45,11 +53,14 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
 
-    @InjectRepository(ShipperCertificateInfo)
-    private readonly certRepo: Repository<ShipperCertificateInfo>,
-
     @InjectRepository(Role)
     private readonly roleRepo: Repository<Role>,
+
+    @Inject(SHIPPER_PROFILE_READER)
+    private readonly shipperProfileReader: ShipperProfileReaderPort,
+
+    @Inject(SHIPPER_PROFILE_COMMANDS)
+    private readonly shipperProfileCommands: ShipperProfileCommandPort,
   ) {}
 
   /**
@@ -231,15 +242,12 @@ export class AuthService {
 
     await this.userRepo.save(user);
 
-    // Lưu thông tin chứng chỉ/bằng lái của tài xế và đặt trạng thái là PENDING (chờ duyệt)
-    const cert = this.certRepo.create({
-      user,
+    // Delivery sở hữu hồ sơ/chứng chỉ; Auth chỉ tạo account và gọi public command.
+    await this.shipperProfileCommands.createPending({
+      userId: user.id,
       cccd: dto.cccd,
       driverLicense: dto.driverLicense,
-      status: CertificateStatus.PENDING,
     });
-
-    await this.certRepo.save(cert);
 
     return {
       message: 'Đăng ký tài xế thành công. Vui lòng chờ duyệt.',
@@ -265,9 +273,11 @@ export class AuthService {
   async isShipperPhone(phone: string): Promise<boolean> {
     const user = await this.usersService.findByPhone(phone);
 
-    if (!user) return false;
-    // Kiểm tra role là shipper và có thông tin chứng chỉ
-    return user.role?.name === DefaultRole.SHIPPER && !!user.shipperCertificateInfo;
+    if (!user || user.role?.name !== DefaultRole.SHIPPER) {
+      return false;
+    }
+
+    return Boolean(await this.shipperProfileReader.findByUserId(user.id));
   }
 
   /**
@@ -281,16 +291,18 @@ export class AuthService {
   }> {
     const user = await this.usersService.findByPhone(phone);
 
-    if (!user || user.role?.name !== DefaultRole.SHIPPER || !user.shipperCertificateInfo) {
+    if (!user || user.role?.name !== DefaultRole.SHIPPER) {
+      return { exists: false };
+    }
+
+    const profile = await this.shipperProfileReader.findByUserId(user.id);
+    if (!profile) {
       return { exists: false };
     }
 
     return {
       exists: true,
-      status: user.shipperCertificateInfo?.status.toLowerCase() as
-        | 'pending'
-        | 'approved'
-        | 'rejected',
+      status: profile.certificateStatus.toLowerCase() as 'pending' | 'approved' | 'rejected',
     };
   }
 
@@ -303,7 +315,7 @@ export class AuthService {
   async loginDriver(username: string, password: string): Promise<AuthResponse> {
     const user = await this.userRepo.findOne({
       where: { username },
-      relations: ['shipperCertificateInfo', 'role'], // Load kèm thông tin chứng chỉ và role
+      relations: ['role'],
     });
 
     if (!user) {
@@ -320,18 +332,17 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Kiểm tra thông tin shipper
-    const shipperInfo = user.shipperCertificateInfo;
-    if (!shipperInfo) {
+    const shipperProfile = await this.shipperProfileReader.findByUserId(user.id);
+    if (!shipperProfile) {
       throw new UnauthorizedException('You are not registered as a driver');
     }
 
     // Kiểm tra trạng thái duyệt
-    if (shipperInfo.status === CertificateStatus.PENDING) {
+    if (shipperProfile.certificateStatus === 'PENDING') {
       return { status: 'pending', message: 'Your account is under review' };
     }
 
-    if (shipperInfo.status === CertificateStatus.REJECTED) {
+    if (shipperProfile.certificateStatus === 'REJECTED') {
       return { status: 'rejected', message: 'Your registration has been rejected' };
     }
 
@@ -365,7 +376,7 @@ export class AuthService {
   async findByPhone(phone: string): Promise<User | null> {
     return this.userRepo.findOne({
       where: { phone },
-      relations: ['role', 'shipperCertificateInfo'],
+      relations: ['role'],
     });
   }
 
@@ -421,7 +432,7 @@ export class AuthService {
    * @returns User response và token
    */
   async registerWithGoogle(googleDto: GoogleRegisterDto): Promise<AuthResponse> {
-    return (await this.socialAuthService.registerWithGoogle(googleDto)) as AuthResponse;
+    return (await this.socialAuthService.registerWithGoogle(googleDto)) as unknown as AuthResponse;
   }
 
   /**
@@ -444,6 +455,9 @@ export class AuthService {
    * Kiểm tra tính hợp lệ của token reset mật khẩu (dùng khi user click vào link từ email)
    */
   async verifyResetToken(token: string, email: string): Promise<AuthResponse> {
-    return (await this.passwordResetService.verifyResetToken(token, email)) as AuthResponse;
+    return (await this.passwordResetService.verifyResetToken(
+      token,
+      email,
+    )) as unknown as AuthResponse;
   }
 }

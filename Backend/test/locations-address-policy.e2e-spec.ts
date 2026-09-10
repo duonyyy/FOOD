@@ -40,12 +40,17 @@ describe('Locations address policy (e2e)', () => {
   it('allows an authenticated customer to list only their address collection', async () => {
     authenticated = true;
 
-    await request(app.getHttpServer()).get('/addresses').expect(200).expect([]);
+    await request(app.getHttpServer() as unknown as Parameters<typeof request>[0])
+      .get('/addresses')
+      .expect(200)
+      .expect([]);
   });
 
   it('returns 403 when authentication denies the address route', async () => {
     authenticated = false;
 
-    await request(app.getHttpServer()).get('/addresses').expect(403);
+    await request(app.getHttpServer() as unknown as Parameters<typeof request>[0])
+      .get('/addresses')
+      .expect(403);
   });
 });

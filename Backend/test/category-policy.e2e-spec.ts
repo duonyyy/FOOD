@@ -44,13 +44,16 @@ describe('Category policy (e2e)', () => {
   });
 
   it('allows public category reads', async () => {
-    await request(app.getHttpServer())
+    await request(app.getHttpServer() as unknown as Parameters<typeof request>[0])
       .get('/categories?page=1&pageSize=10')
       .expect(200)
       .expect({ items: [], totalItems: 0, page: 1, pageSize: 10, totalPages: 0 });
   });
 
   it('rejects category writes when the permission guard denies access', async () => {
-    await request(app.getHttpServer()).post('/categories').send({ name: 'Món Việt' }).expect(403);
+    await request(app.getHttpServer() as unknown as Parameters<typeof request>[0])
+      .post('/categories')
+      .send({ name: 'Món Việt' })
+      .expect(403);
   });
 });

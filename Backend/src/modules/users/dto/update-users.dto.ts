@@ -1,7 +1,7 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
 import { IsArray, IsOptional, ValidateNested } from 'class-validator';
-import { UpdateAddressDto } from 'src/features/locations/public-api';
+import { UpdateAddressDto } from 'src/features/locations/contracts/address-dto.contract';
 import { CreateUserDto } from './create-users.dto';
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {

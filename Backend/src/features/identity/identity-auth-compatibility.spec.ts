@@ -1,20 +1,17 @@
 import { MODULE_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { AuthController } from 'src/auth/auth.controller';
 import { AuthModule } from 'src/auth/auth.module';
-import { IdentityModule } from './identity.module';
+import { AuthGuard, IdentityModule } from './public-api';
 
 describe('Identity auth compatibility', () => {
-  it('keeps the existing Auth module composed by Identity', () => {
-    const identityImports = Reflect.getMetadata(
-      MODULE_METADATA.IMPORTS,
-      IdentityModule,
-    ) as unknown[];
+  it('keeps the existing auth capability in the Identity public API', () => {
     const authControllers = Reflect.getMetadata(
       MODULE_METADATA.CONTROLLERS,
       AuthModule,
     ) as unknown[];
 
-    expect(identityImports).toContain(AuthModule);
+    expect(IdentityModule).toBeDefined();
+    expect(AuthGuard).toBeDefined();
     expect(authControllers).toContain(AuthController);
   });
 

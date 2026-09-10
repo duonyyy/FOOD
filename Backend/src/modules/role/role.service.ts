@@ -70,10 +70,10 @@ export class RolesService {
       .select('user.role_id', 'roleId')
       .addSelect('COUNT(user.id)', 'count')
       .groupBy('user.role_id')
-      .getRawMany();
+      .getRawMany<{ roleId: string; count: string }>();
 
     // Bước 3: Chuyển mảng kết quả thành Map (Từ điển) để tìm kiếm cực nhanh O(1)
-    const countMap = new Map();
+    const countMap = new Map<string, number>();
     userCounts.forEach((item) => {
       countMap.set(item.roleId, Number(item.count)); // Đảm bảo count là số
     });
@@ -543,14 +543,14 @@ export class RolesService {
 
     // Iterate through main permission categories
     Object.keys(PermissionEnum).forEach((category) => {
-      const categoryPermissions = PermissionEnum[category];
+      const categoryPermissions = (PermissionEnum as unknown as Record<string, unknown>)[category];
 
       if (typeof categoryPermissions === 'string') {
         // Handle single string permissions like SETTING
         allPermissions.push(categoryPermissions as unknown as PermissionType);
-      } else if (typeof categoryPermissions === 'object') {
+      } else if (categoryPermissions && typeof categoryPermissions === 'object') {
         // Handle permission object with multiple types
-        Object.values(categoryPermissions).forEach((permission) => {
+        Object.values(categoryPermissions as Record<string, unknown>).forEach((permission) => {
           if (typeof permission === 'string') {
             allPermissions.push(permission as unknown as PermissionType);
           }

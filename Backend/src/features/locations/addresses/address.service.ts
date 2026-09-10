@@ -16,6 +16,11 @@ import { AddressResponseDto } from './dto/address-response.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 
+type AddressWriteData = Pick<
+  Address,
+  'street' | 'ward' | 'district' | 'city' | 'latitude' | 'longitude' | 'isDefault' | 'label'
+>;
+
 @Injectable()
 export class AddressService implements LocationReaderPort, LocationWriterPort {
   constructor(
@@ -35,7 +40,7 @@ export class AddressService implements LocationReaderPort, LocationWriterPort {
     ownerUserId?: string,
   ): Promise<{ addressId: string }> {
     const address = this.addressRepository.create({
-      ...this.toPersistence(data as any),
+      ...this.toPersistence(data),
       ...(ownerUserId ? { user: { id: ownerUserId } } : {}),
     });
     const saved = await this.addressRepository.save(address);
@@ -43,7 +48,7 @@ export class AddressService implements LocationReaderPort, LocationWriterPort {
   }
 
   async modifyAddress(id: string, data: Partial<CreateAddressPayload>): Promise<void> {
-    await this.addressRepository.update(id, this.toPersistence(data as any));
+    await this.addressRepository.update(id, this.toPersistence(data));
   }
 
   async removeAddress(id: string): Promise<void> {
@@ -158,11 +163,24 @@ export class AddressService implements LocationReaderPort, LocationWriterPort {
     await this.addressRepository.save(address);
   }
 
-  private toPersistence(data: CreateAddressDto | UpdateAddressDto): Partial<Address> {
-    const addressData = { ...data } as Record<string, unknown>;
-    delete addressData.id;
-    delete addressData.userId;
-    return addressData as Partial<Address>;
+  private toPersistence(
+    data:
+      | CreateAddressDto
+      | UpdateAddressDto
+      | CreateAddressPayload
+      | Partial<CreateAddressPayload>,
+  ): Partial<AddressWriteData> {
+    const input = data as Partial<AddressWriteData>;
+    return {
+      street: input.street,
+      ward: input.ward,
+      district: input.district,
+      city: input.city,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      isDefault: input.isDefault,
+      label: input.label,
+    };
   }
 
   private toSnapshot(address: Address): AddressSnapshot {

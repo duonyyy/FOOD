@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { User } from 'src/entities/user.entity';
 import { MailingService } from 'src/infra/mail/send-mail.service';
@@ -86,7 +86,7 @@ export class PasswordResetService {
     }
   }
 
-  async verifyResetToken(token: string, email: string): Promise<any> {
+  async verifyResetToken(token: string, email: string): Promise<VerifyResetTokenResponse> {
     try {
       const user = await this.findUserByResetToken(email, token);
       if (!user) {
@@ -249,4 +249,10 @@ export class PasswordResetService {
       this.logger.error(`Failed to send password change confirmation: ${(error as Error).message}`);
     }
   }
+}
+
+interface VerifyResetTokenResponse {
+  valid: boolean;
+  message: string;
+  expiresAt?: Date;
 }
