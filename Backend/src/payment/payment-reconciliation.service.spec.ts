@@ -26,15 +26,15 @@ describe('PaymentReconciliationService', () => {
       reconciliationLastError: null,
     });
     transactionRepository = {
-      findOne: jest.fn(async () => checkout),
-      save: jest.fn(async (value) => value),
+      findOne: jest.fn(() => Promise.resolve(checkout)),
+      save: jest.fn((value: Checkout) => Promise.resolve(value)),
     };
     repository = {
-      find: jest.fn(async () => [checkout]),
+      find: jest.fn(() => Promise.resolve([checkout])),
       update: jest.fn().mockResolvedValue(undefined),
       manager: {
-        transaction: jest.fn(async (callback) =>
-          callback({ getRepository: jest.fn(() => transactionRepository) }),
+        transaction: jest.fn((callback: (manager: { getRepository: jest.Mock }) => unknown) =>
+          Promise.resolve(callback({ getRepository: jest.fn(() => transactionRepository) })),
         ),
       },
     };

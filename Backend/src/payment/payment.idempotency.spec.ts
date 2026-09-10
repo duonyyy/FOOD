@@ -33,18 +33,18 @@ describe('Payment callback idempotency characterization', () => {
       status: CheckoutStatus.PENDING,
     });
     transactionalCheckoutRepository = {
-      findOne: jest.fn(async () => checkout),
-      save: jest.fn(async (value) => value),
+      findOne: jest.fn(() => Promise.resolve(checkout)),
+      save: jest.fn((value: Checkout) => Promise.resolve(value)),
     };
     const transactionManager = {
       getRepository: jest.fn(() => transactionalCheckoutRepository),
     };
     let transactionTail: Promise<unknown> = Promise.resolve();
     checkoutRepository = {
-      findOne: jest.fn(async () => checkout),
-      save: jest.fn(async (value) => value),
+      findOne: jest.fn(() => Promise.resolve(checkout)),
+      save: jest.fn((value: Checkout) => Promise.resolve(value)),
       manager: {
-        transaction: jest.fn((callback) => {
+        transaction: jest.fn((callback: (manager: typeof transactionManager) => unknown) => {
           const result = transactionTail.then(() => callback(transactionManager));
           transactionTail = result.then(
             () => undefined,
@@ -204,7 +204,10 @@ describe('Payment callback idempotency characterization', () => {
       expect.objectContaining({
         eventType: 'payment.failed',
         idempotencyKey: 'Checkout:checkout-1:payment:failed',
-        payload: expect.objectContaining({ orderId: 'order-1', checkoutId: 'checkout-1' }),
+        payload: expect.objectContaining({
+          orderId: 'order-1',
+          checkoutId: 'checkout-1',
+        }) as unknown,
       }),
     );
   });

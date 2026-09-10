@@ -173,7 +173,7 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
       };
 
       // Send request to Momo
-      const response = await axios(options);
+      const response = await axios<MomoCreateResponse>(options);
       const { payUrl, orderId: momoOrderId, requestId: momoRequestId } = response.data;
 
       // Return payment intent
@@ -200,21 +200,21 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
    * @param paymentIntentId Payment intent ID
    * @returns Payment result
    */
-  async confirmPaymentIntent(paymentIntentId: string): Promise<PaymentResult> {
+  confirmPaymentIntent(paymentIntentId: string): Promise<PaymentResult> {
     try {
       // For Momo, we don't need to confirm the payment intent
       // The payment is confirmed via webhook
-      return {
+      return Promise.resolve({
         success: true,
         paymentIntentId,
-      };
+      });
     } catch (error) {
       const mapped = mapPaymentGatewayError('momo', 'confirm_payment_intent', error);
       this.logProviderError('confirm_payment_intent', mapped);
-      return {
+      return Promise.resolve({
         success: false,
         error: mapped.code,
-      };
+      });
     }
   }
 
@@ -256,12 +256,12 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
    * @param amount Amount to refund
    * @returns Payment result
    */
-  async refundPayment(paymentIntentId: string, amount?: number): Promise<PaymentResult> {
+  refundPayment(_paymentIntentId: string, _amount?: number): Promise<PaymentResult> {
     // Momo doesn't support refunds in this implementation
-    return {
+    return Promise.resolve({
       success: false,
       error: 'Refunds are not supported by this payment gateway',
-    };
+    });
   }
 
   /**
@@ -370,7 +370,7 @@ export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
       };
 
       // Send request to Momo
-      const response = await axios.post(`${this.baseUrl}/query`, requestBody, {
+      const response = await axios.post<MomoQueryResponse>(`${this.baseUrl}/query`, requestBody, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -530,4 +530,19 @@ interface MomoQueryResult {
   providerReference: string;
   orderReference?: string;
   providerTransactionId?: string;
+}
+
+interface MomoCreateResponse {
+  payUrl: string;
+  orderId: string;
+  requestId: string;
+}
+
+interface MomoQueryResponse {
+  resultCode: number | string;
+  amount: number | string;
+  orderId?: string;
+  orderInfo?: string;
+  transId?: string;
+  currency?: string;
 }

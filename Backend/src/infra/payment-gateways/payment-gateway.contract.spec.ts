@@ -47,8 +47,10 @@ describe('payment gateway port contracts', () => {
       ipnUrl: 'https://api.example/payment-webhook',
     });
 
-    const request = axiosRequest.mock.calls[0][0];
-    const body = JSON.parse(request.data);
+    const request = (
+      axiosRequest.mock.calls[0] as unknown as [{ data: string; timeout: number }]
+    )[0];
+    const body = JSON.parse(request.data) as unknown as Record<string, unknown>;
     expect(request.timeout).toBe(3456);
     expect(body).toMatchObject({
       partnerCode: 'partner-code',

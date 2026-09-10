@@ -55,6 +55,7 @@ export class PaymentController {
 
   @Post('cancel/:checkoutId')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async cancelCheckout(@Param('checkoutId') checkoutId: string) {
     return this.paymentService.cancelCheckout(checkoutId);
   }
@@ -77,7 +78,8 @@ export class PaymentController {
 
   @Get('checkout/:checkoutId')
   @UseGuards(AuthGuard)
-  async getCheckoutStatus(@Param('checkoutId') checkoutId: string) {
+  @ApiBearerAuth('bearer')
+  getCheckoutStatus(@Param('checkoutId') checkoutId: string) {
     // This would typically be implemented in the service
     // For now, we'll just return a placeholder
     return {
@@ -172,6 +174,7 @@ export class PaymentController {
    */
   @Get('vnpay/status')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async checkVnpayStatus(@Query('orderId') orderId: string) {
     if (!orderId) {
       throw new BadRequestException('Order ID is required');

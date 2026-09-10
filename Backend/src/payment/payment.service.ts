@@ -226,7 +226,7 @@ export class PaymentService {
     });
   }
 
-  async handleMomoResult(
+  handleMomoResult(
     orderId: string,
     _resultCode: string,
     message: string,
@@ -234,10 +234,10 @@ export class PaymentService {
     // Browser redirects are not authoritative: provider webhooks are the only
     // callback path permitted to mutate a checkout.
     this.logger.log(`Received non-authoritative MoMo redirect for reference ${orderId}`);
-    return {
+    return Promise.resolve({
       success: false,
       message: message || 'Awaiting verified payment callback',
-    };
+    });
   }
 
   async checkMomoStatus(orderId: string): Promise<Record<string, unknown>> {

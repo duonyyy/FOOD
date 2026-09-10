@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { type PaymentIntent } from 'src/features/payments/contracts/payment-gateway.port';
 import { MomoPaymentGateway } from 'src/infra/payment-gateways/momo-payment.gateway';
 import { VnpayPaymentGateway } from 'src/infra/payment-gateways/vnpay-payment.gateway';
 import { CreateDemoCheckoutDto, CreateDemoOrderDto, DemoWebhookDto } from './dto/demo-payment.dto';
@@ -85,7 +86,7 @@ export class DemoPaymentController {
    * Create a dummy order for demo purposes
    */
   @Post('create-order')
-  async createDummyOrder(@Body() orderData: CreateDemoOrderDto) {
+  createDummyOrder(@Body() orderData: CreateDemoOrderDto) {
     const orderId = `MOMO${Date.now()}`; // Using the format from the example
     const order: DummyOrder = {
       id: orderId,
@@ -142,7 +143,7 @@ export class DemoPaymentController {
     const baseUrl = this.configService.get<string>('API_URL') || 'http://localhost:3000';
 
     try {
-      let paymentIntent;
+      let paymentIntent: PaymentIntent;
 
       if (paymentMethod === 'vnpay') {
         // Create VNPAY payment intent
@@ -190,9 +191,10 @@ export class DemoPaymentController {
         paymentUrl: paymentIntent.clientSecret,
         checkout,
       };
-    } catch (error) {
-      this.logger.error(`Failed to create payment intent: ${error.message}`);
-      throw new BadRequestException(`Failed to create payment intent: ${error.message}`);
+    } catch (error: unknown) {
+      const message = errorMessage(error);
+      this.logger.error(`Failed to create payment intent: ${message}`);
+      throw new BadRequestException(`Failed to create payment intent: ${message}`);
     }
   }
 
@@ -202,7 +204,7 @@ export class DemoPaymentController {
    */
   @Get('vnpay-result')
   @Redirect()
-  async handleVnpayResult(@Query() query: Record<string, string>): Promise<{ url: string }> {
+  handleVnpayResult(@Query() query: Record<string, string>): { url: string } {
     try {
       // Get the transaction reference (order ID)
       const orderId = query.vnp_TxnRef;
@@ -251,8 +253,8 @@ export class DemoPaymentController {
           url: `${this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000'}/payment-failed?orderId=${orderId}&message=${errorMessage}`,
         };
       }
-    } catch (error) {
-      this.logger.error(`VNPAY result processing error: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`VNPAY result processing error: ${errorMessage(error)}`);
       return {
         url: `${this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000'}/payment-failed?message=${encodeURIComponent('An error occurred during payment processing')}`,
       };
@@ -265,9 +267,7 @@ export class DemoPaymentController {
    * Must return specific JSON response format
    */
   @Get('vnpay-ipn')
-  async handleVnpayIpn(
-    @Query() query: Record<string, string>,
-  ): Promise<{ RspCode: string; Message: string }> {
+  handleVnpayIpn(@Query() query: Record<string, string>): { RspCode: string; Message: string } {
     try {
       this.logger.log('Received VNPAY IPN notification', JSON.stringify(query));
 
@@ -357,8 +357,8 @@ export class DemoPaymentController {
 
         return { RspCode: '00', Message: 'Confirm success' };
       }
-    } catch (error) {
-      this.logger.error(`Error processing VNPAY IPN: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error processing VNPAY IPN: ${errorMessage(error)}`);
       return { RspCode: '99', Message: 'Unknown error' };
     }
   }
@@ -368,7 +368,7 @@ export class DemoPaymentController {
    */
   @Get('result')
   @Redirect()
-  async handleMomoResult(
+  handleMomoResult(
     @Query('orderId') orderId: string,
     @Query('resultCode') resultCode: string,
     @Query('message') message: string,
@@ -428,7 +428,7 @@ export class DemoPaymentController {
    * Check payment status
    */
   @Get('check-status')
-  async checkPaymentStatus(@Query('orderId') orderId: string) {
+  checkPaymentStatus(@Query('orderId') orderId: string) {
     if (!orderId) {
       throw new BadRequestException('Order ID is required');
     }
@@ -470,7 +470,7 @@ export class DemoPaymentController {
    * Handle Momo webhook
    */
   @Post('webhook')
-  async handleWebhook(@Body() payload: DemoWebhookDto) {
+  handleWebhook(@Body() payload: DemoWebhookDto) {
     // In a real implementation, you would verify the signature
     // For demo purposes, we'll just process the webhook
 
@@ -532,7 +532,7 @@ export class DemoPaymentController {
    * Get all dummy orders
    */
   @Get('orders')
-  async getDummyOrders() {
+  getDummyOrders() {
     return Array.from(this.dummyOrders.values());
   }
 
@@ -540,7 +540,11 @@ export class DemoPaymentController {
    * Get all dummy checkouts
    */
   @Get('checkouts')
-  async getDummyCheckouts() {
+  getDummyCheckouts() {
     return Array.from(this.dummyCheckouts.values());
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
