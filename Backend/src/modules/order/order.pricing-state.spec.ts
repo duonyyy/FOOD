@@ -12,7 +12,9 @@ jest.mock('src/pubsub', () => ({ pubSub: { publish: jest.fn().mockResolvedValue(
 describe('Order pricing and state characterization', () => {
   const createService = (overrides: Record<string, unknown> = {}) => {
     const dependencies = {
-      orderRepository: { save: jest.fn(async (value) => value) },
+      orderRepository: {
+        save: jest.fn((value: unknown) => Promise.resolve(value)),
+      },
       orderDetailRepository: {},
       userRepository: {},
       restaurantRepository: { findOne: jest.fn() },
@@ -226,10 +228,10 @@ describe('Order pricing and state characterization', () => {
         release: jest.fn(),
         isTransactionActive: true,
         manager: {
-          findOne: jest.fn(async (entity) => {
-            if (entity === User) return { id: 'customer-1' };
+          findOne: jest.fn((entity: unknown) => {
+            if (entity === User) return Promise.resolve({ id: 'customer-1' });
             if (entity === Restaurant)
-              return {
+              return Promise.resolve({
                 id: 'restaurant-1',
                 name: 'Store',
                 status: RestaurantStatus.APPROVED,
@@ -240,26 +242,30 @@ describe('Order pricing and state characterization', () => {
                   latitude: 10.1,
                   longitude: 106.1,
                 },
-              };
+              });
             if (entity === Address)
-              return {
+              return Promise.resolve({
                 id: 'address-1',
                 street: 'Customer street',
                 ward: 'Ward',
                 district: 'District',
                 latitude: 10,
                 longitude: 106,
-              };
+              });
             if (entity === Promotion)
-              return {
+              return Promise.resolve({
                 id: 'promotion-1',
                 code: 'PROMO',
                 type: PromotionType.FOOD_DISCOUNT,
-              };
-            return null;
+              });
+            return Promise.resolve(null);
           }),
-          save: jest.fn(async (entity, value) =>
-            entity === Order ? Object.assign(value, { id: 'order-1' }) : value,
+          save: jest.fn((entity: unknown, value: unknown) =>
+            Promise.resolve(
+              entity === Order && typeof value === 'object' && value !== null
+                ? Object.assign(value, { id: 'order-1' })
+                : value,
+            ),
           ),
         },
       };
@@ -293,9 +299,9 @@ describe('Order pricing and state characterization', () => {
         calculatedDiscount: 10_000,
       });
       dependencies.promotionService.usePromotion.mockResolvedValue({ id: 'promotion-1' });
-      dependencies.orderQueryService.getOrderById.mockImplementation(async () => {
+      dependencies.orderQueryService.getOrderById.mockImplementation(() => {
         const savedCall = queryRunner.manager.save.mock.calls.find(([entity]) => entity === Order);
-        return savedCall?.[1] as Order;
+        return Promise.resolve(savedCall?.[1] as Order);
       });
 
       const result = await service.createOrder({
@@ -343,10 +349,10 @@ describe('Order pricing and state characterization', () => {
       release: jest.fn(),
       isTransactionActive: true,
       manager: {
-        findOne: jest.fn(async (entity) => {
-          if (entity === User) return { id: 'customer-1' };
+        findOne: jest.fn((entity: unknown) => {
+          if (entity === User) return Promise.resolve({ id: 'customer-1' });
           if (entity === Restaurant)
-            return {
+            return Promise.resolve({
               id: 'restaurant-1',
               name: 'Store',
               status: RestaurantStatus.APPROVED,
@@ -357,17 +363,17 @@ describe('Order pricing and state characterization', () => {
                 latitude: 10.1,
                 longitude: 106.1,
               },
-            };
+            });
           if (entity === Address)
-            return {
+            return Promise.resolve({
               id: 'address-1',
               street: 'Customer street',
               ward: 'Ward',
               district: 'District',
               latitude: 10,
               longitude: 106,
-            };
-          return null;
+            });
+          return Promise.resolve(null);
         }),
         save: jest.fn(),
       },

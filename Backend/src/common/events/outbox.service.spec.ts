@@ -19,7 +19,7 @@ describe('OutboxService', () => {
     const outboxRepository = {
       findOne: jest.fn().mockResolvedValue(event),
       find: jest.fn().mockResolvedValue([]),
-      save: jest.fn(async (value) => value),
+      save: jest.fn((value: typeof event) => Promise.resolve(value)),
     };
     const eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
     const service = new OutboxService(outboxRepository as never, eventBus as never);

@@ -11,7 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Permission } from 'src/constants/permission.enum';
@@ -26,6 +26,7 @@ export class PromotionController {
 
   @Post()
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.PROMOTION.CREATE)
   createPromotion(@Body() createPromotionDto: CreatePromotionDto) {
     return this.promotionService.createPromotion(createPromotionDto);
@@ -42,6 +43,7 @@ export class PromotionController {
 
   @Get()
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.PROMOTION.READ)
   getAllPromotions() {
     return this.promotionService.getAllPromotions();
@@ -49,6 +51,7 @@ export class PromotionController {
 
   @Get(':id')
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.PROMOTION.CREATE)
   getPromotionById(@Param('id') id: string) {
     return this.promotionService.getPromotionById(id);
@@ -56,6 +59,7 @@ export class PromotionController {
 
   @Put(':id')
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.PROMOTION.WRITE)
   updatePromotion(@Param('id') id: string, @Body() updatePromotionDto: UpdatePromotionDto) {
     return this.promotionService.updatePromotion(id, updatePromotionDto);
@@ -63,6 +67,7 @@ export class PromotionController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.PROMOTION.DELETE)
   deletePromotion(@Param('id') id: string) {
     return this.promotionService.deletePromotion(id);

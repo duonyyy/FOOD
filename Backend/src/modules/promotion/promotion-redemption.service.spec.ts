@@ -13,16 +13,22 @@ describe('PromotionRedemptionService', () => {
     };
     const redemptionRepository = {
       findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((value) => value),
+      create: jest.fn((value: unknown) => value),
       save: jest.fn().mockResolvedValue(redemption),
     };
     const promotionRepository = {
       findOne: jest.fn().mockResolvedValue({ id: 'promotion-1', code: 'WELCOME' }),
     };
     const manager = {
-      getRepository: jest.fn((entity) =>
-        entity.name === 'PromotionRedemption' ? redemptionRepository : promotionRepository,
-      ),
+      getRepository: jest.fn((entity: unknown) => {
+        const entityName =
+          (typeof entity === 'function' || (typeof entity === 'object' && entity !== null)) &&
+          'name' in entity &&
+          typeof entity.name === 'string'
+            ? entity.name
+            : undefined;
+        return entityName === 'PromotionRedemption' ? redemptionRepository : promotionRepository;
+      }),
     };
     const promotionService = { usePromotion: jest.fn().mockResolvedValue({}) };
 

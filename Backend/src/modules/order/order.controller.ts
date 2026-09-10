@@ -23,6 +23,7 @@ import {
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { Permission } from 'src/constants/permission.enum';
 import { Order } from 'src/entities/order.entity';
 import { CurrentActor, type CurrentActorData } from 'src/features/identity/public-api';
@@ -166,9 +167,9 @@ export class OrderController {
           this.logger.log(
             `🗑️ Cleaned up temporary address ${addressId} after order creation failure`,
           );
-        } catch (cleanupError) {
+        } catch (cleanupError: unknown) {
           this.logger.error(
-            `❌ Failed to clean up temporary address ${addressId}: ${cleanupError.message}`,
+            `❌ Failed to clean up temporary address ${addressId}: ${errorMessage(cleanupError)}`,
           );
         }
       }
@@ -178,6 +179,7 @@ export class OrderController {
 
   @Get('my')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async getMyOrders(
     @CurrentActor() actor: CurrentActorData,
     @Query('page') page: number = 1,
@@ -189,6 +191,7 @@ export class OrderController {
 
   @Get()
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.ORDER.READ)
   getAllOrders() {
     return this.orderService.getAllOrders();
@@ -263,14 +266,15 @@ export class OrderController {
 
   @Get('restaurant/my')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async getOrdersByMyRestaurant(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Query('page') page: number = 1,
     @Query('pageSize') pageSize: number = 10,
     @Query('status') status?: string,
   ) {
-    this.logger.log(`Getting orders for restaurant owned by user: ${req.user.uid || req.user.id}`);
-    const userId = req.user.uid || req.user.id;
+    const userId = req.user.uid ?? req.user.id;
+    this.logger.log(`Getting orders for restaurant owned by user: ${userId}`);
 
     // Get restaurant owned by this user
     const userRestaurant = await this.restaurantService.findByOwnerId(userId);
@@ -283,6 +287,7 @@ export class OrderController {
 
   @Get(':id')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async getOrderById(
     @Param('id') id: string,
     @CurrentActor() actor: CurrentActorData,
@@ -293,6 +298,7 @@ export class OrderController {
 
   @Get('user/:userId')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   getOrdersByUser(@Param('userId') userId: string, @CurrentActor() actor: CurrentActorData) {
     if (userId !== actor.userId) {
       throw new ForbiddenException("You cannot access another user's orders");
@@ -302,6 +308,7 @@ export class OrderController {
 
   @Get(':id/details')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async getOrderDetails(@Param('id') id: string, @CurrentActor() actor: CurrentActorData) {
     await this.getOrderForActor(id, actor.userId);
     return this.orderService.getOrderDetails(id);
@@ -309,6 +316,7 @@ export class OrderController {
 
   @Put(':id/status')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async updateOrderStatus(
     @Param('id') id: string,
     @Body('status') status: string,
@@ -357,8 +365,10 @@ export class OrderController {
         try {
           await this.pendingAssignmentService.addPendingAssignment(id, 1);
           this.logger.log(`Added order ${id} to pending shipper assignments`);
-        } catch (error) {
-          this.logger.error(`Failed to add order ${id} to pending assignments: ${error.message}`);
+        } catch (error: unknown) {
+          this.logger.error(
+            `Failed to add order ${id} to pending assignments: ${errorMessage(error)}`,
+          );
         }
       } else {
         this.logger.log(
@@ -372,9 +382,9 @@ export class OrderController {
       try {
         await this.pendingAssignmentService.removePendingAssignment(id);
         this.logger.log(`Removed order ${id} from pending assignments due to status change`);
-      } catch (error) {
+      } catch (error: unknown) {
         this.logger.error(
-          `Failed to remove order ${id} from pending assignments: ${error.message}`,
+          `Failed to remove order ${id} from pending assignments: ${errorMessage(error)}`,
         );
       }
     }
@@ -388,6 +398,7 @@ export class OrderController {
 
   @Put('admin/:id/status')
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.ORDER.WRITE)
   async adminUpdateOrderStatus(
     @Param('id') id: string,
@@ -404,6 +415,7 @@ export class OrderController {
 
   @Delete(':id')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async deleteOrder(@Param('id') id: string, @CurrentActor() actor: CurrentActorData) {
     const order = await this.orderService.getOrderById(id);
     this.actorPolicy.assertCanDelete(order, actor.userId);
@@ -412,6 +424,7 @@ export class OrderController {
 
   @Post(':id/payment')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async processPayment(
     @Param('id') id: string,
     @Body() paymentData: PaymentDto,
@@ -469,4 +482,8 @@ export class OrderController {
     }
     return order;
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

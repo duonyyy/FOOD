@@ -22,13 +22,17 @@ export class CreatePromotionDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @ValidateIf((o) => o.discountAmount === undefined || o.discountAmount === null)
+  @ValidateIf(
+    (o: CreatePromotionDto) => o.discountAmount === undefined || o.discountAmount === null,
+  )
   discountPercent?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @ValidateIf((o) => o.discountPercent === undefined || o.discountPercent === null)
+  @ValidateIf(
+    (o: CreatePromotionDto) => o.discountPercent === undefined || o.discountPercent === null,
+  )
   discountAmount?: number;
 
   @IsOptional()

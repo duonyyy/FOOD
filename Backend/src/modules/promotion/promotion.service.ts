@@ -206,7 +206,7 @@ export class PromotionService {
       const finalDiscount = Math.min(discount, amount);
 
       return finalDiscount;
-    } catch (error) {
+    } catch {
       return 0; // Return 0 discount on error
     }
   }
@@ -309,7 +309,22 @@ export class PromotionService {
     }
 
     // Build update object with proper typing
-    const updateData: Partial<Promotion> = {};
+    const updateData: Partial<
+      Pick<
+        Promotion,
+        | 'description'
+        | 'type'
+        | 'discountPercent'
+        | 'discountAmount'
+        | 'minOrderValue'
+        | 'maxDiscountAmount'
+        | 'code'
+        | 'image'
+        | 'maxUsage'
+        | 'startDate'
+        | 'endDate'
+      >
+    > = {};
 
     if (data.description !== undefined) updateData.description = data.description;
     if (data.type !== undefined) updateData.type = data.type;

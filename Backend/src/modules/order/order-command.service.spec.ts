@@ -6,30 +6,37 @@ import { OrderCommandService } from './order-command.service';
 
 describe('OrderCommandService', () => {
   const createCommandService = () => {
-    const order = {
+    type OrderMock = {
+      id: string;
+      status: OrderStatus;
+      user: { id: string };
+      isPaid: boolean;
+    };
+    const order: OrderMock = {
       id: 'order-1',
       status: OrderStatus.PENDING,
       user: { id: 'customer-1' },
       isPaid: false,
     };
     const transactionalRepository = {
-      findOne: jest.fn(async () => order),
-      save: jest.fn(async (value) => value),
+      findOne: jest.fn(() => Promise.resolve(order)),
+      save: jest.fn((value: OrderMock) => Promise.resolve(value)),
     };
+    const transactionManager = { getRepository: () => transactionalRepository };
     const dependencies = {
       orderRepository: {
-        save: jest.fn(async (value) => value),
+        save: jest.fn((value: OrderMock) => Promise.resolve(value)),
         manager: {
-          transaction: jest.fn(async (callback) =>
-            callback({ getRepository: () => transactionalRepository }),
+          transaction: jest.fn((callback: (manager: typeof transactionManager) => unknown) =>
+            Promise.resolve(callback(transactionManager)),
           ),
         },
       },
-      orderQueryService: { getOrderById: jest.fn().mockResolvedValue(order) },
+      orderQueryService: { getOrderById: jest.fn(() => Promise.resolve(order)) },
       pendingAssignmentService: {
-        addPendingAssignment: jest.fn().mockResolvedValue({ id: 'assignment-1' }),
+        addPendingAssignment: jest.fn(() => Promise.resolve({ id: 'assignment-1' })),
       },
-      eventBus: { publish: jest.fn().mockResolvedValue(undefined) },
+      eventBus: { publish: jest.fn(() => Promise.resolve()) },
     };
 
     return {
@@ -57,7 +64,7 @@ describe('OrderCommandService', () => {
 
     expect(dependencies.orderRepository.save).toHaveBeenCalled();
     expect(publishSpy).toHaveBeenCalledWith('orderStatusUpdated', {
-      orderStatusUpdated: expect.objectContaining({ status: OrderStatus.CONFIRMED }),
+      orderStatusUpdated: expect.objectContaining({ status: OrderStatus.CONFIRMED }) as unknown,
     });
     expect(dependencies.eventBus.publish).toHaveBeenCalled();
   });
@@ -68,6 +75,7 @@ describe('OrderCommandService', () => {
       id: 'order-1',
       status: OrderStatus.COMPLETED,
       user: { id: 'customer-1' },
+      isPaid: false,
     });
 
     await expect(service.cancel('order-1')).rejects.toBeInstanceOf(BadRequestException);
@@ -122,7 +130,7 @@ describe('OrderCommandService', () => {
       expect.objectContaining({ status: OrderStatus.COMPLETED }),
     );
     expect(publishSpy).toHaveBeenCalledWith('orderStatusUpdated', {
-      orderStatusUpdated: expect.objectContaining({ status: OrderStatus.COMPLETED }),
+      orderStatusUpdated: expect.objectContaining({ status: OrderStatus.COMPLETED }) as unknown,
     });
   });
 

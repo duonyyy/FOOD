@@ -17,7 +17,7 @@ import {
 import { createOrderItemSnapshot } from 'src/features/orders/snapshots/order-item-snapshot';
 import { MapboxService } from 'src/infra/maps/mapbox.service';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { PromotionRedemptionService } from '../promotion/promotion-redemption.service';
 import { PromotionService } from '../promotion/promotion.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -299,7 +299,7 @@ export class OrderCreateService {
   private async createOrderDetails(
     order: Order,
     foodDetails: Awaited<ReturnType<typeof this.validateAndCalculateOrderDetails>>['foodDetails'],
-    queryRunner: any,
+    queryRunner: QueryRunner,
   ) {
     for (const detail of foodDetails) {
       const orderDetail = new OrderDetail();

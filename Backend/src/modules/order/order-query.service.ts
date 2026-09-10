@@ -10,7 +10,10 @@ import { Role } from 'src/entities/role.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
 import { In, Repository } from 'typeorm';
-import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../../features/orders/contracts/order-analytics-reader.port';
+import type {
+  OrderAnalyticsPage,
+  OrderAnalyticsSnapshot,
+} from '../../features/orders/contracts/order-analytics-reader.port';
 
 interface ReviewInfo {
   hasReviewedFood: boolean;

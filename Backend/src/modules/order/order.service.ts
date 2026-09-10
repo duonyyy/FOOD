@@ -10,7 +10,6 @@ import { Address } from 'src/entities/address.entity';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
 import { Food } from 'src/entities/food.entity';
 import { Order } from 'src/entities/order.entity';
-import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../../features/orders/contracts/order-analytics-reader.port';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
@@ -29,7 +28,11 @@ import { MapboxService } from 'src/infra/maps/mapbox.service';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { pubSub } from 'src/pubsub';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
-import { DataSource, LessThan, Repository } from 'typeorm';
+import { DataSource, LessThan, QueryRunner, Repository } from 'typeorm';
+import type {
+  OrderAnalyticsPage,
+  OrderAnalyticsSnapshot,
+} from '../../features/orders/contracts/order-analytics-reader.port';
 import { PromotionService } from '../promotion/promotion.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaymentDto } from './dto/payment.dto';
@@ -106,7 +109,7 @@ export class OrderService {
     }> = [];
 
     for (const detail of orderDetails) {
-      console.log('>>>>> Received selectedToppings:', detail.selectedToppings);
+      this.logger.debug({ selectedToppings: detail.selectedToppings });
       const food = await this.foodRepository.findOne({
         where: { id: detail.foodId },
         relations: ['toppings', 'restaurant'],
@@ -160,7 +163,7 @@ export class OrderService {
           });
         }
       }
-      console.log(`Topping total for food ${food.name}: ${toppingTotal}`);
+      this.logger.debug(`Topping total for food ${food.name}: ${toppingTotal}`);
       const itemTotal = discountedPrice * quantity + toppingTotal;
       calculatedTotal += itemTotal;
 
@@ -174,10 +177,10 @@ export class OrderService {
         itemTotal,
       });
     }
-    console.log(
+    this.logger.debug(
       `topping total: ${foodDetails.map((f) => f.toppingTotal).reduce((a, b) => a + b, 0)}`,
     );
-    console.log(`Calculated total for order: ${calculatedTotal}`);
+    this.logger.debug(`Calculated total for order: ${calculatedTotal}`);
     return { calculatedTotal, foodDetails };
   }
 
@@ -192,7 +195,7 @@ export class OrderService {
       discountedPrice: number;
       itemTotal: number;
     }[],
-    queryRunner: any,
+    queryRunner: QueryRunner,
   ): Promise<void> {
     for (const detail of foodDetails) {
       const orderDetail = new OrderDetail();
@@ -267,8 +270,10 @@ export class OrderService {
         await this.addressRepository.remove(address);
         this.logger.log(`🗑️ Temporary address ${addressId} deleted`);
       }
-    } catch (error) {
-      this.logger.error(`❌ Failed to delete temporary address ${addressId}: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `❌ Failed to delete temporary address ${addressId}: ${errorMessage(error)}`,
+      );
     }
   }
 
@@ -480,10 +485,13 @@ export class OrderService {
         }
       }
       this.logger.log(`✅ Enhanced order transaction committed for order ID: ${savedOrder.id}`);
-      console.log(`Order created successfully with ID: ${savedOrder.id}`);
+      this.logger.debug(`Order created successfully with ID: ${savedOrder.id}`);
       return await this.getOrderById(savedOrder.id);
-    } catch (error) {
-      this.logger.error(`❌ Enhanced order creation failed: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(
+        `❌ Enhanced order creation failed: ${errorMessage(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
       throw error;
     } finally {
@@ -776,9 +784,9 @@ export class OrderService {
         } else {
           promotionError = validation.reason || 'Invalid promotion code';
         }
-      } catch (error) {
+      } catch (error: unknown) {
         promotionError = 'Failed to validate promotion code';
-        this.logger.error(`Promotion validation error: ${error.message}`);
+        this.logger.error(`Promotion validation error: ${errorMessage(error)}`);
       }
     }
 
@@ -1218,8 +1226,12 @@ export class OrderService {
       if (result.affected && result.affected > 0) {
         this.logger.log(`🗑️ Cleaned up ${result.affected} temporary addresses older than 24 hours`);
       }
-    } catch (error) {
-      this.logger.error(`❌ Failed to cleanup temporary addresses: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`❌ Failed to cleanup temporary addresses: ${errorMessage(error)}`);
     }
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
