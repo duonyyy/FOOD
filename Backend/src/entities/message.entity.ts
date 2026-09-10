@@ -82,7 +82,7 @@ export class Message {
 
   @Field(() => GraphQLJSON, { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
-  metadata: any; // For storing additional data like order info, location coordinates, etc.
+  metadata: Record<string, unknown>; // For storing additional data like order info, location coordinates, etc.
 
   @Field({ nullable: true })
   @Column({ nullable: true })

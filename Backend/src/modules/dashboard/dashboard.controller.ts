@@ -1,4 +1,5 @@
 import { Controller, DefaultValuePipe, Get, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
@@ -8,6 +9,7 @@ import { DashboardService } from './dashboard.service';
 @Controller('dashboard')
 @UseGuards(RolesGuard)
 @Permissions(Permission.DASHBOARD.READ)
+@ApiBearerAuth('bearer')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 

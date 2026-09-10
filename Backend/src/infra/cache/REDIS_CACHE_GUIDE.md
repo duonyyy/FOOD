@@ -9,7 +9,6 @@ Trong `docker-compose.yml`, them service Redis:
 ```yml
 redis:
   image: redis:7-alpine
-  container_name: fooddie_redis
   restart: unless-stopped
   command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
   ports:
@@ -379,19 +378,19 @@ docker compose up -d redis
 Kiem tra Redis song:
 
 ```bash
-docker exec -it fooddie_redis redis-cli ping
+docker compose exec redis redis-cli ping
 ```
 
 Xem key:
 
 ```bash
-docker exec -it fooddie_redis redis-cli keys '*'
+docker compose exec redis redis-cli keys '*'
 ```
 
 Xoa tat ca cache local:
 
 ```bash
-docker exec -it fooddie_redis redis-cli flushdb
+docker compose exec redis redis-cli flushdb
 ```
 
 Trong production, han che dung `KEYS *` va `FLUSHDB`; nen dung `SCAN` hoac helper `deleteByPattern`.

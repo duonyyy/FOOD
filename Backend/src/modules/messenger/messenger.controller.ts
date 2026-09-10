@@ -12,6 +12,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { Conversation } from 'src/entities/conversation.entity';
@@ -21,6 +22,7 @@ import { MessengerService } from './messenger.service';
 
 @Controller('messenger')
 @UseGuards(AuthGuard)
+@ApiBearerAuth('bearer')
 export class MessengerController {
   constructor(private readonly messengerService: MessengerService) {}
 

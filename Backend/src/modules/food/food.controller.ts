@@ -16,7 +16,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -44,6 +44,7 @@ export class FoodController {
 
   @Post()
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async create(
     @Body() createFoodDto: CreateFoodDto,
     @Req() req: AuthenticatedRequest,
@@ -60,6 +61,7 @@ export class FoodController {
   }
   @Get('all')
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.FOOD.READ)
   async findAllForStore(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -412,6 +414,7 @@ export class FoodController {
 
   @Put(':id')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async update(
     @Param('id') id: string,
     @Body() updateFoodDto: UpdateFoodDto,
@@ -426,6 +429,7 @@ export class FoodController {
 
   @Delete(':id')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
@@ -434,6 +438,7 @@ export class FoodController {
 
   @Put(':id/status')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async updateStatus(
     @Param('id') id: string,
     @Body('status') status: string,
@@ -449,6 +454,7 @@ export class FoodController {
 
   @Delete(':id/admin')
   @UseGuards(RolesGuard)
+  @ApiBearerAuth('bearer')
   @Permissions(Permission.FOOD.DELETE)
   async deleteFood(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user?.id;
@@ -458,6 +464,7 @@ export class FoodController {
 
   @Post(':id/toppings')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async addTopping(
     @Param('id') foodId: string,
     @Body() createToppingDto: CreateToppingDto,
@@ -471,6 +478,7 @@ export class FoodController {
 
   @Put('toppings/:toppingId')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async updateTopping(
     @Param('toppingId') toppingId: string,
     @Body() updateToppingDto: UpdateToppingDto,
@@ -484,6 +492,7 @@ export class FoodController {
 
   @Delete('toppings/:toppingId')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
   async removeTopping(
     @Param('toppingId') toppingId: string,
     @Req() req: AuthenticatedRequest,

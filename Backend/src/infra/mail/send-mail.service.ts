@@ -67,8 +67,8 @@ export class MailingService implements OnModuleInit {
       this.isConfigValid = true;
       this.logger.log('Mail transporter initialized successfully');
       return true;
-    } catch (error) {
-      this.logger.error(`Failed to initialize mail transporter: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to initialize mail transporter: ${errorMessage(error)}`);
       return false;
     }
   }
@@ -108,12 +108,19 @@ export class MailingService implements OnModuleInit {
         text: `Original sender: ${emailData.from}\n\n${emailData.bodyHtml.replace(/<[^>]*>/g, '')}`,
       };
 
-      const result = await this.transporter.sendMail(mailOptions);
+      await this.transporter.sendMail(mailOptions);
       this.logger.log(`Email sent successfully to ${emailData.to}`);
       return true;
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${emailData.to}: ${error.message}`, error.stack);
-      throw new Error(`Failed to send email: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to send email to ${emailData.to}: ${errorMessage(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new Error(`Failed to send email: ${errorMessage(error)}`);
     }
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

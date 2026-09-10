@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin';
 
 let firebaseApp: admin.app.App;
 
-export function initializeFirebaseAdmin(configService: ConfigService) {
+export function initializeFirebaseAdmin(configService: ConfigService): admin.app.App {
   try {
     const serviceAccount = {
       type: configService.get<string>('FIREBASE_TYPE'),

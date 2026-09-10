@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { ChatService } from './chat.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
@@ -11,6 +12,7 @@ interface AuthenticatedRequest {
 }
 
 @Controller('chat')
+@ApiBearerAuth('bearer')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 

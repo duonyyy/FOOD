@@ -16,7 +16,7 @@ export class CreateToppingDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (typeof value === 'string') {
       return value === 'true';
     }

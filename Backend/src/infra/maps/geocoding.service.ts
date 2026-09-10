@@ -7,6 +7,14 @@ interface GeocodingResult {
   lng: number;
 }
 
+interface MapboxFeatureCollection {
+  features: Array<{
+    geometry?: {
+      coordinates?: unknown;
+    };
+  }>;
+}
+
 @Injectable()
 export class GeocodingService {
   private readonly logger = new Logger(GeocodingService.name);
@@ -45,18 +53,28 @@ export class GeocodingService {
       const encodedAddress = encodeURIComponent(address);
 
       // Make request to Mapbox Geocoding API
-      const response = await axios.get(`${this.baseUrl}/${encodedAddress}.json`, {
-        params: {
-          access_token: this.accessToken,
-          country: 'vn', // Limit results to Vietnam
-          limit: 1, // Get just the top result
-          types: 'address,place', // Focus on addresses and places
+      const response = await axios.get<MapboxFeatureCollection>(
+        `${this.baseUrl}/${encodedAddress}.json`,
+        {
+          params: {
+            access_token: this.accessToken,
+            country: 'vn', // Limit results to Vietnam
+            limit: 1, // Get just the top result
+            types: 'address,place', // Focus on addresses and places
+          },
         },
-      });
+      );
 
       // Check if we have valid results
-      if (response.data && response.data.features && response.data.features.length > 0) {
-        const [longitude, latitude] = response.data.features[0].geometry.coordinates;
+      const coordinates = response.data.features[0]?.geometry?.coordinates;
+      if (
+        Array.isArray(coordinates) &&
+        coordinates.length >= 2 &&
+        typeof coordinates[0] === 'number' &&
+        typeof coordinates[1] === 'number'
+      ) {
+        const longitude = coordinates[0];
+        const latitude = coordinates[1];
 
         // Mapbox returns coordinates as [longitude, latitude]
         return {

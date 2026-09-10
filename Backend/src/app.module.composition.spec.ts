@@ -1,5 +1,6 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { AppModule } from './app.module';
+import { AnalyticsModule } from './features/analytics/public-api';
 import { CommunicationsModule } from './features/communications/public-api';
 import { DashboardModule } from './features/dashboard/public-api';
 import { DeliveryModule } from './features/delivery/public-api';
@@ -32,6 +33,7 @@ describe('AppModule composition', () => {
 
   it('composes every canonical non-empty feature shell through its public API', () => {
     expect(getModuleImports(FeaturesModule)).toEqual([
+      AnalyticsModule,
       IdentityModule,
       LocationsModule,
       RestaurantsModule,

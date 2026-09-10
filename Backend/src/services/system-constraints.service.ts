@@ -55,8 +55,8 @@ export class SystemConstraintsService {
       );
 
       return constraints;
-    } catch (error) {
-      this.logger.error(`❌ Error fetching system constraints: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`❌ Error fetching system constraints: ${errorMessage(error)}`);
 
       // If database query fails, return cached constraints if available
       if (this.cachedConstraints) {
@@ -92,8 +92,8 @@ export class SystemConstraintsService {
       this.logger.log('✅ Default system constraints created successfully');
 
       return savedConstraints;
-    } catch (error) {
-      this.logger.error(`❌ Error creating default constraints: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`❌ Error creating default constraints: ${errorMessage(error)}`);
       return this.getHardcodedDefaults();
     }
   }
@@ -229,9 +229,9 @@ export class SystemConstraintsService {
         reasons,
         score: Math.max(0, Math.round(score * 100) / 100),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `❌ Error checking shipper eligibility for ${shipper.id}: ${error.message}`,
+        `❌ Error checking shipper eligibility for ${shipper.id}: ${errorMessage(error)}`,
       );
       return {
         eligible: false,
@@ -309,8 +309,8 @@ export class SystemConstraintsService {
       }
 
       return Math.max(0, score);
-    } catch (error) {
-      this.logger.error(`Error calculating shipper score: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error calculating shipper score: ${errorMessage(error)}`);
       return 0;
     }
   }
@@ -329,8 +329,8 @@ export class SystemConstraintsService {
       } else {
         return constraints.tier3_shipping_fee;
       }
-    } catch (error) {
-      this.logger.error(`Error calculating shipping fee: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error calculating shipping fee: ${errorMessage(error)}`);
       // Fallback to hardcoded tiers
       if (distanceKm <= 5) return 15000;
       if (distanceKm <= 10) return 25000;
@@ -345,8 +345,8 @@ export class SystemConstraintsService {
     try {
       const constraints = await this.getConstraints();
       return distanceKm <= constraints.max_delivery_distance;
-    } catch (error) {
-      this.logger.error(`Error checking distance limits: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error checking distance limits: ${errorMessage(error)}`);
       return distanceKm <= 30; // Fallback limit
     }
   }
@@ -358,8 +358,8 @@ export class SystemConstraintsService {
     try {
       const constraints = await this.getConstraints();
       return constraints.max_delivery_time_min;
-    } catch (error) {
-      this.logger.error(`Error getting max delivery time: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error getting max delivery time: ${errorMessage(error)}`);
       return 45; // Fallback value
     }
   }
@@ -371,8 +371,8 @@ export class SystemConstraintsService {
     try {
       const constraints = await this.getConstraints();
       return constraints.max_delivery_distance;
-    } catch (error) {
-      this.logger.error(`Error getting max delivery distance: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error getting max delivery distance: ${errorMessage(error)}`);
       return 30; // Fallback value
     }
   }
@@ -380,9 +380,9 @@ export class SystemConstraintsService {
   /**
    * Get shipper commission rate from system settings
    */
-  async getShipperCommissionRate(): Promise<number> {
+  getShipperCommissionRate(): Promise<number> {
     // This could be configurable in the database, for now default to 80%
-    return 0.8;
+    return Promise.resolve(0.8);
   }
 
   /**
@@ -427,8 +427,8 @@ export class SystemConstraintsService {
         commissionRate,
         feeStructure,
       };
-    } catch (error) {
-      this.logger.error(`Error getting delivery fee breakdown: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error getting delivery fee breakdown: ${errorMessage(error)}`);
       throw error;
     }
   }
@@ -456,8 +456,8 @@ export class SystemConstraintsService {
 
       this.logger.log('✅ System constraints updated successfully');
       return updated;
-    } catch (error) {
-      this.logger.error(`Error updating constraints: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error updating constraints: ${errorMessage(error)}`);
       throw error;
     }
   }
@@ -470,4 +470,8 @@ export class SystemConstraintsService {
     this.lastCacheUpdate = new Date(0);
     this.logger.log('🗑️ System constraints cache cleared');
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
