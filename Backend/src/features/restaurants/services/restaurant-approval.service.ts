@@ -93,6 +93,7 @@ export class RestaurantApprovalService {
     await Promise.all([
       this.cache.deleteByPattern('restaurant:*'),
       this.cache.deleteByPattern(`restaurant:${restaurantId}:*`),
+      this.cache.deleteByPattern('food:*'),
       ownerId ? this.cache.deleteByPattern(`restaurant:owner:${ownerId}:*`) : Promise.resolve(0),
     ]);
   }

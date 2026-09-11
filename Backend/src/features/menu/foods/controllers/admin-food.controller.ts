@@ -14,8 +14,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { Permission } from 'src/constants/permission.enum';
-import { Permissions } from 'src/features/auth/decorators/permissions.decorator';
-import { RolesGuard } from 'src/features/auth/guards/roles.guard';
+import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { AdminFoodService } from '../services/admin-food.service';
 import { CustomerFoodService } from '../services/customer-food.service';
 
@@ -93,6 +92,7 @@ export class AdminFoodController {
         longitude,
         normalizedStatus,
         sortBy,
+        'admin',
       );
     } else if (normalizedRestaurantId) {
       return await this.customerFoodService.findByRestaurant(
@@ -103,6 +103,7 @@ export class AdminFoodController {
         longitude,
         normalizedStatus,
         sortBy,
+        'admin',
       );
     } else if (normalizedCategoryId) {
       return await this.customerFoodService.findByCategory(
@@ -111,6 +112,7 @@ export class AdminFoodController {
         actualPageSize,
         latitude,
         longitude,
+        'admin',
       );
     } else {
       return await this.customerFoodService.findAll(
@@ -119,6 +121,8 @@ export class AdminFoodController {
         latitude,
         longitude,
         normalizedStatus,
+        undefined,
+        'admin',
       );
     }
   }

@@ -9,7 +9,7 @@ describe('FoodQueryService - MenuReaderPort', () => {
         name: 'Phở',
         price: '55000',
         status: 'available',
-        restaurant: { id: 'restaurant-1' },
+        restaurant: { id: 'restaurant-1', status: 'approved' },
         toppings: [{ id: 'topping-1', name: 'Trứng', price: '10000', isAvailable: true }],
       }),
     };
@@ -31,6 +31,7 @@ describe('FoodQueryService - MenuReaderPort', () => {
       restaurantId: 'restaurant-1',
       name: 'Phở',
       unitPrice: 55000,
+      discountPercent: 0,
       status: 'available',
       isAvailable: true,
       toppings: [{ toppingId: 'topping-1', name: 'Trứng', unitPrice: 10000, isAvailable: true }],
@@ -47,7 +48,7 @@ describe('FoodQueryService - MenuReaderPort', () => {
       name: 'Original',
       price: 10,
       status: 'available',
-      restaurant: { id: 'restaurant-1' },
+      restaurant: { id: 'restaurant-1', status: 'approved' },
       toppings: [{ id: 'topping-1', name: 'Old topping', price: 2, isAvailable: true }],
     };
     const repository = { findOne: jest.fn().mockResolvedValue(food) };
@@ -78,7 +79,7 @@ describe('FoodQueryService - MenuReaderPort', () => {
     const repository = {
       findOne: jest.fn().mockResolvedValue({
         id: 'food-1',
-        restaurant: { id: 'restaurant-1' },
+        restaurant: { id: 'restaurant-1', status: 'approved' },
         toppings: [{ id: 'topping-1', name: 'Trứng', price: 10, isAvailable: true }],
       }),
     };
@@ -97,4 +98,34 @@ describe('FoodQueryService - MenuReaderPort', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it.each(['pending', 'rejected'])(
+    'marks available food from a %s restaurant as not orderable',
+    async (restaurantStatus) => {
+      const repository = {
+        findOne: jest.fn().mockResolvedValue({
+          id: 'food-1',
+          name: 'Phở',
+          price: 55_000,
+          status: 'available',
+          restaurant: { id: 'restaurant-1', status: restaurantStatus },
+          toppings: [],
+        }),
+      };
+      const service = new FoodQueryService(
+        repository as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      );
+
+      const [snapshot] = await service.getOrderableItems({
+        items: [{ foodId: 'food-1', toppingIds: [] }],
+      });
+
+      expect(snapshot?.isAvailable).toBe(false);
+    },
+  );
 });

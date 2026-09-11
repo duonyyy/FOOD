@@ -24,6 +24,12 @@ export type FoodSortType =
   | 'price'
   | 'name';
 
+export type FoodVisibilityScope = 'admin' | 'public';
+
+const PUBLIC_FOOD_STATUS = 'available';
+const PUBLIC_RESTAURANT_STATUS = 'approved';
+const PUBLIC_MENU_CACHE_VERSION = 'v2';
+
 export type FoodQueryRestaurant = {
   id?: string;
   name?: string;
@@ -132,17 +138,42 @@ export class CustomerFoodService {
     return restaurant;
   }
 
-  async getTopFoodsByRestaurant(restaurantId: string, limit = 5): Promise<object[]> {
-    const cacheKey = buildMenuCacheKey('food:topByRestaurant', { restaurantId, limit });
-    return this.cacheService.remember(cacheKey, MENU_CACHE_TTL_SECONDS.MEDIUM, async () => {
-      const foods = await this.foodRepository.find({
-        where: {
-          restaurant: { id: restaurantId },
-          status: 'available',
-        },
-        order: { soldCount: 'DESC' },
-        take: limit,
+  private applyPublicMenuVisibility(queryBuilder: SelectQueryBuilder<Food>): void {
+    queryBuilder
+      .andWhere('food.status = :publicFoodStatus', { publicFoodStatus: PUBLIC_FOOD_STATUS })
+      .andWhere('restaurant.status = :publicRestaurantStatus', {
+        publicRestaurantStatus: PUBLIC_RESTAURANT_STATUS,
       });
+  }
+
+  private applyFoodVisibility(
+    queryBuilder: SelectQueryBuilder<Food>,
+    scope: FoodVisibilityScope,
+    status?: string,
+  ): void {
+    if (scope === 'public') {
+      this.applyPublicMenuVisibility(queryBuilder);
+      return;
+    }
+
+    if (status) {
+      queryBuilder.andWhere('food.status = :status', { status });
+    }
+  }
+
+  async getTopFoodsByRestaurant(restaurantId: string, limit = 5): Promise<object[]> {
+    const cacheKey = buildMenuCacheKey('food:topByRestaurant', {
+      restaurantId,
+      limit,
+      visibility: PUBLIC_MENU_CACHE_VERSION,
+    });
+    return this.cacheService.remember(cacheKey, MENU_CACHE_TTL_SECONDS.MEDIUM, async () => {
+      const queryBuilder = this.foodRepository
+        .createQueryBuilder('food')
+        .leftJoin('food.restaurant', 'restaurant')
+        .where('food.restaurant_id = :restaurantId', { restaurantId });
+      this.applyPublicMenuVisibility(queryBuilder);
+      const foods = await queryBuilder.orderBy('food.soldCount', 'DESC').take(limit).getMany();
 
       return foods.map((food) => ({
         id: food.id,
@@ -161,6 +192,7 @@ export class CustomerFoodService {
     lng?: number,
     status?: string,
     sortBy?: FoodSortType,
+    scope: FoodVisibilityScope = 'public',
   ): Promise<FoodPaginationResult> {
     const cacheKey = buildMenuCacheKey('food:findAll', {
       page,
@@ -169,6 +201,8 @@ export class CustomerFoodService {
       lng,
       status,
       sortBy,
+      scope,
+      visibility: PUBLIC_MENU_CACHE_VERSION,
     });
     return this.cacheService.remember(cacheKey, MENU_CACHE_TTL_SECONDS.MEDIUM, async () => {
       const queryBuilder = this.foodRepository
@@ -176,9 +210,7 @@ export class CustomerFoodService {
         .leftJoinAndSelect('food.restaurant', 'restaurant')
         .leftJoinAndSelect('food.category', 'category');
 
-      if (status) {
-        queryBuilder.where('food.status = :status', { status });
-      }
+      this.applyFoodVisibility(queryBuilder, scope, status);
 
       this.applySortingToQueryBuilder(queryBuilder, sortBy);
       return this.paginateAndEnrich(queryBuilder, page, pageSize, lat, lng, sortBy);
@@ -194,6 +226,7 @@ export class CustomerFoodService {
     lng?: number,
     status?: string,
     sortBy?: FoodSortType,
+    scope: FoodVisibilityScope = 'public',
   ): Promise<FoodPaginationResult> {
     const restaurant = await this.requireRestaurant(restaurantId);
     const category = await this.categoryRepository.findOne({ where: { id: categoryId } });
@@ -204,12 +237,11 @@ export class CustomerFoodService {
     const queryBuilder = this.foodRepository
       .createQueryBuilder('food')
       .leftJoinAndSelect('food.category', 'category')
+      .leftJoin('food.restaurant', 'restaurant')
       .where('food.restaurant_id = :restaurantId', { restaurantId })
       .andWhere('food.category_id = :categoryId', { categoryId });
 
-    if (status) {
-      queryBuilder.andWhere('food.status = :status', { status });
-    }
+    this.applyFoodVisibility(queryBuilder, scope, status);
 
     this.applySortingToQueryBuilder(queryBuilder, sortBy);
 
@@ -234,17 +266,17 @@ export class CustomerFoodService {
     lng?: number,
     status?: string,
     sortBy?: FoodSortType,
+    scope: FoodVisibilityScope = 'public',
   ): Promise<FoodPaginationResult> {
     const restaurant = await this.requireRestaurant(restaurantId);
 
     const queryBuilder = this.foodRepository
       .createQueryBuilder('food')
       .leftJoinAndSelect('food.category', 'category')
+      .leftJoin('food.restaurant', 'restaurant')
       .where('food.restaurant_id = :restaurantId', { restaurantId });
 
-    if (status) {
-      queryBuilder.andWhere('food.status = :status', { status });
-    }
+    this.applyFoodVisibility(queryBuilder, scope, status);
 
     this.applySortingToQueryBuilder(queryBuilder, sortBy);
 
@@ -267,6 +299,7 @@ export class CustomerFoodService {
     pageSize = 10,
     lat?: number,
     lng?: number,
+    scope: FoodVisibilityScope = 'public',
   ): Promise<FoodPaginationResult> {
     const category = await this.categoryRepository.findOne({ where: { id: categoryId } });
     if (!category) {
@@ -279,6 +312,10 @@ export class CustomerFoodService {
       .leftJoinAndSelect('food.category', 'category')
       .where('food.category_id = :categoryId', { categoryId })
       .orderBy('food.createdAt', 'DESC');
+
+    if (scope === 'public') {
+      this.applyPublicMenuVisibility(queryBuilder);
+    }
 
     return this.paginateAndEnrich(queryBuilder, page, pageSize, lat, lng);
   }
@@ -293,8 +330,9 @@ export class CustomerFoodService {
       .createQueryBuilder('food')
       .leftJoinAndSelect('food.restaurant', 'restaurant')
       .leftJoinAndSelect('food.category', 'category')
-      .where('food.status = :status', { status: 'available' })
       .orderBy('food.soldCount', 'DESC');
+
+    this.applyPublicMenuVisibility(queryBuilder);
 
     return this.paginateAndEnrich(queryBuilder, page, pageSize, lat, lng);
   }
@@ -309,8 +347,9 @@ export class CustomerFoodService {
       .createQueryBuilder('food')
       .leftJoinAndSelect('food.restaurant', 'restaurant')
       .leftJoinAndSelect('food.category', 'category')
-      .where('food.status = :status', { status: 'available' })
       .orderBy('food.createdAt', 'DESC');
+
+    this.applyPublicMenuVisibility(queryBuilder);
 
     return this.paginateAndEnrich(queryBuilder, page, pageSize, lat, lng);
   }
@@ -327,9 +366,11 @@ export class CustomerFoodService {
     const queryBuilder = this.foodRepository
       .createQueryBuilder('food')
       .leftJoinAndSelect('food.category', 'category')
+      .leftJoin('food.restaurant', 'restaurant')
       .where('food.restaurant_id = :restaurantId', { restaurantId })
-      .andWhere('food.status = :status', { status: 'available' })
       .orderBy('food.soldCount', 'DESC');
+
+    this.applyPublicMenuVisibility(queryBuilder);
 
     const result = await paginate(queryBuilder, page, pageSize);
     return {
@@ -355,9 +396,12 @@ export class CustomerFoodService {
     const queryBuilder = this.foodRepository
       .createQueryBuilder('food')
       .leftJoinAndSelect('food.category', 'category')
+      .leftJoin('food.restaurant', 'restaurant')
       .where('food.restaurant_id = :restaurantId', { restaurantId })
       .andWhere('food.category_id = :categoryId', { categoryId })
       .orderBy('food.createdAt', 'DESC');
+
+    this.applyPublicMenuVisibility(queryBuilder);
 
     const result = await paginate(queryBuilder, page, pageSize);
     return {
@@ -380,6 +424,8 @@ export class CustomerFoodService {
       .andWhere('food.discountPercent != :zero', { zero: '0' })
       .orderBy('CAST(food.discountPercent AS DECIMAL)', 'DESC');
 
+    this.applyPublicMenuVisibility(queryBuilder);
+
     return this.paginateAndEnrich(queryBuilder, page, pageSize, lat, lng);
   }
 
@@ -395,10 +441,13 @@ export class CustomerFoodService {
     const queryBuilder = this.foodRepository
       .createQueryBuilder('food')
       .leftJoinAndSelect('food.category', 'category')
+      .leftJoin('food.restaurant', 'restaurant')
       .where('food.restaurant_id = :restaurantId', { restaurantId })
       .andWhere('food.discountPercent IS NOT NULL')
       .andWhere('food.discountPercent != :zero', { zero: '0' })
       .orderBy('CAST(food.discountPercent AS DECIMAL)', 'DESC');
+
+    this.applyPublicMenuVisibility(queryBuilder);
 
     const result = await paginate(queryBuilder, page, pageSize);
     return {
@@ -426,6 +475,8 @@ export class CustomerFoodService {
         { query: `%${query.trim()}%` },
       );
     }
+
+    this.applyPublicMenuVisibility(queryBuilder);
 
     let items = await queryBuilder.getMany();
 
@@ -506,6 +557,8 @@ export class CustomerFoodService {
       queryBuilder[whereMethod]('food.price <= :maxPrice', { maxPrice });
     }
 
+    this.applyPublicMenuVisibility(queryBuilder);
+
     const items = await queryBuilder.getMany();
 
     // Mapbox routing distance calculation (batch 5)
@@ -573,15 +626,16 @@ export class CustomerFoodService {
   }
 
   async findOne(id: string, lat?: number, lng?: number): Promise<FoodQueryItem> {
-    const food = await this.foodRepository
+    const queryBuilder = this.foodRepository
       .createQueryBuilder('food')
       .leftJoinAndSelect('food.restaurant', 'restaurant')
       .leftJoinAndSelect('food.category', 'category')
       .leftJoinAndSelect('food.toppings', 'toppings')
       .leftJoinAndSelect('restaurant.address', 'address')
       .leftJoinAndSelect('restaurant.user', 'user')
-      .where('food.id = :id', { id })
-      .getOne();
+      .where('food.id = :id', { id });
+    this.applyPublicMenuVisibility(queryBuilder);
+    const food = await queryBuilder.getOne();
 
     if (!food) {
       throw new NotFoundException(`Food with ID ${id} not found`);
@@ -634,10 +688,13 @@ export class CustomerFoodService {
   }
 
   async getToppingsByFood(foodId: string): Promise<Topping[]> {
-    const food = await this.foodRepository.findOne({
-      where: { id: foodId },
-      relations: ['toppings'],
-    });
+    const queryBuilder = this.foodRepository
+      .createQueryBuilder('food')
+      .leftJoinAndSelect('food.toppings', 'toppings')
+      .leftJoin('food.restaurant', 'restaurant')
+      .where('food.id = :foodId', { foodId });
+    this.applyPublicMenuVisibility(queryBuilder);
+    const food = await queryBuilder.getOne();
 
     if (!food) {
       throw new NotFoundException(`Food with ID ${foodId} not found`);
@@ -656,14 +713,19 @@ export class CustomerFoodService {
       query.andWhere('restaurant.id = :restaurantId', { restaurantId });
     }
 
+    this.applyPublicMenuVisibility(query);
+
     return query.getOne();
   }
 
   async getMenuForUser(_userId: string) {
-    const foods = await this.foodRepository.find({
-      relations: ['restaurant', 'restaurant.address'],
-      order: { name: 'ASC' },
-    });
+    const queryBuilder = this.foodRepository
+      .createQueryBuilder('food')
+      .leftJoinAndSelect('food.restaurant', 'restaurant')
+      .leftJoinAndSelect('restaurant.address', 'address')
+      .orderBy('food.name', 'ASC');
+    this.applyPublicMenuVisibility(queryBuilder);
+    const foods = await queryBuilder.getMany();
     const restaurants = new Map<
       string,
       { id: string; name: string; address: unknown; foods: FoodQueryItem[] }

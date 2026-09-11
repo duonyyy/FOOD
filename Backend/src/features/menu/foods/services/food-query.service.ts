@@ -230,6 +230,7 @@ export class FoodQueryService
     });
 
     const status = food.status ?? null;
+    const restaurantIsApproved = String(food.restaurant.status) === 'approved';
     return Object.freeze({
       foodId: food.id,
       restaurantId: food.restaurant.id,
@@ -237,7 +238,8 @@ export class FoodQueryService
       unitPrice: Number(food.price),
       discountPercent: Number(food.discountPercent) || 0,
       status,
-      isAvailable: status === 'available' && toppings.every((topping) => topping.isAvailable),
+      isAvailable:
+        status === 'available' && restaurantIsApproved && toppings.every((topping) => topping.isAvailable),
       toppings: Object.freeze(toppings),
     });
   }

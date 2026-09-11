@@ -3,7 +3,11 @@ import { CustomerFoodService } from 'src/features/menu/foods/services/customer-f
 describe('CustomerFoodService', () => {
   it('builds the user menu from Food ownership data without a Restaurant repository', async () => {
     const foodRepository = {
-      find: jest.fn().mockResolvedValue([
+      createQueryBuilder: jest.fn(() => ({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
         {
           id: 'food-a',
           name: 'Burger',
@@ -20,7 +24,8 @@ describe('CustomerFoodService', () => {
           image: 'fries.jpg',
           restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
         },
-      ]),
+        ]),
+      })),
     };
     const cache = { remember: jest.fn(), deleteByPattern: jest.fn() };
     const service = new CustomerFoodService(

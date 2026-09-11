@@ -19,10 +19,11 @@ describe('RestaurantApprovalService', () => {
     },
   };
   const approvalAuditRepository = {};
+  const deleteByPattern = jest.fn((): Promise<number> => Promise.resolve(0));
   const cache: CachePort = {
     remember: <Value>(_key: string, _ttl: number, loader: () => Promise<Value>): Promise<Value> =>
       loader(),
-    deleteByPattern: jest.fn((): Promise<number> => Promise.resolve(0)),
+    deleteByPattern,
   };
   const eventBus = { publish: jest.fn((): Promise<void> => Promise.resolve()) };
   const service = new RestaurantApprovalService(
@@ -81,6 +82,7 @@ describe('RestaurantApprovalService', () => {
       RESTAURANT_APPROVAL_DECIDED_EVENT,
       expect.objectContaining({ action: RestaurantApprovalAction.APPROVED, auditId: 'audit-1' }),
     );
+    expect(deleteByPattern).toHaveBeenCalledWith('food:*');
   });
 
   it.each([RestaurantStatus.APPROVED, RestaurantStatus.REJECTED])(
