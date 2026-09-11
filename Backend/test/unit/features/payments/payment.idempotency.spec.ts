@@ -26,6 +26,7 @@ describe('Payment callback idempotency characterization', () => {
     checkout = Object.assign(new Checkout(), {
       id: 'checkout-1',
       orderId: 'order-1',
+      customerId: 'customer-1',
       paymentIntentId: 'provider-reference-1',
       amount: 100_000,
       currency: 'VND',
@@ -213,7 +214,7 @@ describe('Payment callback idempotency characterization', () => {
   });
 
   it('does not mark a checkout paid from an authenticated client process request', async () => {
-    await service.processPayment('checkout-1', { metadata: { bankCode: 'NCB' } });
+    await service.processPayment('checkout-1', 'customer-1', { metadata: { bankCode: 'NCB' } });
 
     expect(checkout.status).toBe(CheckoutStatus.PENDING);
     expect(outboxService.enqueue).not.toHaveBeenCalled();

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OutboxService } from 'src/common/events/outbox.service';
@@ -48,6 +48,7 @@ export class PaymentService implements PaymentCheckoutCommandsPort {
 
     const checkout = this.checkoutRepository.create({
       orderId: order.orderId,
+      customerId: order.customerId,
       amount: order.amount,
       currency: order.currency,
       paymentMethod,
@@ -91,12 +92,10 @@ export class PaymentService implements PaymentCheckoutCommandsPort {
 
   async processPayment(
     checkoutId: string,
+    actorId: string,
     paymentDetails: Record<string, unknown>,
   ): Promise<PaymentResult> {
-    const checkout = await this.checkoutRepository.findOne({ where: { id: checkoutId } });
-    if (!checkout) {
-      throw new BadRequestException(`Checkout with ID ${checkoutId} not found`);
-    }
+    const checkout = await this.findOwnedCheckout(checkoutId, actorId);
     this.assertPending(checkout);
 
     try {
@@ -122,11 +121,17 @@ export class PaymentService implements PaymentCheckoutCommandsPort {
     }
   }
 
-  async cancelCheckout(checkoutId: string): Promise<Checkout> {
-    const checkout = await this.checkoutRepository.findOne({ where: { id: checkoutId } });
-    if (!checkout) {
-      throw new BadRequestException(`Checkout with ID ${checkoutId} not found`);
-    }
+  async cancelCheckout(checkoutId: string, actorId: string): Promise<Checkout> {
+    const checkout = await this.findOwnedCheckout(checkoutId, actorId);
+    return this.cancelPendingCheckout(checkout);
+  }
+
+  async getCheckoutStatus(checkoutId: string, actorId: string): Promise<PaymentStatusResponse> {
+    const checkout = await this.findOwnedCheckout(checkoutId, actorId);
+    return this.toPaymentStatusResponse(checkout);
+  }
+
+  private async cancelPendingCheckout(checkout: Checkout): Promise<Checkout> {
     this.assertPending(checkout);
 
     if (checkout.paymentIntentId) {
@@ -149,18 +154,7 @@ export class PaymentService implements PaymentCheckoutCommandsPort {
     if (!checkout || checkout.status !== CheckoutStatus.PENDING) {
       return;
     }
-    if (checkout.paymentIntentId) {
-      try {
-        await this.selectGateway(checkout.paymentMethod).cancelPaymentIntent(
-          checkout.paymentIntentId,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Provider cancellation failed for checkout ${checkout.id}: ${this.errorMessage(error)}`,
-        );
-      }
-    }
-    await this.transition(checkout, CheckoutStatus.CANCELLED);
+    await this.cancelPendingCheckout(checkout);
   }
 
   async handleWebhookEvent(
@@ -259,8 +253,8 @@ export class PaymentService implements PaymentCheckoutCommandsPort {
     });
   }
 
-  async checkMomoStatus(orderId: string): Promise<Record<string, unknown>> {
-    const checkout = await this.findCheckoutByOrderId(orderId);
+  async checkMomoStatus(orderId: string, actorId: string): Promise<Record<string, unknown>> {
+    const checkout = await this.findOwnedCheckoutByOrderId(orderId, actorId);
     const paymentIntent = await this.selectGateway('momo').getPaymentIntent(
       checkout.paymentIntentId,
     );
@@ -274,19 +268,12 @@ export class PaymentService implements PaymentCheckoutCommandsPort {
 
   async checkPaymentStatus(
     orderId: string,
+    actorId: string,
     paymentMethod?: string,
   ): Promise<PaymentStatusResponse> {
-    const checkout = await this.findCheckoutByOrderId(orderId);
+    const checkout = await this.findOwnedCheckoutByOrderId(orderId, actorId);
     const method = paymentMethod || checkout.paymentMethod;
-    const response: PaymentStatusResponse = {
-      orderId,
-      status: checkout.status,
-      amount: Number(checkout.amount),
-      currency: checkout.currency,
-      checkoutId: checkout.id,
-      checkoutStatus: checkout.status,
-      paymentMethod: method,
-    };
+    const response = this.toPaymentStatusResponse(checkout, method);
 
     if (checkout.paymentIntentId) {
       try {
@@ -355,9 +342,42 @@ export class PaymentService implements PaymentCheckoutCommandsPort {
   private async findCheckoutByOrderId(orderId: string): Promise<Checkout> {
     const checkout = await this.checkoutRepository.findOne({ where: { orderId } });
     if (!checkout) {
-      throw new BadRequestException(`Checkout for order ${orderId} not found`);
+      throw new NotFoundException(`Checkout for order ${orderId} not found`);
     }
     return checkout;
+  }
+
+  private async findOwnedCheckout(checkoutId: string, actorId: string): Promise<Checkout> {
+    const checkout = await this.checkoutRepository.findOne({ where: { id: checkoutId } });
+    if (!checkout || checkout.customerId !== actorId) {
+      // Hide whether a checkout exists for another customer.
+      throw new NotFoundException('Checkout not found');
+    }
+    return checkout;
+  }
+
+  private async findOwnedCheckoutByOrderId(orderId: string, actorId: string): Promise<Checkout> {
+    const checkout = await this.findCheckoutByOrderId(orderId);
+    if (checkout.customerId !== actorId) {
+      // Hide whether an order has a checkout for another customer.
+      throw new NotFoundException('Checkout not found');
+    }
+    return checkout;
+  }
+
+  private toPaymentStatusResponse(
+    checkout: Checkout,
+    paymentMethod = checkout.paymentMethod,
+  ): PaymentStatusResponse {
+    return {
+      orderId: checkout.orderId,
+      status: checkout.status,
+      amount: Number(checkout.amount),
+      currency: checkout.currency,
+      checkoutId: checkout.id,
+      checkoutStatus: checkout.status,
+      paymentMethod,
+    };
   }
 
   private validateReconciliationEvidence(
@@ -571,6 +591,7 @@ export class PaymentService implements PaymentCheckoutCommandsPort {
   private assertSnapshot(snapshot: PaymentOrderSnapshot): void {
     if (
       !snapshot.orderId ||
+      !snapshot.customerId ||
       !Number.isFinite(Number(snapshot.amount)) ||
       Number(snapshot.amount) < 0
     ) {
