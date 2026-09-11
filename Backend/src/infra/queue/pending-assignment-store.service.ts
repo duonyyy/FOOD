@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
-import { DELIVERY_ASSIGNMENT_POLICY } from 'src/features/delivery/contracts/delivery-assignment.policy';
+import { DELIVERY_ASSIGNMENT_POLICY } from 'src/features/delivery/contracts/delivery-dispatch.policy';
 import {
   type PendingAssignmentState,
   type PendingAssignmentStorePort,

@@ -1,7 +1,28 @@
-# reviews
+# Reviews Feature
 
-Owner: food/shipper review, moderation và anti-duplicate rule.
+Owner: food/shipper review, rating aggregation, moderation và anti-duplicate rule.
 
-Reviews owns the `Review` repository and HTTP API. It validates completed purchaser orders through
-the Ordering eligibility reader and validates food targets through the Catalog reader; it does not
-inject Order, Food, Shipper or User repositories.
+Reviews sở hữu repository `Review` và các HTTP APIs liên quan. Module xác thực tính hợp lệ của việc đánh giá thông qua `Ordering` review eligibility reader (đơn hàng đã hoàn tất, đúng khách hàng) và `Catalog` food target reader; module không inject trực tiếp các repository `Order`, `Food`, `Shipper` hay `User`.
+
+Cấu trúc phân hệ Reviews được chuẩn hóa theo mô hình Actor-Driven (Role-based) đồng bộ:
+
+```text
+src/features/reviews/
+├── controllers/                        # 🎯 CONTROLLERS
+│   ├── customer-reviews.controller.ts  # 🛍️ Customer (Viết, sửa, xóa, xem review món & shipper)
+│   └── food-reviews.controller.ts      # 🍽️ Catalog Public API (/foods/:foodId/reviews)
+│
+├── services/                           # 📦 SERVICES
+│   ├── customer-reviews.service.ts     # Core Review Service (Validation, chống trùng, tính rating stats)
+│   └── index.ts                        # Barrel export
+│
+├── mappers/                            # 🗺️ MAPPERS
+│   └── review.mapper.ts                # Chuyển đổi Review Entity sang ReviewResponseDto
+│
+├── dto/                                # 📋 DATA TRANSFER OBJECTS
+│   ├── create-review.dto.ts
+│   └── review-response.dto.ts
+│
+├── reviews.module.ts                   # Đăng ký controllers & providers
+└── public-api.ts                       # Public API boundary cho các feature khác
+```

@@ -1,0 +1,14 @@
+import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
+import { IsArray, IsOptional, ValidateNested } from 'class-validator';
+import { CreateToppingDto } from '../../toppings/dto/create-topping.dto';
+import { CreateFoodDto } from './create-food.dto';
+
+export class UpdateFoodDto extends PartialType(CreateFoodDto) {
+  // Override toppings to make it optional for updates
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CreateToppingDto)
+  toppings?: CreateToppingDto[];
+}

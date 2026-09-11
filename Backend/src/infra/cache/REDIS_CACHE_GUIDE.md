@@ -4,7 +4,7 @@ Tai lieu nay tom tat cach Redis cache da duoc trien khai trong du an, de lan sau
 
 ## 1. Them Redis vao Docker
 
-Trong `docker-compose.yml`, them service Redis:
+Trong `docker/docker-compose.yml`, them service Redis:
 
 ```yml
 redis:
@@ -364,7 +364,7 @@ Neu API co `status=available` va `status=hidden`, key tren se lam 2 response de 
 ```bash
 npx tsc --noEmit
 npm run build
-docker compose config
+docker compose --env-file .env -f docker/docker-compose.yml config
 ```
 
 ## 11. Lenh kiem tra Redis local
@@ -372,25 +372,25 @@ docker compose config
 Start docker:
 
 ```bash
-docker compose up -d redis
+docker compose --env-file .env -f docker/docker-compose.yml up -d redis
 ```
 
 Kiem tra Redis song:
 
 ```bash
-docker compose exec redis redis-cli ping
+docker compose --env-file .env -f docker/docker-compose.yml exec redis redis-cli ping
 ```
 
 Xem key:
 
 ```bash
-docker compose exec redis redis-cli keys '*'
+docker compose --env-file .env -f docker/docker-compose.yml exec redis redis-cli keys '*'
 ```
 
 Xoa tat ca cache local:
 
 ```bash
-docker compose exec redis redis-cli flushdb
+docker compose --env-file .env -f docker/docker-compose.yml exec redis redis-cli flushdb
 ```
 
 Trong production, han che dung `KEYS *` va `FLUSHDB`; nen dung `SCAN` hoac helper `deleteByPattern`.

@@ -2,13 +2,13 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import { InjectRepository } from '@nestjs/typeorm';
 import { estimateDeliveryTime, haversineDistance } from 'src/common/utils/geo.util';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
-import { IDENTITY_READER, type IdentityReaderPort } from 'src/features/identity/public-api';
 import {
   LOCATION_WRITER,
   type CreateAddressPayload,
   type LocationWriterPort,
 } from 'src/features/locations/public-api';
 import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
+import { IDENTITY_READER, type IdentityReaderPort } from 'src/features/users/public-api';
 import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
 import { DeepPartial, Repository } from 'typeorm';
 import { RequestRestaurantDto, UpdateOwnedRestaurantDto } from '../dto/restaurant-request.dto';

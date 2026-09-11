@@ -42,6 +42,17 @@ export interface PaymentResult {
   metadata?: Record<string, unknown>;
 }
 
+export interface PaymentStatusResponse {
+  orderId: string;
+  status: string;
+  amount: number;
+  currency: string;
+  checkoutId: string;
+  checkoutStatus: string;
+  paymentIntentStatus?: string;
+  paymentMethod: string;
+}
+
 /** Infrastructure adapter contract consumed by the Payments feature. */
 export interface PaymentGatewayPort {
   readonly provider: PaymentGatewayProvider;

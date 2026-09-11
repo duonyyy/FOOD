@@ -2,7 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppCacheModule } from 'src/infra/cache/cache.module';
-import { StorageModule } from 'src/infra/storage/storage.module';
+import { StorageModule } from 'src/infra/minio/storage.module';
 import { PendingAssignmentStore } from './pending-assignment-store.service';
 import { QueueNames } from './queue.constants';
 import { QueueService } from './queue.service';

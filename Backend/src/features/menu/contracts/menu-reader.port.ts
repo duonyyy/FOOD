@@ -18,6 +18,7 @@ export interface OrderableItemSnapshot {
   readonly restaurantId: string;
   readonly name: string;
   readonly unitPrice: number;
+  readonly discountPercent: number;
   readonly status: string | null;
   readonly isAvailable: boolean;
   readonly toppings: readonly OrderableToppingSnapshot[];

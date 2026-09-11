@@ -3,9 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventsModule } from '../../common/events/events.module';
 import { Restaurant } from '../../entities/restaurant.entity';
 import { RestaurantApprovalAudit } from '../../entities/restaurantApprovalAudit.entity';
-import { IdentityModule } from '../identity/public-api';
 import { LocationsModule } from '../locations/public-api';
 import { MenuModule } from '../menu/public-api';
+import { IdentityModule } from '../users/public-api';
 import { MerchantCatalogModule } from './merchant-catalog.module';
 
 import { RESTAURANT_READER } from './contracts/restaurant-reader.port';

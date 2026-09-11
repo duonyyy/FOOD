@@ -26,11 +26,12 @@ export {
   type OrderableToppingSnapshot,
   type RequestedMenuItem,
 } from './contracts/menu-reader.port';
-export { FoodQueryService } from './foods/food-query.service';
-export { CatalogFoodModule } from './foods/food.module';
+export { AdminFoodService } from './foods/services/admin-food.service';
+export { CustomerFoodService } from './foods/services/customer-food.service';
+export { FoodCommandService } from './foods/services/food-command.service';
+export { FoodIntegrationService } from './foods/services/food-integration.service';
+export { FoodQueryService } from './foods/services/food-query.service';
+export { MerchantFoodService } from './foods/services/merchant-food.service';
 export { MenuModule } from './menu.module';
-export { MenuReaderModule } from './orderable/menu-reader.module';
-export { MenuReaderService } from './orderable/menu-reader.service';
-export { FoodCommandService } from './services/food-command.service';
 export { ToppingCommandService } from './toppings/topping-command.service';
 export { ToppingModule } from './toppings/topping.module';

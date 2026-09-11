@@ -129,7 +129,7 @@ npm run start:dev
 ```
 #### **👉 Chạy bằng Docker**
 ```bash
-docker-compose up --build
+docker compose --env-file .env -f docker/docker-compose.yml up --build
 ```
 
 ---

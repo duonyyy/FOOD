@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import minioConfig from './config/minio.config';
+import { DeliveryModule } from './features/delivery/public-api';
 import { FindShipperProcessor } from './features/delivery/queue/find-shipper.processor';
 import { DatabaseModule } from './infra/database/database.module';
 import { QueueModule } from './infra/queue/queue.module';
-import { ShipperModule } from './modules/shipper/shipper.module';
 
 /**
  * The worker deliberately imports only the dependencies needed by delivery
@@ -22,7 +22,7 @@ import { ShipperModule } from './modules/shipper/shipper.module';
     DatabaseModule,
     QueueModule,
     ScheduleModule.forRoot(),
-    ShipperModule,
+    DeliveryModule,
   ],
   providers: [FindShipperProcessor],
 })

@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ChatModule } from '../../modules/chat/chat.module';
-import { MessengerModule } from '../../modules/messenger/messenger.module';
-import { NotificationsModule } from './notifications/notifications.module';
+import { ChatModule } from './chat/chat.module';
+import { MessengerModule } from './messenger/messenger.module';
 
-/** Owns chat, messaging and notification slices under Communications. */
-@Module({ imports: [ChatModule, MessengerModule, NotificationsModule] })
+/** Owns chat and direct messaging slices. */
+@Module({ imports: [ChatModule, MessengerModule] })
 export class CommunicationsModule {}

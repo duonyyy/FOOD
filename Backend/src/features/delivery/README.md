@@ -1,17 +1,49 @@
-# delivery
+# Delivery Feature
 
-Owner đích: ShippingDetail, PendingShipperAssignment, ShipperCertificateInfo, assignment, tracking và delivery policy. Compatibility implementation: `src/modules/shipper` and queue behavior in `src/infra/queue`.
+Owner: ShippingDetail, PendingShipperAssignment, ShipperCertificateInfo, ShipperProfile, DeliveryEarningsEvent.
 
-T7.1 bổ sung `ShipperProfile` và `SHIPPER_PROFILE_READER`. `User` là scalar actor reference trong model Delivery; các field shipper cũ trên User được giữ tạm thời cho compatibility đến khi caller hoàn tất migration.
+Cấu trúc phân hệ Giao vận được chuẩn hóa theo mô hình Actor-Driven (Role-based) đồng bộ với toàn hệ thống:
 
-T2.3 exports `DeliveryQuotePort`; T7.1–T7.6 binds delivery policy and moves it out of the queue adapter. `delivery` remains independent from `orders`.
+```text
+src/features/delivery/
+├── controllers/                        # 🎯 3 CONTROLLER ĐÚNG 3 ROLE (+ 1 GraphQL Resolver)
+│   ├── shipper-delivery.controller.ts  # 🛵 Shipper (Nhận/từ chối cuốc, cập nhật GPS, xem lịch sử, dashboard)
+│   ├── customer-delivery.controller.ts # 🛍️ Customer (Theo dõi vị trí shipper trên bản đồ)
+│   ├── admin-delivery.controller.ts    # 👑 Admin (Duyệt hồ sơ bằng lái, khóa tài xế)
+│   └── shipper.resolver.ts             # 📡 GraphQL Subscriptions (orderConfirmedForShippers, tracking)
+│
+├── services/                           # 📦 CHIA THÀNH 4 THƯ MỤC CON CHUYÊN BIỆT
+│   ├── shipper/                        # 🛵 Nghiệp vụ Shipper (Cuốc xe, Hồ sơ, GPS, Thu nhập)
+│   │   ├── shipper-delivery.service.ts
+│   │   ├── shipper-profile.service.ts
+│   │   ├── delivery-earnings.service.ts
+│   │   ├── delivery-report.service.ts
+│   │   ├── shipper.service.ts
+│   │   └── delivery-earnings-projection.service.ts
+│   ├── dispatch/                       # ⚡ Hệ thống Điều phối & Ghép cuốc
+│   │   ├── delivery-dispatch.service.ts
+│   │   ├── delivery-assignment-scheduler.service.ts
+│   │   └── delivery-assignment-command.service.ts
+│   ├── admin/                          # 👑 Nghiệp vụ Admin duyệt tài xế
+│   │   └── admin-delivery.service.ts
+│   ├── integration/                    # 🔌 Cổng tích hợp (Reader & Quote Ports)
+│   │   └── delivery-integration.service.ts
+│   └── index.ts                        # 📦 Barrel export toàn bộ
+│
+├── contracts/                          # Ports, Commands (Offer, Accept, Reject, Reassign), Policies
+├── dto/                                # Data Transfer Objects
+├── delivery.module.ts                  # NestJS Module đăng ký providers & exports
+└── public-api.ts                       # Public API boundary cho các feature khác
+```
 
-T7.2 cung cấp các command `OfferDelivery`, `AcceptDelivery`, `RejectDelivery` và `ReassignDelivery` qua `DeliveryAssignmentCommandService`. API mới nằm dưới `/delivery/assignments`; `AuthGuard` bảo vệ toàn bộ route. `DeliveryAssignmentPolicy` là nơi tập trung rule về order confirmed, shipper đã duyệt, hold 2 phút, timeout, exclusion/retry và quyền actor. `ShipperService` hiện là adapter tương thích cho các caller cũ và sẽ được loại bỏ dần sau khi chuyển hết caller.
+## Các điểm nhấn kiến trúc
 
-T7.3 chuyển scheduler nghiệp vụ sang `DeliveryAssignmentScheduler`. `infra/queue` chỉ còn `QueueService`, `PendingAssignmentStore` và processor; processor parse payload, gọi scheduler, log `queue_job_failed`/`queue_dead_letter` và để BullMQ quyết định retry.
-
-T7.4 bảo vệ accept/reassign bằng transaction và pessimistic lock trên `Order`. Accept kiểm tra lại order cùng `ShippingDetail` trong vùng lock; unique index trên `shippingDetails.order_id` chặn duplicate ở database. Reassign cũng khóa order trước khi đọc trạng thái, nên không publish offer cũ sau khi một shipper đã nhận đơn. Unit test bao phủ accept đồng thời, retry accept và reassign sau khi assignment đã tồn tại; PostgreSQL integration test chạy khi đặt `FOODEE_RUN_POSTGRES_INTEGRATION=1`.
-
-T7.5 giữ Pickup/Accept, Start và Complete là các command riêng. Complete cập nhật delivery trong transaction, tạo outbox event `delivery.completed` với idempotency key theo order, rồi dispatch sau commit. Ordering nhận event qua `DeliveryCompletedOrderHandler` và dùng `completeFromDelivery` có lock/idempotent no-op khi order đã completed; `getOrder` chỉ đọc. Invalid actor/status được kiểm tra ở service tests.
-
-T7.6 dùng `DeliveryEarningsEvent` làm immutable ledger và `ShipperProfile` làm earnings/performance read model. Projection kiểm tra idempotency key trước khi ghi, cập nhật aggregate từ ledger và có `rebuild`/`rebuildAll` để reconciliation. Các field performance trên `User` chỉ còn compatibility cho caller cũ trong giai đoạn migration.
+1. **Chuẩn hóa Role-based Controllers**:
+   - `ShipperDeliveryController`: Đảm nhiệm mọi hành vi của tài xế (`/shippers/*` và `/delivery/assignments/*`).
+   - `CustomerDeliveryController`: Khách hàng theo dõi vị trí giao vận (`/customer/delivery/*`).
+   - `AdminDeliveryController`: Ban quản trị kiểm duyệt tài xế (`/admin/delivery/*`).
+2. **Thuật ngữ chuẩn ngành giao vận (Dispatch thay vì Assignment)**:
+   - Thay thế thuật ngữ máy móc `assignment` thành `dispatch` (Điều phối cuốc xe) qua `DeliveryDispatchService`.
+   - `DeliveryDispatchPolicy` quản lý các quy tắc giữ cuốc 2 phút (Hold TTL), timeout và retry.
+3. **Quản lý thu nhập tập trung**:
+   - `DeliveryEarningsService` hợp nhất việc tính toán thu nhập (`DeliveryEarningsEvent` immutable ledger) và tự động bắt sự kiện `delivery.completed` để cập nhật `ShipperProfile`.

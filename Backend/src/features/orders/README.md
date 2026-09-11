@@ -1,5 +1,5 @@
 # orders
 
-Owner đích: Order, OrderDetail, order state machine, immutable order snapshots và order commands/queries. Compatibility implementation: `src/modules/order`.
+Owner: Order, OrderDetail, order state machine, immutable order snapshots và order commands/queries.
 
-T5.1–T5.7 sẽ move behavior incrementally. Payment, Delivery, Communications and Reviews must use contracts/events rather than write Order repositories.
+Payment, Delivery, Communications and Reviews use contracts/events rather than write Order repositories.
