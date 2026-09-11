@@ -130,7 +130,8 @@ module.exports = {
           const isPublicApi =
             targetPath === `src/features/${targetFeature}/public-api` ||
             targetPath === `src/features/${targetFeature}/merchant-catalog.public-api` ||
-            targetPath === `src/features/${targetFeature}/review-reader.public-api`;
+            targetPath === `src/features/${targetFeature}/review-reader.public-api` ||
+            targetPath === `src/features/${targetFeature}/order-tracking-reader.public-api`;
           if (targetFeature && targetFeature !== sourceFeature && !isPublicApi) {
             context.report({ node: node.source, messageId: 'deepFeatureImport' });
           }

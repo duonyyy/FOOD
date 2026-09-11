@@ -28,6 +28,11 @@ export {
   type OrderReviewEligibilitySnapshot,
 } from './contracts/order-review-eligibility-reader.port';
 export {
+  ORDER_TRACKING_READER,
+  type CustomerOrderTrackingSnapshot,
+  type OrderTrackingReaderPort,
+} from './contracts/order-tracking-reader.port';
+export {
   CalculateOrderDto,
   CalculateOrderItemDto,
   CalculateOrderToppingDto,
@@ -43,6 +48,7 @@ export { CreateOrderDto } from './dto/create-order.dto';
 export { PaymentDto } from './dto/payment.dto';
 export { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 export { ValidatePromotionDto } from './dto/validate-promotion.dto';
+export { OrderTrackingReaderModule } from './order-tracking-reader.module';
 export { OrdersModule } from './orders.module';
 export { AdminOrdersService } from './services/admin-orders.service';
 export { CustomerOrdersService } from './services/customer-orders.service';

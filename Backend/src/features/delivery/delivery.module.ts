@@ -10,6 +10,7 @@ import { PendingAssignmentStore } from '../../infra/queue/pending-assignment-sto
 import { QueueModule } from '../../infra/queue/queue.module';
 import { QueueService } from '../../infra/queue/queue.service';
 import { AuthModule } from '../auth/auth.module';
+import { OrderTrackingReaderModule } from '../orders/order-tracking-reader.public-api';
 import { SystemConstraintsModule } from '../system-constraints/public-api';
 import { IdentityModule } from '../users/public-api';
 import { DELIVERY_ASSIGNMENT_QUEUE_PORT } from './contracts/delivery-assignment-queue.port';
@@ -57,6 +58,7 @@ const queueProcessorProviders =
       Order,
     ]),
     AuthModule,
+    OrderTrackingReaderModule,
     IdentityModule,
     SystemConstraintsModule,
     QueueModule,
