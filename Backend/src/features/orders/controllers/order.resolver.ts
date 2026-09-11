@@ -1,7 +1,13 @@
-import { Logger } from '@nestjs/common';
-import { Args, Context, Query, Resolver, Subscription } from '@nestjs/graphql';
+import { ForbiddenException, Inject, Logger, UseGuards } from '@nestjs/common';
+import { Args, Context, Resolver, Subscription } from '@nestjs/graphql';
 import { Order } from 'src/entities/order.entity';
+import {
+  requireGraphqlSubscriptionActorId,
+  WebSocketAuthGuard,
+  type GraphqlSubscriptionContext,
+} from 'src/features/auth/public-api';
 import { ActiveShipperTrackerService } from 'src/features/delivery/public-api';
+import { RESTAURANT_READER, type RestaurantReaderPort } from 'src/features/restaurants/public-api';
 import { pubSub } from 'src/pubsub';
 
 interface OrderCreatedPayload {
@@ -22,37 +28,86 @@ interface ShipperOrderPayload {
 export class OrderResolver {
   private readonly logger = new Logger(OrderResolver.name);
 
-  constructor(private readonly activeShipperTracker: ActiveShipperTrackerService) {}
+  constructor(
+    private readonly activeShipperTracker: ActiveShipperTrackerService,
+    @Inject(RESTAURANT_READER)
+    private readonly restaurantReader: RestaurantReaderPort,
+  ) {}
 
   @Subscription(() => Order, {
-    filter: (payload: OrderCreatedPayload, variables: { restaurantId: string }) =>
-      payload.orderCreated.restaurant?.id === variables.restaurantId &&
-      payload.orderCreated.status === 'pending',
+    filter: (
+      payload: OrderCreatedPayload,
+      variables: { restaurantId: string },
+      context: GraphqlSubscriptionContext,
+    ) => {
+      requireGraphqlSubscriptionActorId(context);
+      return (
+        payload.orderCreated.restaurant?.id === variables.restaurantId &&
+        payload.orderCreated.status === 'pending'
+      );
+    },
     resolve: (payload: OrderCreatedPayload) => payload.orderCreated,
   })
-  orderCreated(@Args('restaurantId') restaurantId: string, @Context() _context: unknown) {
+  @UseGuards(WebSocketAuthGuard)
+  async orderCreated(
+    @Args('restaurantId') restaurantId: string,
+    @Context() context: GraphqlSubscriptionContext,
+  ) {
     if (!restaurantId) throw new Error('restaurantId is required for orderCreated subscription');
+
+    const actorId = requireGraphqlSubscriptionActorId(context);
+    const restaurant = await this.restaurantReader.findActiveRestaurant(restaurantId);
+    if (!restaurant || restaurant.ownerId !== actorId) {
+      throw new ForbiddenException('Restaurant order subscription access denied');
+    }
+
     return pubSub.asyncIterableIterator('orderCreated');
   }
 
   @Subscription(() => Order, {
-    filter: (payload: OrderStatusUpdatedPayload, variables: { userId: string }) =>
-      payload.orderStatusUpdated.user?.id === variables.userId &&
-      ['confirmed', 'delivering', 'shipper_received', 'completed', 'canceled'].includes(
-        payload.orderStatusUpdated.status,
-      ),
+    filter: (
+      payload: OrderStatusUpdatedPayload,
+      variables: { userId: string },
+      context: GraphqlSubscriptionContext,
+    ) => {
+      const actorId = requireGraphqlSubscriptionActorId(context);
+      return (
+        variables.userId === actorId &&
+        payload.orderStatusUpdated.user?.id === actorId &&
+        ['confirmed', 'delivering', 'shipper_received', 'completed', 'canceled'].includes(
+          payload.orderStatusUpdated.status,
+        )
+      );
+    },
     resolve: (payload: OrderStatusUpdatedPayload) => payload.orderStatusUpdated,
   })
-  orderStatusUpdated(@Args('userId') userId: string, @Context() _context: unknown) {
+  @UseGuards(WebSocketAuthGuard)
+  orderStatusUpdated(
+    @Args('userId') userId: string,
+    @Context() context: GraphqlSubscriptionContext,
+  ) {
     if (!userId) throw new Error('userId is required for orderStatusUpdated subscription');
+    if (userId !== requireGraphqlSubscriptionActorId(context)) {
+      throw new ForbiddenException('Order status subscription access denied');
+    }
+
     return pubSub.asyncIterableIterator('orderStatusUpdated');
   }
 
   @Subscription(() => Order, {
-    filter: (payload: ShipperOrderPayload, variables: { shipperId: string }) =>
-      payload.orderConfirmedForShippers.status === 'confirmed' &&
-      !payload.orderConfirmedForShippers.shippingDetail &&
-      payload.targetShipperId === variables.shipperId,
+    filter: (
+      payload: ShipperOrderPayload,
+      variables: { shipperId: string },
+      context: GraphqlSubscriptionContext,
+    ) => {
+      const actorId = requireGraphqlSubscriptionActorId(context);
+      return (
+        variables.shipperId === actorId &&
+        payload.orderConfirmedForShippers.status === 'confirmed' &&
+        !payload.orderConfirmedForShippers.shippingDetail &&
+        payload.targetShipperId === actorId
+      );
+    },
     resolve: (payload: ShipperOrderPayload) => {
       const order = payload.orderConfirmedForShippers;
       const shippingFee = order.shippingFee || 0;
@@ -77,16 +132,21 @@ export class OrderResolver {
       };
     },
   })
+  @UseGuards(WebSocketAuthGuard)
   async orderConfirmedForShippers(
     @Args('shipperId') shipperId: string,
     @Args('latitude') latitude: string,
     @Args('longitude') longitude: string,
     @Args('maxDistance', { nullable: true, defaultValue: 20 }) maxDistance: number,
-    @Context() _context: unknown,
+    @Context() context: GraphqlSubscriptionContext,
   ) {
     if (!shipperId || !latitude || !longitude) {
       throw new Error('Shipper ID, latitude and longitude are required');
     }
+    if (shipperId !== requireGraphqlSubscriptionActorId(context)) {
+      throw new ForbiddenException('Shipper order subscription access denied');
+    }
+
     const result = await this.activeShipperTracker.addShipper(
       shipperId,
       Number(latitude),
@@ -98,42 +158,5 @@ export class OrderResolver {
       throw new Error(`Subscription rejected: ${result.message}`);
     }
     return pubSub.asyncIterableIterator('orderConfirmedForShippers');
-  }
-
-  @Query(() => String)
-  getShipperStats() {
-    return JSON.stringify(this.activeShipperTracker.getShipperStats(), null, 2);
-  }
-
-  @Query(() => String)
-  async findBestShipperForLocation(
-    @Args('latitude') latitude: number,
-    @Args('longitude') longitude: number,
-    @Args('orderValue', { nullable: true, defaultValue: 0 }) orderValue: number,
-    @Args('urgency', { nullable: true, defaultValue: 'medium' }) urgency: string,
-  ) {
-    const result = await this.activeShipperTracker.findBestShipperForOrder(
-      latitude,
-      longitude,
-      orderValue,
-      urgency === 'high' || urgency === 'low' ? urgency : 'medium',
-    );
-    return JSON.stringify(result);
-  }
-
-  @Query(() => String)
-  getShipperQueueStatus(@Args('orderId') orderId: string) {
-    return JSON.stringify({ orderId, ...this.activeShipperTracker.getShipperStats() });
-  }
-
-  @Query(() => String)
-  triggerShipperCleanup() {
-    this.activeShipperTracker.cleanup();
-    return 'Cleanup completed';
-  }
-
-  @Query(() => String)
-  orderHello() {
-    return 'Order resolver is working with Delivery-owned shipper tracking!';
   }
 }

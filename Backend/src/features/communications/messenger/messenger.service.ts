@@ -134,6 +134,25 @@ export class MessengerService {
     return await this.conversationRepository.save(conversation);
   }
 
+  async assertConversationParticipant(userId: string, conversationId: string): Promise<void> {
+    if (!(await this.isConversationParticipant(userId, conversationId))) {
+      throw new NotFoundException('Conversation not found');
+    }
+  }
+
+  async isConversationParticipant(userId: string, conversationId: string): Promise<boolean> {
+    const conversation = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .where('conversation.id = :conversationId', { conversationId })
+      .andWhere(
+        '(conversation.participant1_id = :userId OR conversation.participant2_id = :userId)',
+        { userId },
+      )
+      .getOne();
+
+    return Boolean(conversation);
+  }
+
   /**
    * Validate shipper conversation rules
    */

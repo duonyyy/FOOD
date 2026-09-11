@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PromotionRedemption } from 'src/entities/promotion-redemption.entity';
 import { Promotion } from 'src/entities/promotion.entity';
-import { AuthModule } from 'src/features/auth/public-api';
+import { AuthModule } from 'src/features/auth/auth-module.public-api';
 import { PromotionController } from './controllers/promotion.controller';
 import { PromotionRedemptionService } from './services/promotion-redemption.service';
 import { PromotionService } from './services/promotion.service';

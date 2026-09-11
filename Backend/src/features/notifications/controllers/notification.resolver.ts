@@ -1,7 +1,7 @@
 import { UseGuards } from '@nestjs/common';
 import { Context, Resolver, Subscription } from '@nestjs/graphql';
 import { Notification } from 'src/entities/notification.entity';
-import { WebSocketAuthGuard } from 'src/features/auth/guards/websocket-auth.guard';
+import { WebSocketAuthGuard } from 'src/features/auth/public-api';
 import { pubSub } from 'src/pubsub';
 
 interface NotificationSubscriptionPayload {

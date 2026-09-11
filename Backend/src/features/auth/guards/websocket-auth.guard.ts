@@ -2,21 +2,12 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { ConfigService } from '@nestjs/config';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
+import { type GraphqlSubscriptionContext } from '../contracts/graphql-subscription-context';
 import { extractBearerToken } from '../utils/auth-token.util';
 
 interface JwtPayload {
   sub: string;
   [key: string]: unknown;
-}
-
-interface WebSocketContext {
-  headers?: { authorization?: string; Authorization?: string };
-  Authorization?: string;
-  user?: JwtPayload & { id: string; uid: string };
-}
-
-interface GraphqlWebSocketContext {
-  connection?: { context: WebSocketContext };
 }
 
 @Injectable()
@@ -28,14 +19,13 @@ export class WebSocketAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const gqlContext = GqlExecutionContext.create(context);
-    const ctx = gqlContext.getContext<GraphqlWebSocketContext>();
+    const ctx = gqlContext.getContext<GraphqlSubscriptionContext>();
 
-    // For WebSocket subscriptions
-    if (!ctx.connection) {
+    const connectionContext = ctx.connection?.context;
+    if (!connectionContext) {
       throw new UnauthorizedException('WebSocket connection required');
     }
 
-    const connectionContext = ctx.connection.context;
     const authHeader = connectionContext.headers?.authorization || connectionContext.Authorization;
     const token = extractBearerToken(authHeader);
 

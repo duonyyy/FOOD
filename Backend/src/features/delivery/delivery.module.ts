@@ -41,6 +41,7 @@ import {
 import { DeliveryReportService } from './services/shipper/delivery-report.service';
 import { ShipperDeliveryService } from './services/shipper/shipper-delivery.service';
 import { ShipperService } from './services/shipper/shipper.service';
+import { DeliverySubscriptionAccessService } from './services/subscription/delivery-subscription-access.service';
 import { ShipperProfileModule } from './shipper-profile.module';
 
 /** Delivery owns delivery persistence, dispatching, earnings and shipper runtime flows. */
@@ -80,6 +81,7 @@ const queueProcessorProviders =
     DeliveryEarningsService,
     { provide: DeliveryEarningsProjectionService, useExisting: DeliveryEarningsService },
     DeliveryIntegrationService,
+    DeliverySubscriptionAccessService,
     ShipperDeliveryService,
     DeliveryReportService,
     AdminDeliveryService,

@@ -1,6 +1,7 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConfigService } from '@nestjs/config';
 import { AuthModule } from 'src/features/auth/auth.module';
+import { WebSocketAuthGuard } from 'src/features/auth/public-api';
 import { OrderService } from 'src/features/orders/services/order.service';
 import { PaymentModule } from 'src/features/payments/payment.module';
 import { SystemConstraintsModule } from 'src/features/system-constraints/public-api';
@@ -17,6 +18,11 @@ describe('provider ownership', () => {
     expect(providers).not.toContain(ConfigService);
   });
 
+  it('provides and exports WebSocketAuthGuard for authenticated subscriptions', () => {
+    expect(getModuleProviders(AuthModule)).toContain(WebSocketAuthGuard);
+    expect(getModuleExports(AuthModule)).toContain(WebSocketAuthGuard);
+  });
+
   it('registers SystemConstraintsService once in its owner module', () => {
     expect(getModuleProviders(SystemConstraintsModule)).toContain(SystemConstraintsService);
     expect(getModuleProviders(PaymentModule)).not.toContain(SystemConstraintsService);
@@ -29,4 +35,8 @@ describe('provider ownership', () => {
 
 function getModuleProviders(moduleType: object): unknown[] {
   return Reflect.getMetadata(MODULE_METADATA.PROVIDERS, moduleType) as unknown[];
+}
+
+function getModuleExports(moduleType: object): unknown[] {
+  return Reflect.getMetadata(MODULE_METADATA.EXPORTS, moduleType) as unknown[];
 }

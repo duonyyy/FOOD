@@ -14,6 +14,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { WebSocketAuthGuard } from './guards/websocket-auth.guard';
 import { OtpService } from './services/otp.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { SocialAuthService } from './services/social-auth.service';
@@ -44,7 +45,8 @@ import { SocialAuthService } from './services/social-auth.service';
     SocialAuthService,
     AuthGuard,
     RolesGuard,
+    WebSocketAuthGuard,
   ],
-  exports: [AuthService, AuthGuard, RolesGuard, JwtModule, UsersModule],
+  exports: [AuthService, AuthGuard, RolesGuard, WebSocketAuthGuard, JwtModule, UsersModule],
 })
 export class AuthModule {}

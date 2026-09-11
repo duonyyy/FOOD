@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventsModule } from 'src/common/events/events.module';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
+import { AuthModule } from 'src/features/auth/auth-module.public-api';
 import { DeliveryModule } from 'src/features/delivery/public-api';
 import { PaymentModule } from 'src/features/payments/public-api';
 import { PromotionsModule } from 'src/features/promotions/public-api';
@@ -39,6 +40,7 @@ import { OrderService } from './services/order.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, OrderDetail]),
+    AuthModule,
     EventsModule,
     JwtModule,
     PaymentModule,

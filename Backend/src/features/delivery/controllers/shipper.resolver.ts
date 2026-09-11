@@ -1,27 +1,57 @@
-import { Logger } from '@nestjs/common';
-import { Args, ID, Resolver, Subscription } from '@nestjs/graphql';
+import { ForbiddenException, UseGuards } from '@nestjs/common';
+import { Args, Context, ID, Resolver, Subscription } from '@nestjs/graphql';
+import {
+  requireGraphqlSubscriptionActorId,
+  WebSocketAuthGuard,
+  type GraphqlSubscriptionContext,
+} from 'src/features/auth/public-api';
 import { pubSub } from 'src/pubsub';
 import { ShipperLocation } from '../dto/shipper-location.type';
+import { DeliverySubscriptionAccessService } from '../services/subscription/delivery-subscription-access.service';
 
 interface ShipperLocationPayload {
   shipperLocationUpdated: ShipperLocation;
 }
 
-interface ShipperLocationVariables {
-  shipperId: string;
-}
-
 @Resolver()
 export class ShipperResolver {
-  private readonly logger = new Logger(ShipperResolver.name);
+  constructor(
+    private readonly deliverySubscriptionAccessService: DeliverySubscriptionAccessService,
+  ) {}
 
-  @Subscription(() => ShipperLocation, {
-    filter: (payload: ShipperLocationPayload, variables: ShipperLocationVariables) => {
-      return payload.shipperLocationUpdated.shipperId === variables.shipperId;
-    },
-  })
-  shipperLocationUpdated(@Args('shipperId', { type: () => ID }) shipperId: string) {
-    this.logger.debug(`Subscription resolver called for shipper ${shipperId}`);
-    return pubSub.asyncIterableIterator('shipperLocationUpdated');
+  @Subscription(() => ShipperLocation)
+  @UseGuards(WebSocketAuthGuard)
+  async shipperLocationUpdated(
+    @Args('shipperId', { type: () => ID }) shipperId: string,
+    @Context() context: GraphqlSubscriptionContext,
+  ): Promise<AsyncIterableIterator<ShipperLocationPayload>> {
+    const actorId = requireGraphqlSubscriptionActorId(context);
+    if (
+      !(await this.deliverySubscriptionAccessService.canAccessShipperLocation(actorId, shipperId))
+    ) {
+      throw new ForbiddenException('Delivery location access denied');
+    }
+
+    return this.filterAuthorizedLocationEvents(
+      pubSub.asyncIterableIterator<ShipperLocationPayload>('shipperLocationUpdated'),
+      actorId,
+      shipperId,
+    );
+  }
+
+  private async *filterAuthorizedLocationEvents(
+    events: AsyncIterable<ShipperLocationPayload>,
+    actorId: string,
+    shipperId: string,
+  ): AsyncGenerator<ShipperLocationPayload> {
+    for await (const payload of events) {
+      const isAuthorized = await this.deliverySubscriptionAccessService.canAccessShipperLocation(
+        actorId,
+        shipperId,
+      );
+      if (isAuthorized && payload.shipperLocationUpdated.shipperId === shipperId) {
+        yield payload;
+      }
+    }
   }
 }

@@ -3,11 +3,28 @@ import { Args, Context, Int, Mutation, Query, Resolver, Subscription } from '@ne
 import { GraphqlAuthContext } from 'src/common/auth/authenticated-request';
 import { Conversation } from 'src/entities/conversation.entity';
 import { Message } from 'src/entities/message.entity';
-import { AuthGuard, WebSocketAuthGuard } from 'src/features/auth/public-api';
+import {
+  AuthGuard,
+  requireGraphqlSubscriptionActorId,
+  WebSocketAuthGuard,
+  type GraphqlSubscriptionContext,
+} from 'src/features/auth/public-api';
 import { pubSub } from 'src/pubsub';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessengerService } from './messenger.service';
+
+interface ConversationEventPayload {
+  conversationId: string;
+}
+
+interface MessageSentPayload extends ConversationEventPayload {
+  messageSent: Message;
+}
+
+interface MessagesReadPayload extends ConversationEventPayload {
+  messagesRead: boolean;
+}
 
 @Resolver()
 export class MessengerResolver {
@@ -106,31 +123,51 @@ export class MessengerResolver {
     return await this.messengerService.getUnreadMessageCount(userId);
   }
 
-  // WebSocket Subscriptions with proper filtering
-  @Subscription(() => Message, {
-    filter: (payload: { conversationId: string }, variables: { conversationId: string }) => {
-      // Match the structure you use in pubSub.publish()
-      return payload.conversationId === variables.conversationId;
-    },
-  })
+  @Subscription(() => Message)
   @UseGuards(WebSocketAuthGuard)
-  messageSent(
-    @Args('conversationId') _conversationId: string,
-    @Context() _context: GraphqlAuthContext,
-  ) {
-    return pubSub.asyncIterableIterator('messageSent');
+  async messageSent(
+    @Args('conversationId') conversationId: string,
+    @Context() context: GraphqlSubscriptionContext,
+  ): Promise<AsyncIterableIterator<MessageSentPayload>> {
+    const actorId = requireGraphqlSubscriptionActorId(context);
+    await this.messengerService.assertConversationParticipant(actorId, conversationId);
+
+    return this.filterAuthorizedConversationEvents(
+      pubSub.asyncIterableIterator<MessageSentPayload>('messageSent'),
+      actorId,
+      conversationId,
+    );
   }
 
-  @Subscription(() => Boolean, {
-    filter: (payload: { conversationId: string }, variables: { conversationId: string }) => {
-      return payload.conversationId === variables.conversationId;
-    },
-  })
+  @Subscription(() => Boolean)
   @UseGuards(WebSocketAuthGuard)
-  messagesRead(
-    @Args('conversationId') _conversationId: string,
-    @Context() _context: GraphqlAuthContext,
-  ) {
-    return pubSub.asyncIterableIterator('messagesRead');
+  async messagesRead(
+    @Args('conversationId') conversationId: string,
+    @Context() context: GraphqlSubscriptionContext,
+  ): Promise<AsyncIterableIterator<MessagesReadPayload>> {
+    const actorId = requireGraphqlSubscriptionActorId(context);
+    await this.messengerService.assertConversationParticipant(actorId, conversationId);
+
+    return this.filterAuthorizedConversationEvents(
+      pubSub.asyncIterableIterator<MessagesReadPayload>('messagesRead'),
+      actorId,
+      conversationId,
+    );
+  }
+
+  private async *filterAuthorizedConversationEvents<TPayload extends ConversationEventPayload>(
+    events: AsyncIterable<TPayload>,
+    actorId: string,
+    conversationId: string,
+  ): AsyncGenerator<TPayload> {
+    for await (const payload of events) {
+      const isParticipant = await this.messengerService.isConversationParticipant(
+        actorId,
+        conversationId,
+      );
+      if (isParticipant && payload.conversationId === conversationId) {
+        yield payload;
+      }
+    }
   }
 }

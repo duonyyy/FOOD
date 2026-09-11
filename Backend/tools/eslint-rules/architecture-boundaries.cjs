@@ -129,6 +129,7 @@ module.exports = {
           const targetFeature = getFeatureName(targetPath);
           const isPublicApi =
             targetPath === `src/features/${targetFeature}/public-api` ||
+            targetPath === `src/features/${targetFeature}/auth-module.public-api` ||
             targetPath === `src/features/${targetFeature}/merchant-catalog.public-api` ||
             targetPath === `src/features/${targetFeature}/review-reader.public-api` ||
             targetPath === `src/features/${targetFeature}/order-tracking-reader.public-api`;
