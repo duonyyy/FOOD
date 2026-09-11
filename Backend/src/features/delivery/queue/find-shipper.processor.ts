@@ -6,13 +6,13 @@ import {
   type DeliveryAssignmentJobData,
   isDeliveryAssignmentJobData,
 } from '../contracts/delivery-assignment-queue.port';
-import { DeliveryAssignmentScheduler } from '../services/delivery-assignment-scheduler.service';
+import { DeliveryDispatchService } from '../services/dispatch/delivery-dispatch.service';
 
 @Processor(DELIVERY_ASSIGNMENT_QUEUE, { concurrency: 1 })
 export class FindShipperProcessor extends WorkerHost {
   private readonly logger = new Logger(FindShipperProcessor.name);
 
-  constructor(private readonly deliveryAssignmentScheduler: DeliveryAssignmentScheduler) {
+  constructor(private readonly deliveryDispatchService: DeliveryDispatchService) {
     super();
   }
 
@@ -22,10 +22,7 @@ export class FindShipperProcessor extends WorkerHost {
         throw new UnrecoverableError('Invalid find-shipper job data');
       }
 
-      await this.deliveryAssignmentScheduler.processShipperAssignmentJobData(
-        String(job.id),
-        job.data,
-      );
+      await this.deliveryDispatchService.processShipperAssignmentJobData(String(job.id), job.data);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;

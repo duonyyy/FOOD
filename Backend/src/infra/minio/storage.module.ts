@@ -1,0 +1,33 @@
+import { Global, Module } from '@nestjs/common';
+import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
+import { InfraMinioModule } from './infra-minio.module';
+import { MinioHealthController } from './minio-health.controller';
+import { MinioService } from './minio.service';
+
+const storageProvider = {
+  provide: STORAGE_PORT,
+  useFactory: (minioService: MinioService): StoragePort => {
+    return {
+      upload: async (file, originalName, path) => {
+        const result = await minioService.upload(file, originalName, path);
+        return {
+          fileName: result.fileName,
+          url: minioService.getPublicUrl(result.fileName),
+        };
+      },
+      deleteFile: async (url) => {
+        return minioService.deleteFile(url);
+      },
+    };
+  },
+  inject: [MinioService],
+};
+
+@Global()
+@Module({
+  imports: [InfraMinioModule],
+  controllers: [MinioHealthController],
+  providers: [MinioService, storageProvider],
+  exports: [MinioService, STORAGE_PORT],
+})
+export class StorageModule {}

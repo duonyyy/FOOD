@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SystemConstraint } from '../../entities/systemConstaints.entity';
-import { SystemConstraintsService } from '../../services/system-constraints.service';
+import { SystemConstraintsService } from './services/system-constraints.service';
 
 /**
  * Compatibility owner for operating-policy configuration. The service source stays

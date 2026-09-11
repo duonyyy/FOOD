@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Address } from 'src/entities/address.entity';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import {
   type AddressSnapshot,
   type LocationReaderPort,
@@ -18,7 +18,15 @@ import { UpdateAddressDto } from './dto/update-address.dto';
 
 type AddressWriteData = Pick<
   Address,
-  'street' | 'ward' | 'district' | 'city' | 'latitude' | 'longitude' | 'isDefault' | 'label'
+  | 'street'
+  | 'ward'
+  | 'district'
+  | 'city'
+  | 'latitude'
+  | 'longitude'
+  | 'isDefault'
+  | 'label'
+  | 'isTemporary'
 >;
 
 @Injectable()
@@ -53,6 +61,14 @@ export class AddressService implements LocationReaderPort, LocationWriterPort {
 
   async removeAddress(id: string): Promise<void> {
     await this.deleteAddress(id);
+  }
+
+  async removeExpiredTemporaryAddresses(before: Date): Promise<number> {
+    const result = await this.addressRepository.delete({
+      isTemporary: true,
+      createdAt: LessThan(before),
+    });
+    return result.affected ?? 0;
   }
 
   // --- Original Controller Methods ---
@@ -128,6 +144,13 @@ export class AddressService implements LocationReaderPort, LocationWriterPort {
     return address ? this.toSnapshot(address) : null;
   }
 
+  async findOwnedAddress(addressId: string, ownerUserId: string): Promise<AddressSnapshot | null> {
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId, user: { id: ownerUserId } },
+    });
+    return address ? this.toSnapshot(address) : null;
+  }
+
   async findTemporaryAddress(addressId: string): Promise<TemporaryAddressSnapshot | null> {
     const snapshot = await this.findAddress(addressId);
     return snapshot?.isTemporary ? { ...snapshot, isTemporary: true } : null;
@@ -180,6 +203,7 @@ export class AddressService implements LocationReaderPort, LocationWriterPort {
       longitude: input.longitude,
       isDefault: input.isDefault,
       label: input.label,
+      isTemporary: input.isTemporary,
     };
   }
 

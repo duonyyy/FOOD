@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ShipperProfile } from '../../entities/shipperProfile.entity';
 import { SHIPPER_PROFILE_COMMANDS, SHIPPER_PROFILE_READER } from './contracts/shipper-profile.port';
-import { ShipperProfileService } from './services/shipper-profile.service';
+import { ShipperProfileService } from './services/shipper/shipper-profile.service';
 
 /** Internal Delivery module shared by auth/user compatibility facades. */
 @Module({

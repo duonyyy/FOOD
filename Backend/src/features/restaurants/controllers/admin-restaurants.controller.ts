@@ -17,10 +17,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Permissions } from 'src/auth/decorators/permissions.decorator';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Permission } from 'src/constants/permission.enum';
-import { CurrentActor, type CurrentActorData } from 'src/features/identity/public-api';
+import { Permissions } from 'src/features/auth/decorators/permissions.decorator';
+import { RolesGuard } from 'src/features/auth/guards/roles.guard';
+import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { ApproveRestaurantDto, RejectRestaurantDto } from '../dto/restaurant-approval.dto';
 import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';
 import { RestaurantPageResponseDto, RestaurantResponseDto } from '../dto/restaurant-response.dto';

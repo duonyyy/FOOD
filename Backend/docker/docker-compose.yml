@@ -1,0 +1,248 @@
+services:
+  migrate:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: npm run migration:run:compiled
+    env_file:
+      - ../.env
+    environment:
+      - DB_HOST=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      # Ghi đè DB_HOST trong .env để trỏ tới service postgres của Docker
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_SERVER_URL=http://ai-server:8000
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_USE_SSL=false
+      # API only produces jobs. Queue consumers run in the dedicated worker.
+      - QUEUE_PROCESSOR_ENABLED=false
+    env_file:
+      - ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-server:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/health').then((response) => process.exit(response.ok ? 0 :
+          1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: npm run start:worker
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_SERVER_URL=http://ai-server:8000
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_USE_SSL=false
+      - QUEUE_PROCESSOR_ENABLED=true
+    env_file:
+      - ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-server:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'process.kill(1, 0)']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  postgres:
+    # Must match the existing PostgreSQL 16 data volume; PostgreSQL cannot open
+    # a cluster created by a newer major version.
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: '${DB_USERNAME:?DB_USERNAME must be set}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD:?DB_PASSWORD must be set}'
+      POSTGRES_DB: '${DB_NAME:?DB_NAME must be set}'
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    # vm.overcommit_memory is a Docker Desktop Linux-VM setting, not a
+    # namespaced container sysctl. See docs/operations/docker-desktop.md.
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ai-server:
+    build:
+      context: ../../foodee-ai
+      dockerfile: Dockerfile
+    expose:
+      - '8000'
+    env_file:
+      - ../../foodee-ai/.env
+    environment:
+      AI_ALLOWED_ORIGINS: '${AI_ALLOWED_ORIGINS:-http://localhost:3001}'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  food-ai:
+    build:
+      context: ../../foodee-ai-main
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '${FOOD_AI_PORT:-5000}:5000'
+    environment:
+      FOOD_ALLOWED_ORIGINS: '${FOOD_ALLOWED_ORIGINS:-http://localhost:3001}'
+      FOOD_UPLOAD_FOLDER: /app/runtime
+    volumes:
+      - food-ai-runtime:/app/runtime
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5000/ready']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  frontend:
+    build:
+      context: ../../foodee-fe-main
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: '${NEXT_PUBLIC_API_URL:-http://localhost:3000}'
+        NEXT_PUBLIC_FOOD_AI_URL: '${NEXT_PUBLIC_FOOD_AI_URL:-http://localhost:5000}'
+        NEXT_PUBLIC_GOOGLE_REDIRECT_URI: '${NEXT_PUBLIC_GOOGLE_REDIRECT_URI:-http://localhost:3001/api/auth/callback/google}'
+        NEXT_PUBLIC_CLIENT_ID: '${NEXT_PUBLIC_CLIENT_ID:-}'
+        NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: '${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}'
+    restart: unless-stopped
+    ports:
+      - '${FRONTEND_PORT:-3001}:3000'
+    env_file:
+      - ../../foodee-fe-main/.env.local
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy
+      food-ai:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  minio:
+    # MinIO Community stopped publishing maintained prebuilt images. Build a
+    # pinned, free AGPL source release instead of using an unmaintained image.
+    build:
+      context: ..
+      dockerfile: docker/minio.Dockerfile
+      args:
+        MINIO_RELEASE: RELEASE.2025-10-15T17-29-55Z
+    image: foodee/minio:RELEASE.2025-10-15T17-29-55Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: '${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY must be set}'
+      MINIO_ROOT_PASSWORD: '${MINIO_SECRET_KEY:?MINIO_SECRET_KEY must be set}'
+    ports:
+      - '127.0.0.1:${MINIO_PORT:-9000}:9000'
+      - '127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio-data:
+    driver: local
+  food-ai-runtime:

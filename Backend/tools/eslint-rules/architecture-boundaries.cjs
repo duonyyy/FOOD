@@ -51,6 +51,18 @@ const legacyEntityOwners = {
   'user.entity': 'identity',
 };
 
+// The repository still uses `features/users` as the physical compatibility
+// folder for the canonical Identity slice. It remains the identity owner while
+// the folder rename is deliberately deferred, so its own User/Role repositories
+// are not cross-feature imports.
+const featureAliases = {
+  users: 'identity',
+};
+
+function canonicalFeatureName(featureName) {
+  return featureAliases[featureName] ?? featureName;
+}
+
 function getLegacyEntityName(projectPath) {
   const match = /^src\/entities\/([^/]+\.entity)(?:\.ts)?$/.exec(projectPath);
   return match?.[1];
@@ -117,7 +129,8 @@ module.exports = {
           const targetFeature = getFeatureName(targetPath);
           const isPublicApi =
             targetPath === `src/features/${targetFeature}/public-api` ||
-            targetPath === `src/features/${targetFeature}/merchant-catalog.public-api`;
+            targetPath === `src/features/${targetFeature}/merchant-catalog.public-api` ||
+            targetPath === `src/features/${targetFeature}/review-reader.public-api`;
           if (targetFeature && targetFeature !== sourceFeature && !isPublicApi) {
             context.report({ node: node.source, messageId: 'deepFeatureImport' });
           }
@@ -158,7 +171,7 @@ module.exports = {
 
             const entity = getLegacyEntityName(targetPath);
             const ownerFeature = entity ? legacyEntityOwners[entity] : undefined;
-            if (ownerFeature && ownerFeature !== sourceFeature) {
+            if (ownerFeature && ownerFeature !== canonicalFeatureName(sourceFeature)) {
               context.report({
                 node: node.source,
                 messageId: 'foreignLegacyEntity',

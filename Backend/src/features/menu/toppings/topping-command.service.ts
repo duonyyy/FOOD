@@ -4,12 +4,12 @@ import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
 import { Repository } from 'typeorm';
-import { CreateToppingDto } from '../../../modules/food/dto/create-topping.dto';
-import { UpdateToppingDto } from '../../../modules/food/dto/update-topping.dto';
 import {
   MERCHANT_CATALOG,
   type MerchantCatalogPort,
 } from '../../restaurants/merchant-catalog.public-api';
+import { CreateToppingDto } from './dto/create-topping.dto';
+import { UpdateToppingDto } from './dto/update-topping.dto';
 
 /** Catalog write boundary for toppings. Every mutation verifies the owning restaurant. */
 @Injectable()

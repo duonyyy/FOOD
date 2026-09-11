@@ -27,7 +27,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { AuthGuard, CurrentActor, type CurrentActorData } from 'src/features/identity/public-api';
+import { AuthGuard, CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';
 import { RequestRestaurantDto, UpdateOwnedRestaurantDto } from '../dto/restaurant-request.dto';
 import { RestaurantResponseDto } from '../dto/restaurant-response.dto';

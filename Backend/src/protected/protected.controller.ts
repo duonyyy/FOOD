@@ -1,8 +1,8 @@
 // src/protected/protected.controller.ts
 import { Controller, Get, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
+import { AuthGuard } from 'src/features/auth/guards/auth.guard';
 
 @Controller('protected')
 @ApiBearerAuth('bearer')

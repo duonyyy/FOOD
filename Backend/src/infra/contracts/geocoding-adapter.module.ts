@@ -1,1 +1,1 @@
-export { GeocodingAdapterModule } from '../maps/geocoding-adapter.module';
+export { GeocodingAdapterModule } from '../mapbox/geocoding-adapter.module';

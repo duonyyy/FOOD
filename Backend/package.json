@@ -14,9 +14,10 @@
     "start:dev": "nest start --watch --max-old-space-size=384",
     "start:prod": "node --max-old-space-size=384 --optimize-for-size dist/main.js",
     "lint": "eslint \"{src,test}/**/*.ts\"",
-    "lint:modules": "eslint \"src/modules/**/*.ts\"",
     "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix",
     "test": "jest --runInBand",
+    "test:unit": "jest --runInBand --testPathPattern=test/unit",
+    "test:integration": "jest --runInBand --testPathPattern=test/integration",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
@@ -119,16 +120,16 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "rootDir": ".",
+    "testRegex": "test/(unit|integration)/.*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "moduleNameMapper": {
-      "^src/(.*)$": "<rootDir>/$1"
+      "^src/(.*)$": "<rootDir>/src/$1"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "src/**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

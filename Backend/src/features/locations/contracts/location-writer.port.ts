@@ -7,6 +7,8 @@ export interface CreateAddressPayload {
   city: string;
   latitude?: number;
   longitude?: number;
+  label?: string;
+  isTemporary?: boolean;
 }
 
 export interface LocationWriterPort {
@@ -24,4 +26,7 @@ export interface LocationWriterPort {
    * Deletes an address
    */
   removeAddress(id: string): Promise<void>;
+
+  /** Removes temporary addresses created before the given time. */
+  removeExpiredTemporaryAddresses(before: Date): Promise<number>;
 }

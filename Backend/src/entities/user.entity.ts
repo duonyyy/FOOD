@@ -2,7 +2,7 @@
 import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { ApiHideProperty } from '@nestjs/swagger';
 import { Exclude } from 'class-transformer';
-import { AuthProvider } from 'src/auth/enums/auth-provider.enum';
+import { AuthProvider } from 'src/features/auth/enums/auth-provider.enum';
 import {
   Column,
   CreateDateColumn,
