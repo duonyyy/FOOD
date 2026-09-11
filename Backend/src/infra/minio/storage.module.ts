@@ -8,16 +8,20 @@ const storageProvider = {
   provide: STORAGE_PORT,
   useFactory: (minioService: MinioService): StoragePort => {
     return {
-      upload: async (file, originalName, path) => {
-        const result = await minioService.upload(file, originalName, path);
+      assertValidImageUpload: (file) => minioService.assertValidImageUpload(file),
+      upload: async (file, path) => {
+        const result = await minioService.upload(file, path);
         return {
           fileName: result.fileName,
-          url: minioService.getPublicUrl(result.fileName),
+          url: result.visibility === 'public'
+            ? minioService.getPublicUrl(result.fileName)
+            : minioService.getPrivateReference(result.fileName),
         };
       },
       deleteFile: async (url) => {
         return minioService.deleteFile(url);
       },
+      getSignedPrivateUrl: (fileReference) => minioService.getSignedPrivateUrl(fileReference),
     };
   },
   inject: [MinioService],

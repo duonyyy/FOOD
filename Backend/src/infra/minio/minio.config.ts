@@ -8,4 +8,7 @@ export default registerAs('minio', () => ({
   accessKey: process.env.MINIO_ACCESS_KEY,
   secretKey: process.env.MINIO_SECRET_KEY,
   bucketName: process.env.MINIO_BUCKET || 'default-bucket',
+  privateUrlExpirySeconds: process.env.MINIO_PRIVATE_URL_EXPIRY_SECONDS
+    ? parseInt(process.env.MINIO_PRIVATE_URL_EXPIRY_SECONDS, 10)
+    : 900,
 }));

@@ -59,6 +59,7 @@ export class RestaurantProfileService {
     if (!owner || !owner.isActive) {
       throw new BadRequestException('Restaurant owner account is unavailable');
     }
+    this.validateUploadedImages(avatarFile, backgroundFile, certificateFile);
 
     const addressData = this.toAddressPayload(request);
     const { addressId } = await this.locationWriter.writeAddress(addressData, owner.userId);
@@ -108,6 +109,7 @@ export class RestaurantProfileService {
     backgroundFile?: Express.Multer.File,
     certificateFile?: Express.Multer.File,
   ): Promise<Restaurant> {
+    this.validateUploadedImages(avatarFile, backgroundFile, certificateFile);
     const restaurant = await this.findOne(id);
     const oldUrls = [restaurant.avatar, restaurant.backgroundImage, restaurant.certificateImage];
     const uploadedUrls: string[] = [];
@@ -152,6 +154,14 @@ export class RestaurantProfileService {
 
   async update(id: string, update: UpdateOwnedRestaurantDto): Promise<Restaurant> {
     return this.updateWithFiles(id, update);
+  }
+
+  async getCertificateDownloadUrl(id: string): Promise<string> {
+    const restaurant = await this.findOne(id);
+    if (!restaurant.certificateImage) {
+      throw new NotFoundException('Restaurant certificate not found');
+    }
+    return this.storagePort.getSignedPrivateUrl(restaurant.certificateImage);
   }
 
   async findByOwnerId(
@@ -320,9 +330,15 @@ export class RestaurantProfileService {
     uploadedUrls: string[],
   ): Promise<string | undefined> {
     if (!file) return undefined;
-    const upload = await this.storagePort.upload(file, file.originalname, path);
+    const upload = await this.storagePort.upload(file, path);
     uploadedUrls.push(upload.url);
     return upload.url;
+  }
+
+  private validateUploadedImages(...files: Array<Express.Multer.File | undefined>): void {
+    files.filter((file): file is Express.Multer.File => Boolean(file)).forEach((file) => {
+      this.storagePort.assertValidImageUpload(file);
+    });
   }
 
   private async deleteIfReplaced(previousUrl: string | null, nextUrl: string): Promise<void> {

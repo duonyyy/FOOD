@@ -23,6 +23,7 @@ import { RolesGuard } from 'src/features/auth/guards/roles.guard';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { ApproveRestaurantDto, RejectRestaurantDto } from '../dto/restaurant-approval.dto';
 import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';
+import { PrivateFileResponseDto } from '../dto/private-file-response.dto';
 import { RestaurantPageResponseDto, RestaurantResponseDto } from '../dto/restaurant-response.dto';
 import { toRestaurantResponse } from '../restaurant.mapper';
 import { RestaurantApprovalService } from '../services/restaurant-approval.service';
@@ -53,6 +54,14 @@ export class RestaurantAdminController {
       query.lng,
     );
     return { ...page, items: page.items.map(toRestaurantResponse) };
+  }
+
+  @Get(':id/certificate')
+  @Permissions(Permission.STORE.READ)
+  @ApiOperation({ summary: 'Lấy URL tạm thời cho giấy chứng nhận để kiểm duyệt' })
+  @ApiResponse({ status: 200, type: PrivateFileResponseDto })
+  async getCertificateDownloadUrl(@Param('id') id: string): Promise<PrivateFileResponseDto> {
+    return { url: await this.restaurantProfileService.getCertificateDownloadUrl(id) };
   }
 
   @Put(':id/approve')

@@ -15,13 +15,19 @@ describe('RestaurantProfileService', () => {
     findAndCount: jest.fn(),
     remove: jest.fn(),
   };
-  const identityReader = { findIdentityUser: jest.fn() };
+  const identityReader = { findIdentityUser: jest.fn(), findIdentityUsers: jest.fn() };
   const locationWriter = {
     writeAddress: jest.fn(),
     modifyAddress: jest.fn(),
     removeAddress: jest.fn(),
+    removeExpiredTemporaryAddresses: jest.fn(),
   };
-  const storagePort = { upload: jest.fn(), deleteFile: jest.fn() };
+  const storagePort = {
+    assertValidImageUpload: jest.fn(),
+    upload: jest.fn(),
+    deleteFile: jest.fn(),
+    getSignedPrivateUrl: jest.fn(),
+  };
   const cache: CachePort = {
     remember: <Value>(_key: string, _ttl: number, loader: () => Promise<Value>): Promise<Value> =>
       loader(),
@@ -77,5 +83,56 @@ describe('RestaurantProfileService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(locationWriter.writeAddress).not.toHaveBeenCalled();
+  });
+
+  it('validates uploads before creating an address', async () => {
+    storagePort.assertValidImageUpload.mockImplementation(() => {
+      throw new BadRequestException('Only JPEG, PNG, and WebP image files are allowed');
+    });
+
+    await expect(
+      service.requestRestaurantWithFiles(
+        'owner-from-jwt',
+        {
+          name: 'Quán thử nghiệm',
+          addressStreet: '1 Đường A',
+          addressWard: 'Phường 1',
+          addressDistrict: 'Quận 1',
+          addressCity: 'Hồ Chí Minh',
+        },
+        { buffer: Buffer.from('MZ'), size: 2, mimetype: 'image/jpeg' } as Express.Multer.File,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(locationWriter.writeAddress).not.toHaveBeenCalled();
+    expect(storagePort.upload).not.toHaveBeenCalled();
+  });
+
+  it('removes uploaded objects if saving the restaurant fails', async () => {
+    storagePort.assertValidImageUpload.mockReset();
+    storagePort.upload.mockResolvedValue({
+      fileName: 'restaurant-avatars/server-generated.png',
+      url: 'https://files.example.test/default-bucket/restaurant-avatars/server-generated.png',
+    });
+    storagePort.deleteFile.mockResolvedValue(undefined);
+    repository.save.mockRejectedValueOnce(new Error('database unavailable'));
+
+    await expect(
+      service.requestRestaurantWithFiles(
+        'owner-from-jwt',
+        {
+          name: 'Quán thử nghiệm',
+          addressStreet: '1 Đường A',
+          addressWard: 'Phường 1',
+          addressDistrict: 'Quận 1',
+          addressCity: 'Hồ Chí Minh',
+        },
+        { buffer: Buffer.from('image'), size: 5, mimetype: 'image/png' } as Express.Multer.File,
+      ),
+    ).rejects.toThrow('database unavailable');
+
+    expect(storagePort.deleteFile).toHaveBeenCalledWith(
+      'https://files.example.test/default-bucket/restaurant-avatars/server-generated.png',
+    );
   });
 });

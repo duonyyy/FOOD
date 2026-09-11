@@ -29,6 +29,7 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard, CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';
+import { PrivateFileResponseDto } from '../dto/private-file-response.dto';
 import { RequestRestaurantDto, UpdateOwnedRestaurantDto } from '../dto/restaurant-request.dto';
 import { RestaurantResponseDto } from '../dto/restaurant-response.dto';
 import { toRestaurantResponse } from '../restaurant.mapper';
@@ -96,6 +97,17 @@ export class RestaurantMerchantController {
       throw new ForbiddenException('You do not own a restaurant');
     }
     return toRestaurantResponse(restaurant);
+  }
+
+  @Get(':id/certificate')
+  @ApiOperation({ summary: 'Lấy URL tạm thời cho giấy chứng nhận của nhà hàng mình' })
+  @ApiResponse({ status: 200, type: PrivateFileResponseDto })
+  async getCertificateDownloadUrl(
+    @Param('id') id: string,
+    @CurrentActor() actor: CurrentActorData,
+  ): Promise<PrivateFileResponseDto> {
+    await this.assertRestaurantOwner(id, actor.userId);
+    return { url: await this.restaurantProfileService.getCertificateDownloadUrl(id) };
   }
 
   @Put(':id/files')

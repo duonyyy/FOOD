@@ -72,7 +72,6 @@ export class Restaurant {
   @Column({ nullable: true })
   licenseCode: string;
 
-  @Field({ nullable: true })
   @Column({ nullable: true })
   certificateImage: string;
 
