@@ -125,6 +125,7 @@ export class OrderController {
         const checkout = await this.paymentService.createCheckout(
           {
             orderId: order.id,
+            customerId: userId,
             amount: Number(order.total),
             currency: 'VND',
           },

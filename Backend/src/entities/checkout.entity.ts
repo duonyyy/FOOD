@@ -31,6 +31,14 @@ export class Checkout {
   @Column({ type: 'uuid', nullable: true })
   orderId: string;
 
+  /**
+   * Immutable customer ownership snapshot copied from Ordering when checkout
+   * is created. Payments intentionally stores an ID snapshot instead of
+   * importing the Order or User persistence model.
+   */
+  @Column({ type: 'varchar', length: 28, nullable: true })
+  customerId: string | null;
+
   @Field()
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;

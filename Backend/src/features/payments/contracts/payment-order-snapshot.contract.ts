@@ -4,6 +4,7 @@
  */
 export interface PaymentOrderSnapshot {
   orderId: string;
+  customerId: string;
   amount: number;
   currency: 'VND';
 }

@@ -15,13 +15,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import {
   ApiBearerAuth,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthGuard } from 'src/features/auth/public-api';
-import { CheckoutStatus } from 'src/entities/checkout.entity';
+import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import {
   MomoResultQueryDto,
   PaymentOrderIdDto,
@@ -46,18 +47,24 @@ export class PaymentController {
   @ApiOperation({ summary: 'Process an authenticated checkout' })
   @ApiResponse({ status: 201, description: 'Checkout processing result' })
   @ApiUnauthorizedResponse({ description: 'JWT is missing or invalid' })
+  @ApiNotFoundResponse({ description: 'Checkout not found' })
   async processPayment(
     @Param('checkoutId') checkoutId: string,
     @Body() paymentDetails: ProcessPaymentDto,
+    @CurrentActor() actor: CurrentActorData,
   ) {
-    return this.paymentService.processPayment(checkoutId, { ...paymentDetails });
+    return this.paymentService.processPayment(checkoutId, actor.userId, { ...paymentDetails });
   }
 
   @Post('cancel/:checkoutId')
   @UseGuards(AuthGuard)
   @ApiBearerAuth('bearer')
-  async cancelCheckout(@Param('checkoutId') checkoutId: string) {
-    return this.paymentService.cancelCheckout(checkoutId);
+  @ApiNotFoundResponse({ description: 'Checkout not found' })
+  async cancelCheckout(
+    @Param('checkoutId') checkoutId: string,
+    @CurrentActor() actor: CurrentActorData,
+  ) {
+    return this.paymentService.cancelCheckout(checkoutId, actor.userId);
   }
 
   @Post('webhook')
@@ -79,13 +86,12 @@ export class PaymentController {
   @Get('checkout/:checkoutId')
   @UseGuards(AuthGuard)
   @ApiBearerAuth('bearer')
-  getCheckoutStatus(@Param('checkoutId') checkoutId: string) {
-    // This would typically be implemented in the service
-    // For now, we'll just return a placeholder
-    return {
-      checkoutId,
-      status: CheckoutStatus.PENDING,
-    };
+  @ApiNotFoundResponse({ description: 'Checkout not found' })
+  getCheckoutStatus(
+    @Param('checkoutId') checkoutId: string,
+    @CurrentActor() actor: CurrentActorData,
+  ) {
+    return this.paymentService.getCheckoutStatus(checkoutId, actor.userId);
   }
 
   @Get('momo/result')
@@ -109,13 +115,16 @@ export class PaymentController {
   }
 
   @Post('momo/check-status')
-  async checkMomoStatus(@Body() body: PaymentOrderIdDto) {
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiNotFoundResponse({ description: 'Checkout not found' })
+  async checkMomoStatus(@Body() body: PaymentOrderIdDto, @CurrentActor() actor: CurrentActorData) {
     const { orderId } = body;
     if (!orderId) {
       throw new BadRequestException('Missing order ID');
     }
 
-    return this.paymentService.checkMomoStatus(orderId);
+    return this.paymentService.checkMomoStatus(orderId, actor.userId);
   }
 
   /**
@@ -175,11 +184,15 @@ export class PaymentController {
   @Get('vnpay/status')
   @UseGuards(AuthGuard)
   @ApiBearerAuth('bearer')
-  async checkVnpayStatus(@Query('orderId') orderId: string) {
+  @ApiNotFoundResponse({ description: 'Checkout not found' })
+  async checkVnpayStatus(
+    @Query('orderId') orderId: string,
+    @CurrentActor() actor: CurrentActorData,
+  ) {
     if (!orderId) {
       throw new BadRequestException('Order ID is required');
     }
 
-    return this.paymentService.checkPaymentStatus(orderId, 'vnpay');
+    return this.paymentService.checkPaymentStatus(orderId, actor.userId, 'vnpay');
   }
 }
