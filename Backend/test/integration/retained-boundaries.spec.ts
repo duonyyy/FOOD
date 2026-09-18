@@ -23,14 +23,6 @@ describe('retained infrastructure and worker boundaries', () => {
   const sourceRoot = resolve(root, 'src');
   const allowedSymbolTokens = new Map([
     [
-      'src/features/delivery/contracts/delivery-assignment-queue.port.ts:DELIVERY_ASSIGNMENT_QUEUE_PORT',
-      'BullMQ queue boundary',
-    ],
-    [
-      'src/features/delivery/contracts/pending-assignment-store.port.ts:PENDING_ASSIGNMENT_STORE',
-      'Redis-backed dispatch state boundary',
-    ],
-    [
       'src/features/system-constraints/contracts/storage.port.ts:STORAGE_PORT',
       'object storage boundary',
     ],
@@ -38,6 +30,8 @@ describe('retained infrastructure and worker boundaries', () => {
     ['src/infra/contracts/cache.port.ts:CACHE_PORT', 'cache adapter boundary'],
     ['src/infra/contracts/geocoding.port.ts:GEOCODING_PORT', 'geocoding adapter boundary'],
     ['src/infra/contracts/route.port.ts:ROUTE_PORT', 'routing adapter boundary'],
+    ['src/infra/queue/queue.constants.ts:QUEUE_INSTANCE', 'dynamic BullMQ queue instance'],
+    ['src/infra/queue/queue.constants.ts:REGISTERED_QUEUE_NAME', 'dynamic BullMQ queue identity'],
   ]);
 
   it('allows only documented Symbol tokens', () => {
@@ -76,8 +70,6 @@ describe('retained infrastructure and worker boundaries', () => {
 
     expect(actual).toEqual(
       [
-        'src/features/delivery/delivery.module.ts',
-        'src/features/delivery/delivery.module.ts',
         'src/features/delivery/delivery.module.ts',
         'src/features/delivery/delivery.module.ts',
         'src/features/delivery/delivery.module.ts',

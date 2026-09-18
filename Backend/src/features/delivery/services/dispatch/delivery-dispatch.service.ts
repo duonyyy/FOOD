@@ -1,24 +1,24 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { haversineDistance } from 'src/common/utils/geo.util';
+import { InjectRepository } from '@nestjs/typeorm';
+import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import {
   SHIPPER_OFFER_REQUESTED_EVENT,
   type ShipperOfferRequestedEvent,
 } from 'src/common/events/shipper-offer-requested.event';
-import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
+import { haversineDistance } from 'src/common/utils/geo.util';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import {
   OrderDeliveryDispatchReaderService,
   type DeliveryDispatchCandidate,
 } from 'src/features/orders/order-delivery-dispatch-reader.public-api';
+import { QueueService } from 'src/infra/queue/public-api';
+import type {
+  DeliveryAssignmentJobData,
+  PendingAssignmentState,
+} from 'src/shared/types/delivery/delivery-assignment.types';
 import { Repository } from 'typeorm';
-import {
-  DELIVERY_ASSIGNMENT_QUEUE,
-  DELIVERY_ASSIGNMENT_QUEUE_PORT,
-  type DeliveryAssignmentJobData,
-  type DeliveryAssignmentQueuePort,
-} from '../../contracts/delivery-assignment-queue.port';
+import { RedisPendingAssignmentStore } from '../../adapters/redis-pending-assignment-store.service';
 import {
   AcceptDeliveryCommand,
   OfferDeliveryCommand,
@@ -29,11 +29,7 @@ import {
   DELIVERY_DISPATCH_POLICY,
   DeliveryDispatchPolicy,
 } from '../../contracts/delivery-dispatch.policy';
-import {
-  PENDING_ASSIGNMENT_STORE,
-  PendingAssignmentState,
-  type PendingAssignmentStorePort,
-} from '../../contracts/pending-assignment-store.port';
+import { DELIVERY_ASSIGNMENT_QUEUE } from '../../queue/delivery-queue.constants';
 import { ShipperService } from '../shipper/shipper.service';
 import { ActiveShipperTrackerService } from './active-shipper-tracker.service';
 
@@ -65,10 +61,8 @@ export class DeliveryDispatchService {
     private readonly orderDispatchReader: OrderDeliveryDispatchReaderService,
     @InjectRepository(ShippingDetail)
     private readonly shippingDetailRepository: Repository<ShippingDetail>,
-    @Inject(DELIVERY_ASSIGNMENT_QUEUE_PORT)
-    private readonly queueService: DeliveryAssignmentQueuePort,
-    @Inject(PENDING_ASSIGNMENT_STORE)
-    private readonly store: PendingAssignmentStorePort,
+    private readonly queueService: QueueService,
+    private readonly store: RedisPendingAssignmentStore,
     private readonly shipperService: ShipperService,
     private readonly activeShipperTracker: ActiveShipperTrackerService,
     private readonly eventBus: InProcessEventBus,

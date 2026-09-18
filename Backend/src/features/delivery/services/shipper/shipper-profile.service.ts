@@ -1,16 +1,15 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
-import { User } from 'src/entities/user.entity';
+import { IdentityUserProfileService } from 'src/features/users/identity-user-profile.public-api';
 import { pubSub } from 'src/pubsub';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
 import {
   SHIPPER_PROFILE_STATUS,
   type CreateShipperProfileCommand,
-  type ShipperProfileView,
   type ShipperProfileStatus,
+  type ShipperProfileView,
 } from '../../types/shipper-profile.types';
 
 /**
@@ -22,12 +21,7 @@ export class ShipperProfileService {
   constructor(
     @InjectRepository(ShipperProfile)
     private readonly profileRepository: Repository<ShipperProfile>,
-    @Optional()
-    @InjectRepository(User)
-    private readonly userRepository?: Repository<User>,
-    @Optional()
-    @InjectRepository(ShipperCertificateInfo)
-    private readonly certRepo?: Repository<ShipperCertificateInfo>,
+    private readonly identityUserProfile: IdentityUserProfileService,
   ) {}
 
   async findByUserId(userId: string): Promise<ShipperProfileView | null> {
@@ -85,57 +79,31 @@ export class ShipperProfileService {
   }
 
   async updateDriverProfile(userId: string, dto: UpdateDriverProfileDto) {
-    if (this.userRepository) {
-      const user = await this.userRepository.findOne({
-        where: { id: userId },
-        relations: ['shipperCertificateInfo'],
+    if (dto.name !== undefined || dto.phone !== undefined || dto.birthday !== undefined) {
+      await this.identityUserProfile.updateProfile(userId, {
+        name: dto.name,
+        phone: dto.phone,
+        birthday: dto.birthday ? new Date(dto.birthday) : undefined,
       });
-      if (!user) throw new NotFoundException('Người dùng không tồn tại');
-
-      if (dto.name) user.name = dto.name;
-      if (dto.phone) user.phone = dto.phone;
-      if (dto.birthday) user.birthday = new Date(dto.birthday);
-
-      await this.userRepository.save(user);
-
-      const cert = user.shipperCertificateInfo;
-      if (cert && this.certRepo) {
-        if (dto.cccd) cert.cccd = dto.cccd;
-        if (dto.driverLicense) cert.driverLicense = dto.driverLicense;
-        await this.certRepo.save(cert);
-      }
     }
 
     const profile = await this.profileRepository.findOne({ where: { userId } });
-    if (profile) {
-      if (dto.cccd) profile.cccd = dto.cccd;
-      if (dto.driverLicense) profile.driverLicense = dto.driverLicense;
-      await this.profileRepository.save(profile);
-    }
+    if (!profile) throw new NotFoundException('Không tìm thấy tài xế');
+
+    if (dto.cccd) profile.cccd = dto.cccd;
+    if (dto.driverLicense) profile.driverLicense = dto.driverLicense;
+    await this.profileRepository.save(profile);
 
     return { message: 'Cập nhật hồ sơ thành công' };
   }
 
   async getDriverProfile(userId: string) {
-    let name = '';
-    let phone = '';
-    let birthday: string | undefined;
+    const identity = await this.identityUserProfile.findProfile(userId);
+    const name = identity?.name ?? '';
+    const phone = identity?.phone ?? '';
+    const birthday = identity?.birthday?.toISOString().split('T')[0];
     let cccd = '';
     let driverLicense = '';
-
-    if (this.userRepository) {
-      const user = await this.userRepository.findOne({
-        where: { id: userId },
-        relations: ['shipperCertificateInfo'],
-      });
-      if (user) {
-        name = user.name || '';
-        phone = user.phone || '';
-        birthday = user.birthday?.toISOString().split('T')[0];
-        cccd = user.shipperCertificateInfo?.cccd || '';
-        driverLicense = user.shipperCertificateInfo?.driverLicense || '';
-      }
-    }
 
     const profile = await this.profileRepository.findOne({ where: { userId } });
     if (profile) {
@@ -143,7 +111,7 @@ export class ShipperProfileService {
       if (!driverLicense && profile.driverLicense) driverLicense = profile.driverLicense;
     }
 
-    if (!name && !profile) {
+    if (!identity && !profile) {
       throw new NotFoundException('Không tìm thấy tài xế');
     }
 
@@ -157,16 +125,8 @@ export class ShipperProfileService {
   }
 
   async updateLocation(shipperId: string, latitude: number, longitude: number) {
-    if (this.userRepository) {
-      const shipper = await this.userRepository.findOne({
-        where: { id: shipperId },
-        relations: ['shipperCertificateInfo'],
-      });
-
-      if (!shipper) {
-        throw new NotFoundException('Shipper not found');
-      }
-    }
+    const profile = await this.profileRepository.findOne({ where: { userId: shipperId } });
+    if (!profile) throw new NotFoundException('Shipper not found');
 
     await pubSub.publish('shipperLocationUpdated', {
       shipperLocationUpdated: {

@@ -1,12 +1,22 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, UnrecoverableError } from 'bullmq';
-import {
-  DELIVERY_ASSIGNMENT_QUEUE,
-  type DeliveryAssignmentJobData,
-  isDeliveryAssignmentJobData,
-} from '../contracts/delivery-assignment-queue.port';
+import type { DeliveryAssignmentJobData } from 'src/shared/types/delivery/delivery-assignment.types';
 import { DeliveryDispatchService } from '../services/dispatch/delivery-dispatch.service';
+import { DELIVERY_ASSIGNMENT_QUEUE } from './delivery-queue.constants';
+
+function isDeliveryAssignmentJobData(data: unknown): data is DeliveryAssignmentJobData {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  const job = data as Partial<DeliveryAssignmentJobData>;
+  return (
+    typeof job.pendingAssignmentId === 'string' &&
+    typeof job.orderId === 'string' &&
+    typeof job.attempt === 'number'
+  );
+}
 
 @Processor(DELIVERY_ASSIGNMENT_QUEUE, { concurrency: 1 })
 export class FindShipperProcessor extends WorkerHost {

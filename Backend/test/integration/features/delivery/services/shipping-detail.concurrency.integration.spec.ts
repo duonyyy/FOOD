@@ -6,9 +6,9 @@ import { Order } from 'src/entities/order.entity';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
+import { DeliveryAssignmentScheduler } from 'src/features/delivery/public-api';
 import { DeliveryAssignmentCommandService } from 'src/features/delivery/services/dispatch/delivery-assignment-command.service';
 import { ShipperService } from 'src/features/delivery/services/shipper/shipper.service';
-import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import { DataSource } from 'typeorm';
 
 jest.setTimeout(30_000);
@@ -126,7 +126,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
         Promise.resolve(assignments.get(shipperId) ?? null),
       ),
       removePendingAssignment: jest.fn().mockResolvedValue(undefined),
-    } as unknown as PendingAssignmentService;
+    } as unknown as DeliveryAssignmentScheduler;
 
     let applicationModule: TestingModule | undefined;
     try {
@@ -169,7 +169,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
             provide: getRepositoryToken(ShipperCertificateInfo),
             useValue: dataSource.getRepository(ShipperCertificateInfo),
           },
-          { provide: PendingAssignmentService, useValue: pendingAssignmentService },
+          { provide: DeliveryAssignmentScheduler, useValue: pendingAssignmentService },
         ],
       }).compile();
 

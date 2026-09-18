@@ -1,18 +1,17 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
-import { DELIVERY_ASSIGNMENT_POLICY } from 'src/features/delivery/contracts/delivery-dispatch.policy';
-import {
-  type PendingAssignmentState,
-  type PendingAssignmentStorePort,
-  type ShipperAssignmentHold,
-} from 'src/features/delivery/contracts/pending-assignment-store.port';
-import { REDIS_CLIENT } from 'src/infra/cache/cache.constants';
+import { REDIS_CLIENT } from 'src/infra/cache/public-api';
+import type {
+  PendingAssignmentState,
+  ShipperAssignmentHold,
+} from 'src/shared/types/delivery/delivery-assignment.types';
+import { DELIVERY_DISPATCH_POLICY } from '../contracts/delivery-dispatch.policy';
 
 @Injectable()
-export class PendingAssignmentStore implements PendingAssignmentStorePort {
-  private readonly logger = new Logger(PendingAssignmentStore.name);
-  private readonly pendingTtlSeconds = DELIVERY_ASSIGNMENT_POLICY.pendingAssignmentTtlSeconds;
-  private readonly shipperHoldTtlSeconds = DELIVERY_ASSIGNMENT_POLICY.offerHoldTtlSeconds;
+export class RedisPendingAssignmentStore {
+  private readonly logger = new Logger(RedisPendingAssignmentStore.name);
+  private readonly pendingTtlSeconds = DELIVERY_DISPATCH_POLICY.pendingAssignmentTtlSeconds;
+  private readonly shipperHoldTtlSeconds = DELIVERY_DISPATCH_POLICY.offerHoldTtlSeconds;
   private readonly dueSetKey = 'pending-assignments:due';
 
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}

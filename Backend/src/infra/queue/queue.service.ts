@@ -1,28 +1,25 @@
-import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Job, JobsOptions, Queue } from 'bullmq';
-import { type DeliveryQueueJobOptions } from 'src/features/delivery/contracts/delivery-assignment-queue.port';
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
-import { FindShipperJobData, QueueNames } from './queue.constants';
+import { QUEUE_INSTANCE, REGISTERED_QUEUE_NAME } from './queue.constants';
+import type { QueueJobOptions } from './queue.types';
 
-export type QueueJobOptions = DeliveryQueueJobOptions;
+export type { QueueJobOptions } from './queue.types';
 
 @Injectable()
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
 
   constructor(
-    @InjectQueue(QueueNames.FIND_SHIPPER)
-    private readonly findShipperQueue: Queue<FindShipperJobData>,
+    @Inject(QUEUE_INSTANCE)
+    private readonly queue: Queue<object>,
+    @Inject(REGISTERED_QUEUE_NAME)
+    private readonly registeredQueueName: string,
   ) {
     this.logger.log({ event: 'provider_initialized', provider: 'queue' });
   }
 
-  async addJob(
-    queueName: string,
-    jobData: FindShipperJobData,
-    options?: QueueJobOptions,
-  ): Promise<string> {
+  async addJob(queueName: string, jobData: object, options?: QueueJobOptions): Promise<string> {
     try {
       const queue = this.getQueue(queueName);
       const job = await queue.add(queueName, jobData, this.toBullJobOptions(options));
@@ -57,7 +54,7 @@ export class QueueService {
     }
   }
 
-  async getPendingJobs(queueName: string, limit = 10): Promise<Job<FindShipperJobData>[]> {
+  async getPendingJobs(queueName: string, limit = 10): Promise<Job<object>[]> {
     try {
       const queue = this.getQueue(queueName);
       const end = Math.max(limit - 1, 0);
@@ -74,7 +71,7 @@ export class QueueService {
 
   async getQueueStats(queueName: string): Promise<{
     size: number;
-    pendingJobs: Array<{ id: string; data: FindShipperJobData }>;
+    pendingJobs: Array<{ id: string; data: object }>;
   }> {
     const [size, jobs] = await Promise.all([
       this.getQueueSize(queueName),
@@ -138,17 +135,17 @@ export class QueueService {
 
   async getHealthStatus(): Promise<{ isHealthy: boolean }> {
     try {
-      await this.findShipperQueue.getJobCounts('waiting', 'active', 'failed');
+      await this.queue.getJobCounts('waiting', 'active', 'failed');
       return { isHealthy: true };
     } catch (error) {
-      this.logProviderError('health_check', error, QueueNames.FIND_SHIPPER);
+      this.logProviderError('health_check', error, this.registeredQueueName);
       return { isHealthy: false };
     }
   }
 
-  private getQueue(queueName: string): Queue<FindShipperJobData> {
-    if (queueName === QueueNames.FIND_SHIPPER) {
-      return this.findShipperQueue;
+  private getQueue(queueName: string): Queue<object> {
+    if (queueName === this.registeredQueueName) {
+      return this.queue;
     }
 
     throw new InternalServerErrorException(`Queue '${queueName}' is not registered.`);

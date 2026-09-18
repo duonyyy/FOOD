@@ -1,9 +1,10 @@
-import { User } from 'src/entities/user.entity';
+import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { DeliveryReportService } from 'src/features/delivery/services/shipper/delivery-report.service';
 
 describe('DeliveryReportService unit tests', () => {
   let shippingDetailRepository: { count: jest.Mock; createQueryBuilder: jest.Mock };
-  let userRepository: { findOne: jest.Mock };
+  let shipperProfileRepository: { findOne: jest.Mock };
+  let identityUserQuery: { findIdentityUser: jest.Mock };
   let service: DeliveryReportService;
 
   beforeEach(() => {
@@ -11,16 +12,23 @@ describe('DeliveryReportService unit tests', () => {
       count: jest.fn().mockResolvedValue(5),
       createQueryBuilder: jest.fn(),
     };
-    userRepository = {
+    shipperProfileRepository = {
       findOne: jest.fn(),
     };
-    service = new DeliveryReportService(shippingDetailRepository as never, userRepository as never);
+    identityUserQuery = {
+      findIdentityUser: jest.fn(),
+    };
+    service = new DeliveryReportService(
+      shippingDetailRepository as never,
+      shipperProfileRepository as never,
+      identityUserQuery as never,
+    );
   });
 
   describe('getShipperStats', () => {
     it('calculates completion and rejection ratios correctly', async () => {
-      const mockShipper = Object.assign(new User(), {
-        id: 'shipper-1',
+      const mockShipper = Object.assign(new ShipperProfile(), {
+        userId: 'shipper-1',
         completedDeliveries: 80,
         rejectedOrders: 15,
         failedDeliveries: 5,
@@ -28,10 +36,10 @@ describe('DeliveryReportService unit tests', () => {
         responseTimeMinutes: 10,
         averageRating: 4.8,
         totalEarnings: 2_500_000,
-        shipperCertificateInfo: { status: 'APPROVED' },
+        certificateStatus: 'APPROVED',
       });
 
-      userRepository.findOne.mockResolvedValue(mockShipper);
+      shipperProfileRepository.findOne.mockResolvedValue(mockShipper);
 
       const stats = await service.getShipperStats('shipper-1');
 
@@ -46,7 +54,7 @@ describe('DeliveryReportService unit tests', () => {
     });
 
     it('throws NotFoundException when shipper does not exist', async () => {
-      userRepository.findOne.mockResolvedValue(null);
+      shipperProfileRepository.findOne.mockResolvedValue(null);
 
       await expect(service.getShipperStats('non-existent')).rejects.toThrow('Shipper not found');
     });
@@ -54,10 +62,8 @@ describe('DeliveryReportService unit tests', () => {
 
   describe('getShipperDashboard', () => {
     it('returns formatted dashboard with performance ranking, badges and milestones', async () => {
-      const mockShipper = Object.assign(new User(), {
-        id: 'shipper-1',
-        name: 'Nguyen Van A',
-        isActive: true,
+      const mockShipper = Object.assign(new ShipperProfile(), {
+        userId: 'shipper-1',
         completedDeliveries: 60,
         rejectedOrders: 5,
         failedDeliveries: 2,
@@ -73,10 +79,17 @@ describe('DeliveryReportService unit tests', () => {
         monthlyEarnings: 1_500_000,
         createdAt: new Date('2025-01-01'),
         lastActiveAt: new Date(),
-        shipperCertificateInfo: { status: 'APPROVED' },
+        certificateStatus: 'APPROVED',
       });
 
-      userRepository.findOne.mockResolvedValue(mockShipper);
+      shipperProfileRepository.findOne.mockResolvedValue(mockShipper);
+      identityUserQuery.findIdentityUser.mockResolvedValue({
+        userId: 'shipper-1',
+        name: 'Nguyen Van A',
+        username: 'shipper-a',
+        roleName: 'shipper',
+        isActive: true,
+      });
 
       const dashboard = await service.getShipperDashboard('shipper-1');
 

@@ -1,8 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { addDays, format, startOfDay, startOfWeek } from 'date-fns';
+import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { User } from 'src/entities/user.entity';
+import { IdentityUserQueryService } from 'src/features/users/public-api';
 import { LessThan, Repository } from 'typeorm';
 
 interface EarningsReportRow {
@@ -32,8 +33,9 @@ export class DeliveryReportService {
   constructor(
     @InjectRepository(ShippingDetail)
     private readonly shippingDetailRepository: Repository<ShippingDetail>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    @InjectRepository(ShipperProfile)
+    private readonly shipperProfileRepository: Repository<ShipperProfile>,
+    private readonly identityUserQuery: IdentityUserQueryService,
   ) {}
 
   async getIncomeReport(
@@ -225,10 +227,10 @@ export class DeliveryReportService {
   }
 
   async getShipperDashboard(shipperId: string) {
-    const shipper = await this.userRepository.findOne({
-      where: { id: shipperId },
-      relations: ['shipperCertificateInfo'],
-    });
+    const [shipper, identity] = await Promise.all([
+      this.shipperProfileRepository.findOne({ where: { userId: shipperId } }),
+      this.identityUserQuery.findIdentityUser(shipperId),
+    ]);
 
     if (!shipper) {
       throw new NotFoundException('Shipper not found');
@@ -257,10 +259,10 @@ export class DeliveryReportService {
     });
 
     return {
-      shipperId: shipper.id,
-      shipperName: shipper.name || shipper.username,
-      status: shipper.shipperCertificateInfo?.status || 'PENDING',
-      isActive: shipper.isActive,
+      shipperId: shipper.userId,
+      shipperName: identity?.name || identity?.username || '',
+      status: shipper.certificateStatus,
+      isActive: identity?.isActive ?? false,
       averageRating: shipper.averageRating || 5.0,
 
       deliveryStats: {
@@ -311,7 +313,7 @@ export class DeliveryReportService {
     };
   }
 
-  private calculateAchievements(shipper: User): Array<{
+  private calculateAchievements(shipper: ShipperProfile): Array<{
     name: string;
     description: string;
     earned: boolean;
@@ -362,7 +364,7 @@ export class DeliveryReportService {
     ];
   }
 
-  private calculateNextMilestones(shipper: User): Array<{
+  private calculateNextMilestones(shipper: ShipperProfile): Array<{
     milestone: string;
     current: number;
     target: number;
@@ -415,7 +417,7 @@ export class DeliveryReportService {
     return milestones;
   }
 
-  private calculatePerformanceRanking(shipper: User): {
+  private calculatePerformanceRanking(shipper: ShipperProfile): {
     level: string;
     score: number;
     nextLevelRequirements: string[];
@@ -502,9 +504,8 @@ export class DeliveryReportService {
   }
 
   async getShipperStats(shipperId: string) {
-    const shipper = await this.userRepository.findOne({
-      where: { id: shipperId },
-      relations: ['shipperCertificateInfo'],
+    const shipper = await this.shipperProfileRepository.findOne({
+      where: { userId: shipperId },
     });
 
     if (!shipper) {
@@ -530,7 +531,7 @@ export class DeliveryReportService {
       completionRatio: Math.round(completionRatio * 100) / 100,
       failureRatio: Math.round(failureRatio * 100) / 100,
       averageResponseTime: shipper.responseTimeMinutes || 0,
-      status: shipper.shipperCertificateInfo?.status || 'PENDING',
+      status: shipper.certificateStatus,
       averageRating: shipper.averageRating || 0,
       totalEarnings: shipper.totalEarnings || 0,
     };

@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument */
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { DeliveryAssignmentScheduler } from 'src/features/delivery/public-api';
 import { OrderController } from 'src/features/orders/controllers/order.controller';
 import { OrderService } from 'src/features/orders/services/order.service';
 import { PaymentService } from 'src/features/payments/payment.service';
 import { RestaurantProfileService } from 'src/features/restaurants/services/restaurant-profile.service';
 import { AuthGuard, RolesGuard } from 'src/features/users/public-api';
-import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
 import request = require('supertest');
 
 describe('Order actor policy (e2e)', () => {
@@ -43,7 +43,7 @@ describe('Order actor policy (e2e)', () => {
         { provide: PaymentService, useValue: { createCheckout: jest.fn() } },
         { provide: RestaurantProfileService, useValue: { findByOwnerId: jest.fn() } },
         {
-          provide: PendingAssignmentService,
+          provide: DeliveryAssignmentScheduler,
           useValue: { addPendingAssignment: jest.fn(), removePendingAssignment: jest.fn() },
         },
       ],

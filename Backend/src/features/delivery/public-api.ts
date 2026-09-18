@@ -23,6 +23,7 @@ export {
   ShipperDeliveryController,
 } from './controllers/shipper-delivery.controller';
 export { DeliveryModule } from './delivery.module';
+export { FindShipperProcessor } from './queue/find-shipper.processor';
 export { AdminDeliveryService } from './services/admin/admin-delivery.service';
 export {
   ActiveShipperTrackerService,
@@ -46,12 +47,12 @@ export { ShipperProfileService } from './services/shipper/shipper-profile.servic
 export { ShipperService } from './services/shipper/shipper.service';
 export type {
   Coordinates,
-  DeliveryQuoteRequest,
   DeliveryQuote,
+  DeliveryQuoteRequest,
 } from './types/delivery-integration.types';
 export {
   SHIPPER_PROFILE_STATUS,
   type CreateShipperProfileCommand,
-  type ShipperProfileView,
   type ShipperProfileStatus,
+  type ShipperProfileView,
 } from './types/shipper-profile.types';

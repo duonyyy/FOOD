@@ -1,6 +1,6 @@
 import { Job, UnrecoverableError } from 'bullmq';
-import { type DeliveryAssignmentJobData } from 'src/features/delivery/contracts/delivery-assignment-queue.port';
-import { FindShipperProcessor } from 'src/infra/queue/processors/find-shipper.processor';
+import { FindShipperProcessor } from 'src/features/delivery/public-api';
+import type { DeliveryAssignmentJobData } from 'src/shared/types/delivery/delivery-assignment.types';
 
 describe('FindShipperProcessor', () => {
   const validJob = {

@@ -20,16 +20,22 @@ describe('shared type ownership boundaries', () => {
       ['enums/auth-provider.enum.ts', ['AuthProvider']],
       ['enums/order-status.enum.ts', ['OrderStatus']],
       ['enums/permission.enum.ts', ['Permission', 'PermissionType']],
+      [
+        'delivery/delivery-assignment.types.ts',
+        ['DeliveryAssignmentJobData', 'PendingAssignmentState', 'ShipperAssignmentHold'],
+      ],
     ]);
     const actualFiles = typescriptFiles(sharedTypesRoot)
       .map((path) => relative(sharedTypesRoot, path).replaceAll('\\', '/'))
       .sort();
 
-    expect(actualFiles).toEqual([...approvedExports.keys()]);
+    expect(actualFiles).toEqual([...approvedExports.keys()].sort());
     for (const [path, approvedNames] of approvedExports) {
-      const exportedNames = [...source(resolve(sharedTypesRoot, path)).matchAll(
-        /export\s+(?:enum|interface|type|const|class)\s+(\w+)/g,
-      )].map((match) => match[1]);
+      const exportedNames = [
+        ...source(resolve(sharedTypesRoot, path)).matchAll(
+          /export\s+(?:enum|interface|type|const|class)\s+(\w+)/g,
+        ),
+      ].map((match) => match[1]);
 
       expect(exportedNames).toEqual(approvedNames);
     }

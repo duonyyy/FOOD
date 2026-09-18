@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventsModule } from 'src/common/events/events.module';
-import { PendingAssignmentStore, QueueModule, QueueService } from 'src/infra/queue/public-api';
+import { AppCacheModule } from 'src/infra/cache/public-api';
+import { QueueModule } from 'src/infra/queue/public-api';
 import { DeliveryEarningsEvent } from '../../entities/deliveryEarningsEvent.entity';
 import { PendingShipperAssignment } from '../../entities/pendingShipperAssignment.entity';
 import { ShipperCertificateInfo } from '../../entities/shipperCertificateInfo.entity';
 import { ShipperProfile } from '../../entities/shipperProfile.entity';
 import { ShippingDetail } from '../../entities/shippingDetail.entity';
-import { User } from '../../entities/user.entity';
 import { AuthModule } from '../auth/auth-module.public-api';
 import { OrderDeliveryCompletionReaderModule } from '../orders/order-delivery-completion-reader.public-api';
 import { OrderDeliveryDispatchReaderModule } from '../orders/order-delivery-dispatch-reader.public-api';
@@ -18,8 +18,7 @@ import {
 import { OrderTrackingReaderModule } from '../orders/order-tracking-reader.public-api';
 import { SystemConstraintsModule } from '../system-constraints/public-api';
 import { IdentityModule } from '../users/public-api';
-import { DELIVERY_ASSIGNMENT_QUEUE_PORT } from './contracts/delivery-assignment-queue.port';
-import { PENDING_ASSIGNMENT_STORE } from './contracts/pending-assignment-store.port';
+import { RedisPendingAssignmentStore } from './adapters/redis-pending-assignment-store.service';
 import { AdminDeliveryController } from './controllers/admin-delivery.controller';
 import { CustomerDeliveryController } from './controllers/customer-delivery.controller';
 import { LegacyShipperAdminController } from './controllers/legacy-shipper-admin.controller';
@@ -28,6 +27,7 @@ import {
   ShipperDeliveryController,
 } from './controllers/shipper-delivery.controller';
 import { ShipperResolver } from './controllers/shipper.resolver';
+import { DELIVERY_ASSIGNMENT_QUEUE } from './queue/delivery-queue.constants';
 import { FindShipperProcessor } from './queue/find-shipper.processor';
 import { AdminDeliveryService } from './services/admin/admin-delivery.service';
 import { ActiveShipperTrackerService } from './services/dispatch/active-shipper-tracker.service';
@@ -53,6 +53,16 @@ import { ShipperProfileModule } from './shipper-profile.module';
 const queueProcessorProviders =
   process.env.QUEUE_PROCESSOR_ENABLED === 'true' ? [FindShipperProcessor] : [];
 
+const deliveryQueueModule = QueueModule.register({
+  name: DELIVERY_ASSIGNMENT_QUEUE,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'fixed', delay: 5000 },
+    removeOnComplete: true,
+    removeOnFail: 1000,
+  },
+});
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -61,8 +71,8 @@ const queueProcessorProviders =
       DeliveryEarningsEvent,
       ShipperCertificateInfo,
       ShipperProfile,
-      User,
     ]),
+    AppCacheModule,
     EventsModule,
     AuthModule,
     OrderDeliveryDispatchReaderModule,
@@ -72,7 +82,7 @@ const queueProcessorProviders =
     OrderTrackingReaderModule,
     IdentityModule,
     SystemConstraintsModule,
-    QueueModule,
+    deliveryQueueModule,
     ShipperProfileModule,
   ],
   controllers: [
@@ -99,8 +109,7 @@ const queueProcessorProviders =
     AdminDeliveryService,
     ShipperService,
     ShipperResolver,
-    { provide: DELIVERY_ASSIGNMENT_QUEUE_PORT, useExisting: QueueService },
-    { provide: PENDING_ASSIGNMENT_STORE, useExisting: PendingAssignmentStore },
+    RedisPendingAssignmentStore,
   ],
   exports: [
     DeliveryDispatchService,
@@ -114,8 +123,6 @@ const queueProcessorProviders =
     AdminDeliveryService,
     DeliveryIntegrationService,
     ShipperService,
-    DELIVERY_ASSIGNMENT_QUEUE_PORT,
-    PENDING_ASSIGNMENT_STORE,
     ShipperProfileModule,
   ],
 })
