@@ -4,11 +4,12 @@ import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { initializeFirebaseAdmin } from 'src/config/firebase-admin.config';
-import { DefaultRole } from 'src/entities/role.entity';
-import { User } from 'src/entities/user.entity';
-import { CreateUserDto } from 'src/features/users/dto/create-users.dto';
-import { RolesService } from 'src/features/users/roles/role.service';
-import { UsersService } from 'src/features/users/services/users.service';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
+import {
+  CreateUserDto,
+  RolesService,
+  UsersService,
+} from 'src/features/users/identity-auth.public-api';
 import { GoogleRegisterDto } from '../dto/google-register.dto';
 import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
 
@@ -99,7 +100,7 @@ export class SocialAuthService {
   }
 
   private async createGoogleAuthResponse(
-    user: User,
+    user: NonNullable<Awaited<ReturnType<UsersService['findByEmail']>>>,
     isNewUser: boolean,
   ): Promise<GoogleAuthResponse> {
     const permissions = (await this.rolesService.getUserPermissions(user.role.id, true)).map(

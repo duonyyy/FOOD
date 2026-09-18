@@ -1,13 +1,12 @@
 import {
   ConflictException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Category } from 'src/entities/category.entity';
-import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
+import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 import { type CategorySummary } from '../types/category.types';
 import { toCategoryResponse } from './category.mapper';
@@ -23,8 +22,7 @@ export class CategoryService {
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
-    @Inject(CACHE_PORT)
-    private readonly cache: CachePort,
+    private readonly cache: AppCacheService,
   ) {}
 
   async create(createCategoryDto: CreateCategoryDto): Promise<CategoryResponseDto> {

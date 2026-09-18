@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
-import { PaymentStatus } from 'src/features/payments/contracts/payment-gateway.port';
+import { PaymentStatus } from 'src/infra/payment-gateways/public-api';
 import { PaymentService } from 'src/features/payments/payment.service';
 
 describe('Payment callback idempotency characterization', () => {

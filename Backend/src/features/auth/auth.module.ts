@@ -1,14 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Address } from 'src/entities/address.entity';
-import { Permission } from 'src/entities/permission.entity';
-import { Role } from 'src/entities/role.entity';
-import { User } from 'src/entities/user.entity';
 import { ShipperProfileModule } from 'src/features/delivery/shipper-profile.public-api';
-import { RoleModule } from 'src/features/users/roles/role.module';
-import { UsersModule } from 'src/features/users/users.module';
+import { RoleModule, UsersModule } from 'src/features/users/identity-auth-modules.public-api';
 import { MailModule } from 'src/infra/mail/public-api';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -21,7 +15,6 @@ import { SocialAuthService } from './services/social-auth.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, Permission, Address]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -47,6 +40,6 @@ import { SocialAuthService } from './services/social-auth.service';
     RolesGuard,
     WebSocketAuthGuard,
   ],
-  exports: [AuthService, AuthGuard, RolesGuard, WebSocketAuthGuard, JwtModule, UsersModule],
+  exports: [AuthService, AuthGuard, RolesGuard, WebSocketAuthGuard, JwtModule],
 })
 export class AuthModule {}

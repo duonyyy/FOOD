@@ -1,6 +1,6 @@
 import { Body, Controller, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { AuthGuard } from 'src/features/auth/guards/auth.guard';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { ChatService } from './chat.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ChatReply } from './types/chat.types';

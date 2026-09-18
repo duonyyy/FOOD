@@ -1,5 +1,5 @@
 import { Permission } from 'src/entities/permission.entity';
-import { DefaultRole } from 'src/entities/role.entity';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import { User } from 'src/entities/user.entity';
 
 /**

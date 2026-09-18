@@ -25,7 +25,7 @@ import {
 import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Order } from 'src/entities/order.entity';
 import { AuthGuard, Permissions, RolesGuard } from 'src/features/auth/public-api';
-import { DeliveryAssignmentScheduler } from 'src/features/delivery/public-api';
+import { DeliveryDispatchService } from 'src/features/delivery/public-api';
 import { PaymentService } from 'src/features/payments/public-api';
 import { RestaurantProfileService } from 'src/features/restaurants/public-api';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
@@ -50,7 +50,7 @@ export class OrderController {
     private readonly orderService: OrderService,
     private readonly paymentService: PaymentService,
     private readonly restaurantService: RestaurantProfileService,
-    private readonly pendingAssignmentService: DeliveryAssignmentScheduler,
+    private readonly pendingAssignmentService: DeliveryDispatchService,
   ) {}
 
   @Post()

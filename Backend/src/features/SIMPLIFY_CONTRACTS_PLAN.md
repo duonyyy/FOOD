@@ -165,6 +165,20 @@ Xóa port/token/alias còn lại theo owner; sửa toàn bộ deep-import; chạ
 **Exit gate cuối:** không `forwardRef`; không cross-feature deep-import; không application
 `.port.ts`/Symbol một implementation; external token còn lại có lý do rõ ràng.
 
+**Trạng thái triển khai (2026-09-18): hoàn tất.**
+
+- Đã xóa toàn bộ `*.port.ts`, token application và binding `useExisting` còn lại.
+- Cache, Mapbox và Storage được inject bằng concrete service qua infra public API.
+- Payment giữ contract đa provider dưới tên `payment-gateway.contract.ts`; runtime chọn provider
+  bằng concrete `PaymentGatewayRouter`, không dùng DI port/token.
+- `DefaultRole` đã chuyển sang `src/shared/types/enums`; test allowlist shared đã cập nhật.
+- Auth không còn giữ repository User/Role; Users không còn giữ repository Address.
+- Users/Role provider module đã tách khỏi HTTP controllers để tránh cycle mà không dùng
+  `forwardRef`.
+- Lần xác minh hiện tại: build pass; unit `99/99` suites, `339/339` tests; integration
+  `24/24` suites chạy pass, `1` suite PostgreSQL bị skip theo cờ môi trường; Orders policy e2e
+  `3/3` tests pass.
+
 ## 6. Quality gate
 
 ```text
@@ -193,4 +207,3 @@ Không kết luận pass nếu chưa có output của lần chạy hiện tại.
 - Không trộn format toàn repo, Docker, migration hoặc thay đổi API vào commit dọn port.
 - Không giữ alias tạm thời qua nhiều phase; rollback bằng revert commit đúng nhóm.
 - Không commit/push tự động.
-

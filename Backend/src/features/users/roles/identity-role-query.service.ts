@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DefaultRole, Role } from 'src/entities/role.entity';
+import { Role } from 'src/entities/role.entity';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import { User } from 'src/entities/user.entity';
 import { Repository } from 'typeorm';
 import { IdentityUserListItemDto } from '../users/dto/identity-user-response.dto';

@@ -3,10 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as moment from 'moment';
 import { randomUUID } from 'node:crypto';
-import { Address } from 'src/entities/address.entity';
-import { DefaultRole, Role } from 'src/entities/role.entity';
+import { Role } from 'src/entities/role.entity';
 import { User } from 'src/entities/user.entity';
+import { AddressService } from 'src/features/locations/address-write.public-api';
 import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from '../dto/create-users.dto';
 import { UpdateUserDto } from '../dto/update-users.dto';
@@ -18,10 +19,9 @@ export class UsersService {
   constructor(
     @InjectRepository(Role)
     private rolesRepository: Repository<Role>,
-    @InjectRepository(Address)
-    private readonly addressRepository: Repository<Address>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly addressService: AddressService,
   ) {}
 
   async updateUserProvider(
@@ -71,27 +71,51 @@ export class UsersService {
     // --- Address update logic ---
     if (addresses) {
       this.logger.log(`Removing old addresses for user: ${id}`);
-      await this.addressRepository.delete({ user: { id: user.id } });
-
-      this.logger.log(`Adding new addresses for user: ${id}`);
-      const newAddresses = addresses.map((addr) => {
-        const address = this.addressRepository.create({
-          ...addr,
-          user: user,
-        });
-        return address;
-      });
-      await this.addressRepository.save(newAddresses);
-      user.address = newAddresses; // update relation for return value
+      await this.addressService.replaceOwnedAddresses(user.id, addresses);
     }
 
     this.logger.log(`Saving updated user: ${id}`);
     await this.usersRepository.save(user);
     this.logger.log(`User updated successfully: ${id}`);
-    return user;
+    return (await this.usersRepository.findOne({
+      where: { id },
+      relations: ['address'],
+    })) as User;
   }
   async findByUsername(username: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { username } });
+  }
+
+  async findByUsernameWithRole(username: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { username }, relations: ['role'] });
+  }
+
+  async createShipperAccount(data: {
+    username: string;
+    password: string;
+    name: string;
+    phone: string;
+    birthday: Date;
+  }): Promise<User> {
+    const existing = await this.usersRepository.findOne({ where: { username: data.username } });
+    if (existing) {
+      throw new Error('USERNAME_ALREADY_EXISTS');
+    }
+
+    const role = await this.rolesRepository.findOne({ where: { name: DefaultRole.SHIPPER } });
+    if (!role) {
+      throw new Error('SHIPPER_ROLE_NOT_FOUND');
+    }
+
+    return this.usersRepository.save(
+      this.usersRepository.create({
+        ...data,
+        id: randomUUID().substring(0, 28),
+        password: await bcrypt.hash(data.password, 10),
+        role,
+        isActive: true,
+      }),
+    );
   }
   async findById(id: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { id } });
@@ -241,5 +265,50 @@ export class UsersService {
   //   }
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
+  }
+
+
+  async issuePasswordResetToken(
+    email: string,
+    hashedToken: string,
+    expiresAt: Date,
+  ): Promise<{ email: string; name?: string } | null> {
+    const user = await this.usersRepository.findOne({ where: { email } });
+    if (!user) {
+      return null;
+    }
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = expiresAt;
+    const saved = await this.usersRepository.save(user);
+    return { email: saved.email, name: saved.name };
+  }
+
+  async findPasswordResetState(
+    email: string,
+    hashedToken: string,
+  ): Promise<{ userId: string; email: string; name?: string; expiresAt?: Date } | null> {
+    const user = await this.usersRepository.findOne({
+      where: { email, resetPasswordToken: hashedToken },
+    });
+    return user
+      ? {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          expiresAt: user.resetPasswordExpires,
+        }
+      : null;
+  }
+
+  async completePasswordReset(userId: string, newPassword: string): Promise<void> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new Error(`User with id ${userId} not found`);
+    }
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = new Date();
+    await this.usersRepository.save(user);
   }
 }

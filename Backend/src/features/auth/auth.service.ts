@@ -5,16 +5,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
 import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
-import { User } from 'src/entities/user.entity';
 import { ShipperProfileService } from 'src/features/delivery/shipper-profile.public-api';
-import { CreateUserDto } from 'src/features/users/dto/create-users.dto';
-import { RolesService } from 'src/features/users/roles/role.service';
-import { UsersService } from 'src/features/users/services/users.service';
-import { Repository } from 'typeorm';
-import { DefaultRole, Role } from '../../entities/role.entity';
+import {
+  CreateUserDto,
+  RolesService,
+  UsersService,
+} from 'src/features/users/identity-auth.public-api';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import { CreateShipperDto } from './dto/create-shipper.dto';
 import { GoogleRegisterDto } from './dto/google-register.dto';
 import { RegisterDto } from './dto/register-user.dto';
@@ -33,7 +31,6 @@ function errorMessage(error: unknown): string {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly BCRYPT_SALT_ROUNDS = 10; // Số vòng lặp để tạo salt cho bcrypt
   private readonly JWT_EXPIRATION = '1d'; // Thời gian hết hạn của token JWT
 
   constructor(
@@ -43,12 +40,6 @@ export class AuthService {
     private readonly otpService: OtpService,
     private readonly passwordResetService: PasswordResetService,
     private readonly socialAuthService: SocialAuthService,
-
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-
-    @InjectRepository(Role)
-    private readonly roleRepo: Repository<Role>,
 
     private readonly shipperProfileReader: ShipperProfileService,
 
@@ -75,37 +66,15 @@ export class AuthService {
   }
 
   /**
-   * Tìm hoặc tạo vai trò mới nếu chưa tồn tại
-   * @param name Tên vai trò (Role)
-   * @returns Role entity
-   */
-  async findByName(name: string): Promise<Role> {
-    // Kiểm tra xem tên role có hợp lệ không
-    if (!Object.values(DefaultRole).includes(name as DefaultRole)) {
-      throw new Error(`Invalid role name: ${name}`);
-    }
-
-    // Tìm role trong database
-    let role = await this.roleRepo.findOne({
-      where: { name: name as DefaultRole },
-    });
-
-    // Nếu chưa có thì tạo mới
-    if (!role) {
-      role = this.roleRepo.create({ name: name as DefaultRole });
-      role = await this.roleRepo.save(role);
-    }
-
-    return role;
-  }
-
-  /**
    * Tạo phản hồi chuẩn hóa cho User sau khi login/register thành công
    * @param user - Entity User
    * @param isNewUser - Cờ đánh dấu user mới tạo
    * @returns Object chứa thông tin user và quyền hạn
    */
-  private async createUserResponse(user: User, isNewUser = false): Promise<AuthResponse> {
+  private async createUserResponse(
+    user: Awaited<ReturnType<UsersService['register']>>,
+    isNewUser = false,
+  ): Promise<AuthResponse> {
     // Lấy danh sách quyền (permissions) của user dựa trên role
     const permissions = await this.rolesService.getUserPermissions(user.role.id, true);
     return {
@@ -203,36 +172,24 @@ export class AuthService {
    */
   async registerDriver(dto: CreateShipperDto) {
     // Kiểm tra username (số điện thoại) đã tồn tại chưa
-    const existing = await this.userRepo.findOne({
-      where: { username: dto.username },
-    });
-    if (existing) {
-      throw new BadRequestException('Số điện thoại đã được sử dụng');
+    let user: Awaited<ReturnType<UsersService['createShipperAccount']>>;
+    try {
+      user = await this.usersService.createShipperAccount({
+        username: dto.username,
+        password: dto.password,
+        name: dto.name,
+        phone: dto.phone,
+        birthday: new Date(dto.birthday),
+      });
+    } catch (error) {
+      if ((error as Error).message === 'USERNAME_ALREADY_EXISTS') {
+        throw new BadRequestException('Số điện thoại đã được sử dụng');
+      }
+      if ((error as Error).message === 'SHIPPER_ROLE_NOT_FOUND') {
+        throw new BadRequestException('Vai trò shipper chưa được khởi tạo');
+      }
+      throw error;
     }
-
-    // Lấy role shipper
-    const role = await this.rolesService.findByName(DefaultRole.SHIPPER);
-    if (!role) {
-      throw new BadRequestException('Vai trò shipper chưa được khởi tạo');
-    }
-
-    // Tạo ID cho tài xế
-    const driverID = randomUUID().substring(0, 28);
-    this.logger.log(`Generated driver ID: ${driverID}`);
-
-    // Tạo user mới
-    const user = this.userRepo.create({
-      id: driverID,
-      username: dto.username,
-      password: await bcrypt.hash(dto.password, this.BCRYPT_SALT_ROUNDS),
-      name: dto.name,
-      phone: dto.phone,
-      birthday: new Date(dto.birthday),
-      role,
-      isActive: true,
-    });
-
-    await this.userRepo.save(user);
 
     // Delivery sở hữu hồ sơ/chứng chỉ; Auth chỉ tạo account và gọi public command.
     await this.shipperProfileCommands.createPending({
@@ -305,10 +262,7 @@ export class AuthService {
    * @returns Token và thông tin user nếu đăng nhập thành công
    */
   async loginDriver(username: string, password: string): Promise<AuthResponse> {
-    const user = await this.userRepo.findOne({
-      where: { username },
-      relations: ['role'],
-    });
+    const user = await this.usersService.findByUsernameWithRole(username);
 
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -358,18 +312,6 @@ export class AuthService {
         phone: user.phone,
       },
     };
-  }
-
-  /**
-   * Tìm user theo số điện thoại
-   * @param phone
-   * @returns User entity hoặc null
-   */
-  async findByPhone(phone: string): Promise<User | null> {
-    return this.userRepo.findOne({
-      where: { phone },
-      relations: ['role'],
-    });
   }
 
   /**

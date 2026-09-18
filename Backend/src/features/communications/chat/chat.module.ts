@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from 'src/features/auth/auth.module';
+import { AuthModule } from 'src/features/auth/auth-module.public-api';
 import { LocationsModule } from 'src/features/locations/public-api';
 import { MenuModule } from 'src/features/menu/public-api';
 import { OrdersModule } from 'src/features/orders/public-api';

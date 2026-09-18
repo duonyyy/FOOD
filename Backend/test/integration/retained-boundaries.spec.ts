@@ -22,14 +22,7 @@ function relative(path: string): string {
 describe('retained infrastructure and worker boundaries', () => {
   const sourceRoot = resolve(root, 'src');
   const allowedSymbolTokens = new Map([
-    [
-      'src/features/system-constraints/contracts/storage.port.ts:STORAGE_PORT',
-      'object storage boundary',
-    ],
     ['src/infra/cache/cache.constants.ts:REDIS_CLIENT', 'external Redis client'],
-    ['src/infra/contracts/cache.port.ts:CACHE_PORT', 'cache adapter boundary'],
-    ['src/infra/contracts/geocoding.port.ts:GEOCODING_PORT', 'geocoding adapter boundary'],
-    ['src/infra/contracts/route.port.ts:ROUTE_PORT', 'routing adapter boundary'],
     ['src/infra/queue/queue.constants.ts:QUEUE_INSTANCE', 'dynamic BullMQ queue instance'],
     ['src/infra/queue/queue.constants.ts:REGISTERED_QUEUE_NAME', 'dynamic BullMQ queue identity'],
   ]);
@@ -50,17 +43,17 @@ describe('retained infrastructure and worker boundaries', () => {
 
   it('keeps non-Symbol boundaries only where the runtime requires them', () => {
     const paymentContract = readFileSync(
-      resolve(root, 'src/features/payments/contracts/payment-gateway.port.ts'),
+      resolve(root, 'src/infra/payment-gateways/payment-gateway.contract.ts'),
       'utf8',
     );
     const minioService = readFileSync(resolve(root, 'src/infra/minio/minio.service.ts'), 'utf8');
 
-    expect(paymentContract).toContain('interface PaymentGatewayPort');
+    expect(paymentContract).toContain('interface PaymentGateway');
     expect(paymentContract).toContain("'momo' | 'vnpay'");
     expect(minioService).toContain('@Inject(MINIO_CONNECTION)');
   });
 
-  it('allows useExisting only for documented adapter or role aliases', () => {
+  it('does not retain useExisting aliases', () => {
     const actual = sourceFiles(sourceRoot)
       .flatMap((path) => {
         const source = readFileSync(path, 'utf8');
@@ -68,15 +61,6 @@ describe('retained infrastructure and worker boundaries', () => {
       })
       .sort();
 
-    expect(actual).toEqual(
-      [
-        'src/features/delivery/delivery.module.ts',
-        'src/features/delivery/delivery.module.ts',
-        'src/features/delivery/delivery.module.ts',
-        'src/infra/cache/cache.module.ts',
-        'src/infra/mapbox/geocoding-adapter.module.ts',
-        'src/infra/mapbox/route-adapter.module.ts',
-      ].sort(),
-    );
+    expect(actual).toEqual([]);
   });
 });

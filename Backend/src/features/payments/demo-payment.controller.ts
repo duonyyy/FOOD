@@ -14,7 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { type PaymentIntent } from 'src/features/payments/contracts/payment-gateway.port';
+import { type PaymentIntent } from 'src/infra/payment-gateways/public-api';
 import {
   MomoPaymentGateway,
   VnpayPaymentGateway,

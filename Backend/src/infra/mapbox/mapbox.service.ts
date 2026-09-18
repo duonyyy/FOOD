@@ -19,6 +19,13 @@ export class MapboxService {
     this.directionsService = mbxDirections({ accessToken });
   }
 
+  getDistanceAndDuration(
+    origin: [number, number],
+    destination: [number, number],
+  ): Promise<{ distanceKm: number; durationMin: number } | null> {
+    return this.getDistanceAndDurationFromMapbox(origin, destination);
+  }
+
   /**
    * Get distance and duration via Mapbox Directions API
    */

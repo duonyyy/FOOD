@@ -18,6 +18,7 @@ describe('shared type ownership boundaries', () => {
   it('contains only explicitly approved shared contracts', () => {
     const approvedExports = new Map([
       ['enums/auth-provider.enum.ts', ['AuthProvider']],
+      ['enums/default-role.enum.ts', ['DefaultRole']],
       ['enums/order-status.enum.ts', ['OrderStatus']],
       ['enums/permission.enum.ts', ['Permission', 'PermissionType']],
       [

@@ -11,8 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { AuthenticatedRequest } from 'src/features/auth/interfaces/authenticated-request.interface';
-import { AuthGuard } from '../../users/public-api';
+import { AuthGuard, type AuthenticatedRequest } from 'src/features/auth/public-api';
 import { AddressService } from './address.service';
 import { AddressResponseDto } from './dto/address-response.dto';
 import { CreateAddressDto } from './dto/create-address.dto';

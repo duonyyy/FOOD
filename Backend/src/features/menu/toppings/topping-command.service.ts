@@ -1,8 +1,8 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
-import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
+import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 import { MerchantCatalogService } from '../../restaurants/merchant-catalog.public-api';
 import { CreateToppingDto } from './dto/create-topping.dto';
@@ -15,7 +15,7 @@ export class ToppingCommandService {
     @InjectRepository(Food) private readonly foodRepository: Repository<Food>,
     @InjectRepository(Topping) private readonly toppingRepository: Repository<Topping>,
     private readonly merchantCatalog: MerchantCatalogService,
-    @Inject(CACHE_PORT) private readonly cache: CachePort,
+    private readonly cache: AppCacheService,
   ) {}
 
   async create(foodId: string, dto: CreateToppingDto, actorId: string): Promise<Topping> {

@@ -1,9 +1,9 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { Food } from 'src/entities/food.entity';
-import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
+import { AppCacheService } from 'src/infra/cache/public-api';
+import { StorageService } from 'src/infra/minio/public-api';
 import { Repository } from 'typeorm';
 import { FoodPaginationResult, FoodSortType } from './customer-food.service';
 
@@ -18,8 +18,8 @@ export class AdminFoodService {
 
   constructor(
     @InjectRepository(Food) private readonly foodRepository: Repository<Food>,
-    @Inject(STORAGE_PORT) private readonly storage: StoragePort,
-    @Inject(CACHE_PORT) private readonly cache: CachePort,
+    private readonly storage: StorageService,
+    private readonly cache: AppCacheService,
   ) {}
 
   /**

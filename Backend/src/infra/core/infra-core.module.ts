@@ -11,7 +11,7 @@ import minioConfig from '../../config/minio.config';
 import { AppCacheModule } from '../cache/cache.module';
 import { DatabaseModule } from '../database/database.module';
 import { LoggingModule } from '../logging/logging.module';
-import { RouteAdapterModule } from '../mapbox/route-adapter.module';
+import { MapsModule } from '../mapbox/maps.module';
 import { StorageModule } from '../minio/storage.module';
 
 const graphqlSubscriptionLogger = new Logger('GraphQLSubscription');
@@ -48,7 +48,7 @@ function getConnectionAuthorization(
     HttpContractModule,
     AppCacheModule,
     StorageModule,
-    RouteAdapterModule,
+    MapsModule,
     ScheduleModule.forRoot(),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,

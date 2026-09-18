@@ -20,7 +20,6 @@ export interface DeliveryEarningsProjection {
   weeklyEarnings: number;
   monthlyEarnings: number;
 }
-
 @Injectable()
 export class DeliveryEarningsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DeliveryEarningsService.name);
@@ -159,7 +158,3 @@ export class DeliveryEarningsService implements OnModuleInit, OnModuleDestroy {
     );
   }
 }
-
-/** Backward compatibility alias */
-export const DeliveryEarningsProjectionService = DeliveryEarningsService;
-export type DeliveryEarningsProjectionService = DeliveryEarningsService;

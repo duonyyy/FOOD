@@ -31,18 +31,11 @@ import { DELIVERY_ASSIGNMENT_QUEUE } from './queue/delivery-queue.constants';
 import { FindShipperProcessor } from './queue/find-shipper.processor';
 import { AdminDeliveryService } from './services/admin/admin-delivery.service';
 import { ActiveShipperTrackerService } from './services/dispatch/active-shipper-tracker.service';
-import { DeliveryAssignmentCommandService } from './services/dispatch/delivery-assignment-command.service';
-import {
-  DeliveryAssignmentScheduler,
-  DeliveryDispatchService,
-} from './services/dispatch/delivery-dispatch.service';
+import { DeliveryDispatchService } from './services/dispatch/delivery-dispatch.service';
 import { DeliveryIntegrationService } from './services/integration/delivery-integration.service';
 import { DeliveryAssignmentSagaService } from './services/shipper/delivery-assignment-saga.service';
 import { DeliveryCompletionService } from './services/shipper/delivery-completion.service';
-import {
-  DeliveryEarningsProjectionService,
-  DeliveryEarningsService,
-} from './services/shipper/delivery-earnings.service';
+import { DeliveryEarningsService } from './services/shipper/delivery-earnings.service';
 import { DeliveryReportService } from './services/shipper/delivery-report.service';
 import { ShipperDeliveryService } from './services/shipper/shipper-delivery.service';
 import { ShipperService } from './services/shipper/shipper.service';
@@ -96,10 +89,7 @@ const deliveryQueueModule = QueueModule.register({
     ...queueProcessorProviders,
     ActiveShipperTrackerService,
     DeliveryDispatchService,
-    { provide: DeliveryAssignmentScheduler, useExisting: DeliveryDispatchService },
-    { provide: DeliveryAssignmentCommandService, useExisting: DeliveryDispatchService },
     DeliveryEarningsService,
-    { provide: DeliveryEarningsProjectionService, useExisting: DeliveryEarningsService },
     DeliveryIntegrationService,
     DeliveryAssignmentSagaService,
     DeliveryCompletionService,
@@ -114,10 +104,7 @@ const deliveryQueueModule = QueueModule.register({
   exports: [
     DeliveryDispatchService,
     ActiveShipperTrackerService,
-    DeliveryAssignmentScheduler,
-    DeliveryAssignmentCommandService,
     DeliveryEarningsService,
-    DeliveryEarningsProjectionService,
     ShipperDeliveryService,
     DeliveryReportService,
     AdminDeliveryService,

@@ -1,8 +1,8 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
-import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
+import { AppCacheService } from 'src/infra/cache/public-api';
+import { StorageService } from 'src/infra/minio/public-api';
 import { EntityManager, Repository } from 'typeorm';
 import {
   buildPromotionCacheKey,
@@ -16,11 +16,9 @@ export class PromotionService {
   constructor(
     @InjectRepository(Promotion)
     private promotionRepository: Repository<Promotion>,
-    @Inject(STORAGE_PORT)
-    private readonly storage: StoragePort,
+    private readonly storage: StorageService,
 
-    @Inject(CACHE_PORT)
-    private readonly cacheService: CachePort,
+    private readonly cacheService: AppCacheService,
   ) {}
 
   async clearPromotionCache(): Promise<void> {

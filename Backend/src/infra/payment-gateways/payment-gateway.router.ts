@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
-  PaymentGatewayPort,
+  PaymentGateway,
   PaymentGatewayProvider,
-} from 'src/features/payments/contracts/payment-gateway.port';
+} from './payment-gateway.contract';
 import { MomoPaymentGateway } from './momo-payment.gateway';
 import { VnpayPaymentGateway } from './vnpay-payment.gateway';
 
@@ -14,7 +14,7 @@ export class PaymentGatewayRouter {
     private readonly vnpay: VnpayPaymentGateway,
   ) {}
 
-  get(provider: PaymentGatewayProvider): PaymentGatewayPort {
+  get(provider: PaymentGatewayProvider): PaymentGateway {
     if (provider === 'momo') {
       return this.momo;
     }

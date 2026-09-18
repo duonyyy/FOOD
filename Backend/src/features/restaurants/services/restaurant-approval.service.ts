@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import {
@@ -10,7 +10,7 @@ import {
   RestaurantApprovalAction,
   RestaurantApprovalAudit,
 } from 'src/entities/restaurantApprovalAudit.entity';
-import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
+import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 import { ApproveRestaurantDto, RejectRestaurantDto } from '../dto/restaurant-approval.dto';
 
@@ -23,8 +23,7 @@ export class RestaurantApprovalService {
     private readonly restaurantRepository: Repository<Restaurant>,
     @InjectRepository(RestaurantApprovalAudit)
     private readonly approvalAuditRepository: Repository<RestaurantApprovalAudit>,
-    @Inject(CACHE_PORT)
-    private readonly cache: CachePort,
+    private readonly cache: AppCacheService,
     private readonly eventBus: InProcessEventBus,
   ) {}
 

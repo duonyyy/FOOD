@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { PaymentGatewayProvider } from 'src/features/payments/contracts/payment-gateway.port';
+import type { PaymentGatewayProvider } from 'src/infra/payment-gateways/public-api';
 import { PaymentGatewayRouter } from 'src/infra/payment-gateways/payment-gateway.router';
 
 describe('PaymentGatewayRouter', () => {

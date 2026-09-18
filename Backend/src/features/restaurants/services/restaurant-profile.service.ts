@@ -1,11 +1,11 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { estimateDeliveryTime, haversineDistance } from 'src/common/utils/geo.util';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { AddressService, type CreateAddressPayload } from 'src/features/locations/public-api';
-import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
 import { IdentityUserQueryService } from 'src/features/users/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
+import { AppCacheService } from 'src/infra/cache/public-api';
+import { StorageService } from 'src/infra/minio/public-api';
 import { DeepPartial, Repository } from 'typeorm';
 import { RequestRestaurantDto, UpdateOwnedRestaurantDto } from '../dto/restaurant-request.dto';
 
@@ -25,10 +25,8 @@ export class RestaurantProfileService {
     private readonly restaurantRepository: Repository<Restaurant>,
     private readonly identityReader: IdentityUserQueryService,
     private readonly locationWriter: AddressService,
-    @Inject(STORAGE_PORT)
-    private readonly storagePort: StoragePort,
-    @Inject(CACHE_PORT)
-    private readonly cache: CachePort,
+    private readonly storage: StorageService,
+    private readonly cache: AppCacheService,
   ) {}
 
   async findOne(id: string): Promise<Restaurant> {
@@ -90,7 +88,7 @@ export class RestaurantProfileService {
       return saved;
     } catch (error) {
       await Promise.all(
-        uploadedUrls.map((url) => this.storagePort.deleteFile(url).catch(() => undefined)),
+        uploadedUrls.map((url) => this.storage.deleteFile(url).catch(() => undefined)),
       );
       throw error;
     }
@@ -140,7 +138,7 @@ export class RestaurantProfileService {
       return saved;
     } catch (error) {
       await Promise.all(
-        uploadedUrls.map((url) => this.storagePort.deleteFile(url).catch(() => undefined)),
+        uploadedUrls.map((url) => this.storage.deleteFile(url).catch(() => undefined)),
       );
       throw error;
     }
@@ -155,7 +153,7 @@ export class RestaurantProfileService {
     if (!restaurant.certificateImage) {
       throw new NotFoundException('Restaurant certificate not found');
     }
-    return this.storagePort.getSignedPrivateUrl(restaurant.certificateImage);
+    return this.storage.getSignedPrivateUrl(restaurant.certificateImage);
   }
 
   async findByOwnerId(
@@ -324,20 +322,20 @@ export class RestaurantProfileService {
     uploadedUrls: string[],
   ): Promise<string | undefined> {
     if (!file) return undefined;
-    const upload = await this.storagePort.upload(file, path);
+    const upload = await this.storage.upload(file, path);
     uploadedUrls.push(upload.url);
     return upload.url;
   }
 
   private validateUploadedImages(...files: Array<Express.Multer.File | undefined>): void {
     files.filter((file): file is Express.Multer.File => Boolean(file)).forEach((file) => {
-      this.storagePort.assertValidImageUpload(file);
+      this.storage.assertValidImageUpload(file);
     });
   }
 
   private async deleteIfReplaced(previousUrl: string | null, nextUrl: string): Promise<void> {
     if (previousUrl && previousUrl !== nextUrl) {
-      await this.storagePort
+      await this.storage
         .deleteFile(previousUrl)
         .catch((error) =>
           this.logger.warn(

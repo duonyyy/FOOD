@@ -31,13 +31,11 @@ export {
 } from './services/dispatch/active-shipper-tracker.service';
 export { DeliveryAssignmentCommandService } from './services/dispatch/delivery-assignment-command.service';
 export {
-  DeliveryAssignmentScheduler,
   DeliveryDispatchService,
   type ExpiredPendingAssignment,
 } from './services/dispatch/delivery-dispatch.service';
 export { DeliveryIntegrationService } from './services/integration/delivery-integration.service';
 export {
-  DeliveryEarningsProjectionService,
   DeliveryEarningsService,
   type DeliveryEarningsProjection,
 } from './services/shipper/delivery-earnings.service';

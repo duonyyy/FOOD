@@ -1,39 +1,30 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
-import { User } from 'src/entities/user.entity';
-import { UsersService } from 'src/features/users/services/users.service';
+import { UsersService } from 'src/features/users/identity-auth.public-api';
 import { MailingService } from 'src/infra/mail/public-api';
-import { Repository } from 'typeorm';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 
 @Injectable()
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
   private readonly resetTokenExpirationMinutes = 60;
-  private readonly bcryptSaltRounds = 10;
 
   constructor(
     private readonly usersService: UsersService,
     private readonly mailService: MailingService,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
   ) {}
 
   async forgotPassword(email: string): Promise<{ message: string; success: boolean }> {
     try {
-      const user = await this.usersService.findByEmail(email);
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const user = await this.usersService.issuePasswordResetToken(
+        email,
+        this.hashToken(resetToken),
+        new Date(Date.now() + this.resetTokenExpirationMinutes * 60 * 1000),
+      );
       if (!user) {
         return this.genericForgotPasswordResponse();
       }
-
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      user.resetPasswordToken = this.hashToken(resetToken);
-      user.resetPasswordExpires = new Date(
-        Date.now() + this.resetTokenExpirationMinutes * 60 * 1000,
-      );
-      await this.userRepo.save(user);
 
       const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
       await this.mailService.sendEmail({
@@ -62,14 +53,11 @@ export class PasswordResetService {
         throw new BadRequestException('Invalid or expired reset token');
       }
 
-      if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+      if (!user.expiresAt || user.expiresAt < new Date()) {
         throw new BadRequestException('Reset token has expired');
       }
 
-      user.password = await bcrypt.hash(newPassword, this.bcryptSaltRounds);
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpires = new Date();
-      await this.userRepo.save(user);
+      await this.usersService.completePasswordReset(user.userId, newPassword);
 
       await this.sendPasswordChangeConfirmationEmail(user.email, user.name || 'User');
 
@@ -93,14 +81,14 @@ export class PasswordResetService {
         return { valid: false, message: 'Invalid reset token' };
       }
 
-      if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+      if (!user.expiresAt || user.expiresAt < new Date()) {
         return { valid: false, message: 'Reset token has expired' };
       }
 
       return {
         valid: true,
         message: 'Token is valid',
-        expiresAt: user.resetPasswordExpires,
+        expiresAt: user.expiresAt,
       };
     } catch (error) {
       this.logger.error(`Token verification failed: ${(error as Error).message}`);
@@ -108,13 +96,8 @@ export class PasswordResetService {
     }
   }
 
-  private async findUserByResetToken(email: string, token: string): Promise<User | null> {
-    return this.userRepo.findOne({
-      where: {
-        email,
-        resetPasswordToken: this.hashToken(token),
-      },
-    });
+  private findUserByResetToken(email: string, token: string) {
+    return this.usersService.findPasswordResetState(email, this.hashToken(token));
   }
 
   private hashToken(token: string): string {

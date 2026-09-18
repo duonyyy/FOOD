@@ -18,8 +18,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Permission } from 'src/shared/types/enums/permission.enum';
-import { Permissions } from 'src/features/auth/decorators/permissions.decorator';
-import { RolesGuard } from 'src/features/auth/guards/roles.guard';
+import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { ApproveRestaurantDto, RejectRestaurantDto } from '../dto/restaurant-approval.dto';
 import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';

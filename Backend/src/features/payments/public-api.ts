@@ -1,11 +1,11 @@
 export {
   PaymentStatus,
+  type PaymentGateway,
   type PaymentGatewayConfig,
-  type PaymentGatewayPort,
   type PaymentIntent,
   type PaymentResult,
   type PaymentStatusResponse,
-} from './contracts/payment-gateway.port';
+} from 'src/infra/payment-gateways/public-api';
 export {
   assertPaymentStatusTransition,
   canTransitionPaymentStatus,

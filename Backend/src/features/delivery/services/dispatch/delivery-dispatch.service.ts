@@ -531,7 +531,3 @@ export class DeliveryDispatchService {
     );
   }
 }
-
-/** Backward compatibility alias */
-export const DeliveryAssignmentScheduler = DeliveryDispatchService;
-export type DeliveryAssignmentScheduler = DeliveryDispatchService;

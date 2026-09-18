@@ -35,7 +35,7 @@ const legacyEntityOwners = {
   'conversation.entity': 'communications',
   'food.entity': 'menu',
   'message.entity': 'communications',
-  'notification.entity': 'communications',
+  'notification.entity': 'notifications',
   'order.entity': 'orders',
   'orderDetail.entity': 'orders',
   'pendingShipperAssignment.entity': 'delivery',

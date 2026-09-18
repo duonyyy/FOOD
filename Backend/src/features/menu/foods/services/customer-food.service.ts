@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { paginate } from 'src/common/pagination/paginate';
 import { haversineDistance } from 'src/common/utils/geo.util';
@@ -6,8 +6,8 @@ import { Category } from 'src/entities/category.entity';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { MerchantCatalogService } from 'src/features/restaurants/merchant-catalog.public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
-import { ROUTE_PORT, type RoutePort } from 'src/infra/mapbox/public-api';
+import { AppCacheService } from 'src/infra/cache/public-api';
+import { MapboxService } from 'src/infra/mapbox/public-api';
 import { Repository, type SelectQueryBuilder } from 'typeorm';
 import { buildMenuCacheKey, MENU_CACHE_TTL_SECONDS } from '../../contracts/menu-cache.policy';
 
@@ -81,10 +81,8 @@ export class CustomerFoodService {
     @InjectRepository(Topping)
     protected readonly toppingRepository: Repository<Topping>,
     protected readonly merchantCatalog: MerchantCatalogService,
-    @Inject(CACHE_PORT)
-    protected readonly cacheService: CachePort,
-    @Inject(ROUTE_PORT)
-    protected readonly routeService: RoutePort,
+    protected readonly cacheService: AppCacheService,
+    protected readonly routeService: MapboxService,
   ) {}
 
   private enrichWithDistance(

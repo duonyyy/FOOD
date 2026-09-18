@@ -15,7 +15,7 @@ import { plainToInstance } from 'class-transformer';
 import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
-import { AuthGuard } from 'src/features/auth/guards/auth.guard';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { CreateToppingDto } from '../../toppings/dto/create-topping.dto';
 import { UpdateToppingDto } from '../../toppings/dto/update-topping.dto';
 import { ToppingCommandService } from '../../toppings/topping-command.service';

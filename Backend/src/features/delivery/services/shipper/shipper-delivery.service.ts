@@ -17,7 +17,7 @@ import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
 import { DeliveryAssignmentPolicy } from '../../contracts/delivery-dispatch.policy';
 import { SHIPPER_PROFILE_STATUS } from '../../types/shipper-profile.types';
-import { DeliveryAssignmentScheduler } from '../dispatch/delivery-dispatch.service';
+import { DeliveryDispatchService } from '../dispatch/delivery-dispatch.service';
 import { DeliveryAssignmentSagaService } from './delivery-assignment-saga.service';
 import { DeliveryCompletionService } from './delivery-completion.service';
 
@@ -38,7 +38,7 @@ export class ShipperDeliveryService {
     protected shippingDetailRepository: Repository<ShippingDetail>,
     @InjectRepository(ShipperProfile)
     protected shipperProfileRepository: Repository<ShipperProfile>,
-    protected pendingAssignmentService: DeliveryAssignmentScheduler,
+    protected pendingAssignmentService: DeliveryDispatchService,
     protected readonly deliveryAssignmentSagaService: DeliveryAssignmentSagaService,
     protected readonly deliveryCompletionService: DeliveryCompletionService,
     protected readonly orderLifecycleCommand: OrderDeliveryLifecycleCommandService,

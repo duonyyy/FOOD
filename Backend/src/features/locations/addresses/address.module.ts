@@ -1,15 +1,12 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Address } from 'src/entities/address.entity';
-import { GeocodingAdapterModule } from 'src/infra/mapbox/public-api';
-import { IdentityModule } from '../../users/public-api';
+import { AuthModule } from 'src/features/auth/auth-module.public-api';
 import { AddressController } from './address.controller';
 import { AddressService } from './address.service';
+import { AddressWriteModule } from './address-write.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Address]), IdentityModule, GeocodingAdapterModule],
+  imports: [AddressWriteModule, AuthModule],
   controllers: [AddressController],
-  providers: [AddressService],
-  exports: [AddressService, GeocodingAdapterModule],
+  exports: [AddressService],
 })
 export class AddressModule {}

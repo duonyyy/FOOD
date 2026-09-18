@@ -8,7 +8,7 @@ import {
 } from 'src/features/orders/order-delivery-shipper.public-api';
 import { Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
-import { DeliveryAssignmentScheduler } from '../dispatch/delivery-dispatch.service';
+import { DeliveryDispatchService } from '../dispatch/delivery-dispatch.service';
 import { DeliveryAssignmentSagaService } from './delivery-assignment-saga.service';
 import { DeliveryCompletionService } from './delivery-completion.service';
 import { DeliveryReportService } from './delivery-report.service';
@@ -31,7 +31,7 @@ export class ShipperService extends ShipperDeliveryService {
     shippingDetailRepository: Repository<ShippingDetail>,
     @InjectRepository(ShipperProfile)
     shipperProfileRepository: Repository<ShipperProfile>,
-    pendingAssignmentService: DeliveryAssignmentScheduler,
+    pendingAssignmentService: DeliveryDispatchService,
     deliveryAssignmentSagaService: DeliveryAssignmentSagaService,
     deliveryCompletionService: DeliveryCompletionService,
     orderLifecycleCommand: OrderDeliveryLifecycleCommandService,

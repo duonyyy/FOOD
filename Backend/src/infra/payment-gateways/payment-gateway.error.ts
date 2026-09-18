@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { PaymentGatewayProvider } from './payment-gateway.port';
+import type { PaymentGatewayProvider } from './payment-gateway.contract';
 
 export type PaymentGatewayErrorCode =
   | 'CONFIGURATION_MISSING'
@@ -34,9 +34,7 @@ export function mapPaymentGatewayError(
   operation: string,
   error: unknown,
 ): PaymentGatewayError {
-  if (error instanceof PaymentGatewayError) {
-    return error;
-  }
+  if (error instanceof PaymentGatewayError) return error;
   if (axios.isAxiosError(error)) {
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
       return new PaymentGatewayError(provider, operation, 'TIMEOUT', true, error);

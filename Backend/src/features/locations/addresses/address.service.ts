@@ -51,6 +51,25 @@ export class AddressService {
     return { addressId: saved.id };
   }
 
+  async replaceOwnedAddresses(
+    ownerUserId: string,
+    addresses: Partial<CreateAddressPayload>[],
+  ): Promise<void> {
+    await this.addressRepository.delete({ user: { id: ownerUserId } });
+    if (addresses.length === 0) {
+      return;
+    }
+
+    await this.addressRepository.save(
+      addresses.map((address) =>
+        this.addressRepository.create({
+          ...this.toPersistence(address),
+          user: { id: ownerUserId },
+        }),
+      ),
+    );
+  }
+
   async modifyAddress(id: string, data: Partial<CreateAddressPayload>): Promise<void> {
     await this.addressRepository.update(id, this.toPersistence(data));
   }

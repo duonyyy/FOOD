@@ -5,14 +5,14 @@ import * as qs from 'qs'; // Replace querystring with qs to match VNPAY exactly
 import {
   mapPaymentGatewayError,
   missingPaymentGatewayConfiguration,
-} from 'src/features/payments/contracts/payment-gateway.error';
+} from './payment-gateway.error';
 import {
   type PaymentGatewayConfig,
-  type PaymentGatewayPort,
+  type PaymentGateway,
   type PaymentIntent,
   type PaymentResult,
   PaymentStatus,
-} from 'src/features/payments/contracts/payment-gateway.port';
+} from './payment-gateway.contract';
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 
 interface VnpayMetadata {
@@ -43,7 +43,7 @@ function stringifyProviderValue(value: unknown): string {
  * It handles payment creation, confirmation, cancellation, and status checking.
  */
 @Injectable()
-export class VnpayPaymentGateway implements PaymentGatewayPort {
+export class VnpayPaymentGateway implements PaymentGateway {
   readonly provider = 'vnpay';
   private readonly logger = new Logger(VnpayPaymentGateway.name);
   private config: PaymentGatewayConfig;

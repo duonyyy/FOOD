@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { extractBearerToken } from 'src/features/auth/utils/auth-token.util';
-import { UsersService } from 'src/features/users/services/users.service';
+import { UsersService } from 'src/features/users/identity-auth.public-api';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 
 /**

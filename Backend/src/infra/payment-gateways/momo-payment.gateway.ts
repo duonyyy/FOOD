@@ -5,14 +5,14 @@ import * as crypto from 'crypto';
 import {
   mapPaymentGatewayError,
   missingPaymentGatewayConfiguration,
-} from 'src/features/payments/contracts/payment-gateway.error';
+} from './payment-gateway.error';
 import {
   type PaymentGatewayConfig,
-  type PaymentGatewayPort,
+  type PaymentGateway,
   type PaymentIntent,
   type PaymentResult,
   PaymentStatus,
-} from 'src/features/payments/contracts/payment-gateway.port';
+} from './payment-gateway.contract';
 import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 
 /**
@@ -22,7 +22,7 @@ import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/pr
  * It handles payment creation, confirmation, cancellation, and status checking.
  */
 @Injectable()
-export class MomoPaymentGateway implements PaymentGatewayPort, OnModuleInit {
+export class MomoPaymentGateway implements PaymentGateway, OnModuleInit {
   readonly provider = 'momo';
   private readonly logger = new Logger(MomoPaymentGateway.name);
   private config: PaymentGatewayConfig;

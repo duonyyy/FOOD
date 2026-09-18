@@ -6,7 +6,7 @@ import {
   NotificationRequestedEvent,
 } from 'src/common/events/notification-requested.event';
 import { Order } from 'src/entities/order.entity';
-import { DeliveryAssignmentScheduler } from 'src/features/delivery/public-api';
+import { DeliveryDispatchService } from 'src/features/delivery/public-api';
 import { pubSub } from 'src/pubsub';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { Repository } from 'typeorm';
@@ -31,7 +31,7 @@ export class MerchantOrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly orderCoreService: OrderCoreService,
-    private readonly pendingAssignmentService: DeliveryAssignmentScheduler,
+    private readonly pendingAssignmentService: DeliveryDispatchService,
     private readonly eventBus: InProcessEventBus,
   ) {}
 

@@ -3,7 +3,6 @@ import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { AddressService } from 'src/features/locations/public-api';
 import { RestaurantProfileService } from 'src/features/restaurants/services/restaurant-profile.service';
 import { IdentityUserQueryService } from 'src/features/users/public-api';
-import { type CachePort } from 'src/infra/contracts/cache.port';
 import { DeepPartial } from 'typeorm';
 
 describe('RestaurantProfileService', () => {
@@ -30,7 +29,7 @@ describe('RestaurantProfileService', () => {
     deleteFile: jest.fn(),
     getSignedPrivateUrl: jest.fn(),
   };
-  const cache: CachePort = {
+  const cache = {
     remember: <Value>(_key: string, _ttl: number, loader: () => Promise<Value>): Promise<Value> =>
       loader(),
     deleteByPattern: (): Promise<number> => Promise.resolve(0),
@@ -39,8 +38,8 @@ describe('RestaurantProfileService', () => {
     repository as never,
     identityReader as unknown as IdentityUserQueryService,
     locationWriter as unknown as AddressService,
-    storagePort,
-    cache,
+    storagePort as never,
+    cache as never,
   );
 
   beforeEach(() => {

@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ORDER_CREATED_EVENT } from 'src/common/events/order-events';
@@ -15,7 +15,7 @@ import { PromotionRedemptionService, PromotionService } from 'src/features/promo
 import { RestaurantReaderService } from 'src/features/restaurants/public-api';
 import { SystemConstraintsService } from 'src/features/system-constraints/public-api';
 import { IdentityUserQueryService } from 'src/features/users/public-api';
-import { ROUTE_PORT, type RoutePort } from 'src/infra/mapbox/public-api';
+import { MapboxService } from 'src/infra/mapbox/public-api';
 import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentDto } from '../dto/payment.dto';
@@ -49,8 +49,7 @@ export class CustomerOrdersService {
     private readonly promotionRedemptionService: PromotionRedemptionService,
     private readonly outboxService: OutboxService,
     private readonly systemConstraintsService: SystemConstraintsService,
-    @Inject(ROUTE_PORT)
-    private readonly routePort: RoutePort,
+    private readonly routeService: MapboxService,
     private readonly orderCoreService: OrderCoreService,
     private readonly menuReader: FoodIntegrationService,
     private readonly locationReader: AddressService,
@@ -928,7 +927,10 @@ export class CustomerOrdersService {
     toLng: number,
   ): Promise<{ distance: number; duration: number }> {
     try {
-      const route = await this.routePort.getDistanceAndDuration([fromLng, fromLat], [toLng, toLat]);
+      const route = await this.routeService.getDistanceAndDuration(
+        [fromLng, fromLat],
+        [toLng, toLat],
+      );
       if (route) {
         return {
           distance: route.distanceKm,

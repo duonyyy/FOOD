@@ -12,10 +12,10 @@ import {
 } from 'src/common/events/payment-succeeded.event';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
 import type {
-  PaymentGatewayPort,
+  PaymentGateway,
   PaymentIntent,
-} from 'src/features/payments/contracts/payment-gateway.port';
-import { PaymentStatus } from 'src/features/payments/contracts/payment-gateway.port';
+} from 'src/infra/payment-gateways/public-api';
+import { PaymentStatus } from 'src/infra/payment-gateways/public-api';
 import type { PaymentOrderSnapshot } from 'src/features/payments/contracts/payment-order-snapshot.contract';
 import type {
   PaymentWebhookAcknowledgement,
@@ -24,7 +24,7 @@ import type {
 import { assertPaymentStatusTransition } from 'src/features/payments/domain/payment-status-machine';
 import { PaymentGatewayRouter } from 'src/infra/payment-gateways/public-api';
 import { Repository } from 'typeorm';
-import { type PaymentResult, type PaymentStatusResponse } from './contracts/payment-gateway.port';
+import { type PaymentResult, type PaymentStatusResponse } from 'src/infra/payment-gateways/public-api';
 
 @Injectable()
 export class PaymentService {
@@ -537,7 +537,7 @@ export class PaymentService {
     return currency;
   }
 
-  private selectGateway(method: string): PaymentGatewayPort {
+  private selectGateway(method: string): PaymentGateway {
     if (method !== 'momo' && method !== 'vnpay') {
       throw new BadRequestException(`Unsupported payment method: ${method}`);
     }

@@ -2,8 +2,7 @@ import { Body, Controller, Delete, Param, Post, Put, UseGuards } from '@nestjs/c
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Role } from 'src/entities/role.entity';
-import { Permissions } from 'src/features/auth/decorators/permissions.decorator';
-import { RolesGuard } from 'src/features/auth/guards/roles.guard';
+import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RolesService } from './role.service';

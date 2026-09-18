@@ -119,20 +119,21 @@ describe('feature ownership boundaries', () => {
     expect(shipperDelivery).not.toContain('orderReassignedToShippers');
   });
 
-  it('uses ports through infrastructure public APIs for Orders and Promotions technical dependencies', () => {
+  it('uses concrete infrastructure services through public APIs', () => {
     const customerOrders = source('src/features/orders/services/customer-orders.service.ts');
     const adminOrders = source('src/features/orders/services/admin-orders.service.ts');
     const merchantOrders = source('src/features/orders/services/merchant-orders.service.ts');
     const promotionService = source('src/features/promotions/services/promotion.service.ts');
 
-    expect(customerOrders).toContain('ROUTE_PORT');
+    expect(customerOrders).toContain('MapboxService');
     expect(customerOrders).toContain('src/infra/mapbox/public-api');
-    expect(customerOrders).not.toContain('src/infra/mapbox/route-port.adapter');
+    expect(customerOrders).not.toContain('src/infra/mapbox/mapbox.service');
     expect(adminOrders).not.toContain('src/infra/queue/queue.service');
     expect(merchantOrders).not.toContain('src/infra/queue/queue.service');
-    expect(promotionService).toContain('STORAGE_PORT');
-    expect(promotionService).toContain('CACHE_PORT');
-    expect(promotionService).not.toContain('src/infra/minio');
+    expect(promotionService).toContain('StorageService');
+    expect(promotionService).toContain('AppCacheService');
+    expect(promotionService).toContain('src/infra/minio/public-api');
+    expect(promotionService).not.toContain('src/infra/minio/storage.service');
     expect(promotionService).toContain('src/infra/cache/public-api');
     expect(promotionService).not.toContain('src/infra/cache/cache.service');
   });

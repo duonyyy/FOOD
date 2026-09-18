@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Address } from 'src/entities/address.entity';
 import { Role } from 'src/entities/role.entity';
 import { User } from 'src/entities/user.entity';
+import { AddressService } from 'src/features/locations/address-write.public-api';
 import { UsersService } from 'src/features/users/services/users.service';
 
 describe('UsersService', () => {
@@ -16,8 +16,8 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(Role), useValue: {} },
-        { provide: getRepositoryToken(Address), useValue: {} },
         { provide: getRepositoryToken(User), useValue: userRepository },
+        { provide: AddressService, useValue: { replaceOwnedAddresses: jest.fn() } },
       ],
     }).compile();
 

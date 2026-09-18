@@ -12,14 +12,9 @@ import {
 } from 'typeorm';
 import { Permission } from './permission.entity';
 import { User } from './user.entity';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 
-export enum DefaultRole {
-  SUPER_ADMIN = 'super_admin',
-  ADMINISTRATOR = 'administrator',
-  USER = 'user',
-  SHOP_OWNER = 'shop_owner',
-  SHIPPER = 'shipper',
-}
+export { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 
 // Register the enum for GraphQL
 registerEnumType(DefaultRole, {

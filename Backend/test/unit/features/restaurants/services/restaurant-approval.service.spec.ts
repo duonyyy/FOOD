@@ -5,7 +5,6 @@ import { RESTAURANT_APPROVAL_DECIDED_EVENT } from 'src/common/events/restaurant-
 import { RestaurantStatus } from 'src/entities/restaurant.entity';
 import { RestaurantApprovalAction } from 'src/entities/restaurantApprovalAudit.entity';
 import { RestaurantApprovalService } from 'src/features/restaurants/services/restaurant-approval.service';
-import { type CachePort } from 'src/infra/contracts/cache.port';
 
 describe('RestaurantApprovalService', () => {
   const restaurant = {
@@ -20,7 +19,7 @@ describe('RestaurantApprovalService', () => {
   };
   const approvalAuditRepository = {};
   const deleteByPattern = jest.fn((): Promise<number> => Promise.resolve(0));
-  const cache: CachePort = {
+  const cache = {
     remember: <Value>(_key: string, _ttl: number, loader: () => Promise<Value>): Promise<Value> =>
       loader(),
     deleteByPattern,
@@ -29,7 +28,7 @@ describe('RestaurantApprovalService', () => {
   const service = new RestaurantApprovalService(
     restaurantRepository as never,
     approvalAuditRepository as never,
-    cache,
+    cache as never,
     eventBus as unknown as InProcessEventBus,
   );
 

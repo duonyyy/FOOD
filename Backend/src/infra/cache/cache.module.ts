@@ -1,7 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-import { CACHE_PORT } from '../contracts/cache.port';
 import { REDIS_CLIENT } from './cache.constants';
 import { AppCacheService } from './cache.service';
 
@@ -35,8 +34,7 @@ import { AppCacheService } from './cache.service';
       },
     },
     AppCacheService,
-    { provide: CACHE_PORT, useExisting: AppCacheService },
   ],
-  exports: [REDIS_CLIENT, AppCacheService, CACHE_PORT],
+  exports: [REDIS_CLIENT, AppCacheService],
 })
 export class AppCacheModule {}

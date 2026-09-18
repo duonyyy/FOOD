@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { estimateDeliveryTime, haversineDistance } from 'src/common/utils/geo.util';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
@@ -6,7 +6,7 @@ import {
   FoodIntegrationService,
   type FoodPreview,
 } from 'src/features/menu/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
+import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 
 export type DiscoveredRestaurant = Restaurant & {
@@ -22,8 +22,7 @@ export class RestaurantDiscoveryService {
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,
     private readonly foodDiscoveryReader: FoodIntegrationService,
-    @Inject(CACHE_PORT)
-    private readonly cache: CachePort,
+    private readonly cache: AppCacheService,
   ) {}
 
   async findAllApproved(

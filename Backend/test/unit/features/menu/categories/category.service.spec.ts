@@ -1,9 +1,11 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { CategoryService } from 'src/features/menu/categories/category.service';
-import type { CachePort } from 'src/infra/contracts/cache.port';
+import type { AppCacheService } from 'src/infra/cache/public-api';
 
 describe('CategoryService', () => {
-  const cache: CachePort & { deleteByPattern: jest.Mock } = {
+  const cache: Pick<AppCacheService, 'remember' | 'deleteByPattern'> & {
+    deleteByPattern: jest.Mock;
+  } = {
     remember: async <T>(_key: string, _ttl: number, loader: () => Promise<T>) => loader(),
     deleteByPattern: jest.fn(() => Promise.resolve(0)),
   };
@@ -39,7 +41,7 @@ describe('CategoryService', () => {
       save: jest.fn(),
       delete: jest.fn(),
     };
-    const service = new CategoryService(repository as never, cache);
+    const service = new CategoryService(repository as never, cache as never);
 
     const result = await service.findOne('category-1');
 
@@ -60,7 +62,7 @@ describe('CategoryService', () => {
       save: jest.fn(),
       delete: jest.fn(),
     };
-    const service = new CategoryService(repository as never, cache);
+    const service = new CategoryService(repository as never, cache as never);
 
     await expect(service.update('missing', { name: 'New name' })).rejects.toBeInstanceOf(
       NotFoundException,
@@ -76,7 +78,7 @@ describe('CategoryService', () => {
       save: jest.fn().mockImplementation((value: unknown) => Promise.resolve(value)),
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
-    const service = new CategoryService(repository as never, cache);
+    const service = new CategoryService(repository as never, cache as never);
 
     await service.update('category-1', { name: 'New' });
 
@@ -95,7 +97,7 @@ describe('CategoryService', () => {
       create: jest.fn(),
       save: jest.fn(),
     };
-    const service = new CategoryService(repository as never, cache);
+    const service = new CategoryService(repository as never, cache as never);
 
     await expect(service.create({ name: ' Món Việt ' })).rejects.toBeInstanceOf(ConflictException);
     expect(repository.save).not.toHaveBeenCalled();
