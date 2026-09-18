@@ -1,16 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
-import {
-  ORDER_ANALYTICS_READER,
-  type OrderAnalyticsReaderPort,
-} from 'src/features/orders/public-api';
+import { Injectable } from '@nestjs/common';
+import { OrderAnalyticsReaderAdapter } from 'src/features/orders/public-api';
 import { AnalyticsProjectionService } from './analytics-projection.service';
 
 /** Explicit rebuild entry point for operational reconciliation, never an HTTP write endpoint. */
 @Injectable()
 export class AnalyticsReconciliationService {
   constructor(
-    @Inject(ORDER_ANALYTICS_READER)
-    private readonly orderReader: OrderAnalyticsReaderPort,
+    private readonly orderReader: OrderAnalyticsReaderAdapter,
     private readonly projection: AnalyticsProjectionService,
   ) {}
 

@@ -2,25 +2,32 @@ import { FoodQueryService } from 'src/features/menu/foods/services/food-query.se
 
 describe('FoodQueryService', () => {
   it('builds the user menu from Food ownership data without a Restaurant repository', async () => {
+    const foods = [
+      {
+        id: 'food-a',
+        name: 'Burger',
+        price: 10,
+        description: 'Classic',
+        image: 'burger.jpg',
+        restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
+      },
+      {
+        id: 'food-b',
+        name: 'Fries',
+        price: 4,
+        description: 'Crispy',
+        image: 'fries.jpg',
+        restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
+      },
+    ];
+    const queryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(foods),
+    };
     const foodRepository = {
-      find: jest.fn().mockResolvedValue([
-        {
-          id: 'food-a',
-          name: 'Burger',
-          price: 10,
-          description: 'Classic',
-          image: 'burger.jpg',
-          restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
-        },
-        {
-          id: 'food-b',
-          name: 'Fries',
-          price: 4,
-          description: 'Crispy',
-          image: 'fries.jpg',
-          restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
-        },
-      ]),
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
     };
     const cache = { remember: jest.fn(), deleteByPattern: jest.fn() };
     const service = new FoodQueryService(

@@ -1,4 +1,5 @@
 import { AnalyticsProjectionService } from 'src/features/analytics/services/analytics-projection.service';
+import { OrderAnalyticsReaderAdapter } from 'src/features/orders/public-api';
 
 describe('AnalyticsProjectionService', () => {
   const snapshot = {
@@ -18,7 +19,10 @@ describe('AnalyticsProjectionService', () => {
       findAnalyticsSnapshot: jest.fn().mockResolvedValue(snapshot),
       listAnalyticsSnapshots: jest.fn(),
     };
-    const service = new AnalyticsProjectionService(metrics as never, reader);
+    const service = new AnalyticsProjectionService(
+      metrics as never,
+      reader as unknown as OrderAnalyticsReaderAdapter,
+    );
 
     await service.projectOrder('order-1');
     await service.projectOrder('order-1');
@@ -40,7 +44,10 @@ describe('AnalyticsProjectionService', () => {
       findAnalyticsSnapshot: jest.fn().mockResolvedValue(snapshot),
       listAnalyticsSnapshots: jest.fn(),
     };
-    const service = new AnalyticsProjectionService(metrics as never, reader);
+    const service = new AnalyticsProjectionService(
+      metrics as never,
+      reader as unknown as OrderAnalyticsReaderAdapter,
+    );
 
     await expect(service.recordPayment('order-1', 'COMPLETED')).resolves.toBe(true);
     expect(metrics.upsert).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'order-1' }), [

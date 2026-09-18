@@ -23,6 +23,7 @@ describe('Order actor policy (e2e)', () => {
     }),
     getOrderById: jest.fn().mockResolvedValue({
       id: 'order-1',
+      status: 'pending',
       user: { id: 'customer-a' },
       restaurant: { owner: { id: 'merchant-a' } },
       shippingDetail: { shipper: { id: 'shipper-a' } },

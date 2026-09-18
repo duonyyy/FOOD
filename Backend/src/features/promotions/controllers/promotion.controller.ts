@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { CreatePromotionDto } from '../dto/create-promotion.dto';
 import { UpdatePromotionDto } from '../dto/update-promotion.dto';

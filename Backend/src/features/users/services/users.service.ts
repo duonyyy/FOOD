@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { Address } from 'src/entities/address.entity';
 import { DefaultRole, Role } from 'src/entities/role.entity';
 import { User } from 'src/entities/user.entity';
-import { AuthProvider } from 'src/features/auth/enums/auth-provider.enum';
+import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from '../dto/create-users.dto';
 import { UpdateUserDto } from '../dto/update-users.dto';

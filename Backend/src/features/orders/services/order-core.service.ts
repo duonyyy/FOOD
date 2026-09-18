@@ -1,30 +1,15 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
-import {
-  ORDER_REVIEW_READER,
-  type OrderReviewReaderPort,
-} from 'src/features/reviews/review-reader.public-api';
+import { OrderReviewReaderService } from 'src/features/reviews/review-reader.public-api';
+import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { Repository } from 'typeorm';
-import {
-  type OrderAnalyticsPage,
-  type OrderAnalyticsSnapshot,
-} from '../contracts/order-analytics-reader.port';
+import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
 
 // ==========================================
 // 1. ORDER STATE MACHINE
 // ==========================================
-
-export enum OrderStatus {
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  DELIVERING = 'delivering',
-  SHIPPER_RECEIVED = 'shipper_received',
-  COMPLETED = 'completed',
-  CANCELED = 'canceled',
-  PROCESSING_PAYMENT = 'processing_payment',
-}
 
 export const ORDER_STATUS_TRANSITIONS: Readonly<Record<OrderStatus, readonly OrderStatus[]>> =
   Object.freeze({
@@ -289,8 +274,7 @@ export class OrderCoreService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    @Inject(ORDER_REVIEW_READER)
-    private readonly orderReviewReader: OrderReviewReaderPort,
+    private readonly orderReviewReader: OrderReviewReaderService,
   ) {}
 
   async getOrderById(id: string, includeReviewInfo = false): Promise<Order> {

@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { User } from 'src/entities/user.entity';
 import { UsersService } from 'src/features/users/services/users.service';
-import { MailingService } from 'src/infra/mail/send-mail.service';
+import { MailingService } from 'src/infra/mail/public-api';
 import { Repository } from 'typeorm';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 

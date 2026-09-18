@@ -5,22 +5,20 @@ import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { User } from 'src/entities/user.entity';
 import { pubSub } from 'src/pubsub';
 import { FindOptionsWhere, Repository } from 'typeorm';
-import {
-  CreateShipperProfileCommand,
-  SHIPPER_PROFILE_STATUS,
-  ShipperProfileCommandPort,
-  ShipperProfileReaderPort,
-  ShipperProfileSnapshot,
-  ShipperProfileStatus,
-} from '../../contracts/shipper-profile.port';
 import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
+import {
+  SHIPPER_PROFILE_STATUS,
+  type CreateShipperProfileCommand,
+  type ShipperProfileSnapshot,
+  type ShipperProfileStatus,
+} from '../../types/shipper-profile.types';
 
 /**
  * ShipperProfileService manages shipper profiles, verification certificates,
  * and GPS coordinate broadcasts.
  */
 @Injectable()
-export class ShipperProfileService implements ShipperProfileReaderPort, ShipperProfileCommandPort {
+export class ShipperProfileService {
   constructor(
     @InjectRepository(ShipperProfile)
     private readonly profileRepository: Repository<ShipperProfile>,

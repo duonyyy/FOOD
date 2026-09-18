@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { Food } from 'src/entities/food.entity';
 import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
+import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 import { FoodPaginationResult, FoodSortType } from './customer-food.service';
 

@@ -3,13 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Category } from 'src/entities/category.entity';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
-import { AuthModule } from 'src/features/auth/auth.module';
-import { MerchantCatalogModule } from '../restaurants/merchant-catalog.public-api';
+import { AuthModule } from 'src/features/auth/auth-module.public-api';
+import { MerchantCatalogModule } from 'src/features/restaurants/merchant-catalog.public-api';
 import { CategoryModule } from './categories/category.module';
-import { CATALOG_CHAT_READER } from './contracts/catalog-chat-reader.port';
-import { FOOD_DISCOVERY_READER } from './contracts/food-discovery-reader.port';
-import { FOOD_REVIEW_TARGET_READER } from './contracts/food-review-target-reader.port';
-import { MENU_READER } from './contracts/menu-reader.port';
 import { AdminFoodController } from './foods/controllers/admin-food.controller';
 import { CustomerFoodController } from './foods/controllers/customer-food.controller';
 import { MerchantFoodController } from './foods/controllers/merchant-food.controller';
@@ -38,22 +34,6 @@ import { ToppingModule } from './toppings/topping.module';
     FoodIntegrationService,
     FoodQueryService,
     FoodCommandService,
-    {
-      provide: FOOD_DISCOVERY_READER,
-      useExisting: FoodIntegrationService,
-    },
-    {
-      provide: CATALOG_CHAT_READER,
-      useExisting: FoodIntegrationService,
-    },
-    {
-      provide: FOOD_REVIEW_TARGET_READER,
-      useExisting: FoodIntegrationService,
-    },
-    {
-      provide: MENU_READER,
-      useExisting: FoodIntegrationService,
-    },
   ],
   exports: [
     CategoryModule,
@@ -64,10 +44,6 @@ import { ToppingModule } from './toppings/topping.module';
     FoodQueryService,
     FoodCommandService,
     ToppingModule,
-    MENU_READER,
-    FOOD_DISCOVERY_READER,
-    CATALOG_CHAT_READER,
-    FOOD_REVIEW_TARGET_READER,
   ],
 })
 export class MenuModule {}

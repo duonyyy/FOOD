@@ -15,7 +15,7 @@ describe('Food ownership characterization', () => {
       {
         assertCanManageRestaurant: jest.fn().mockRejectedValue(new ForbiddenException()),
         findRestaurant: jest.fn(),
-      },
+      } as never,
       {} as never,
       {} as never,
       {} as never,

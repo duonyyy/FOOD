@@ -1,9 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AnalyticsOrderMetric } from 'src/entities/analyticsOrderMetric.entity';
 import {
-  ORDER_ANALYTICS_READER,
-  type OrderAnalyticsReaderPort,
+  OrderAnalyticsReaderAdapter,
   type OrderAnalyticsSnapshot,
 } from 'src/features/orders/public-api';
 import { Repository } from 'typeorm';
@@ -13,8 +12,7 @@ export class AnalyticsProjectionService {
   constructor(
     @InjectRepository(AnalyticsOrderMetric)
     private readonly metrics: Repository<AnalyticsOrderMetric>,
-    @Inject(ORDER_ANALYTICS_READER)
-    private readonly orderReader: OrderAnalyticsReaderPort,
+    private readonly orderReader: OrderAnalyticsReaderAdapter,
   ) {}
 
   async projectOrder(orderId: string): Promise<boolean> {

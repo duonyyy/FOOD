@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
 import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
+import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { EntityManager, Repository } from 'typeorm';
 import {
   buildPromotionCacheKey,

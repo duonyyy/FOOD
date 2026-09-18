@@ -5,11 +5,10 @@ import { Repository } from 'typeorm';
 import {
   type ActiveRestaurantSnapshot,
   type MessagingRestaurantSnapshot,
-  type RestaurantReaderPort,
-} from '../contracts/restaurant-reader.port';
+} from '../types/restaurant-reader.types';
 
 @Injectable()
-export class RestaurantReaderService implements RestaurantReaderPort {
+export class RestaurantReaderService {
   constructor(
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,

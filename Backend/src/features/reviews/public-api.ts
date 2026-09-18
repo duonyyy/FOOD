@@ -1,12 +1,4 @@
 export {
-  ORDER_REVIEW_READER,
-  type OrderFoodReviewSnapshot,
-  type OrderReviewReaderPort,
-  type OrderReviewSummary,
-  type OrderReviewSummaryRequest,
-  type OrderShipperReviewSnapshot,
-} from './contracts/order-review-reader.port';
-export {
   CustomerReviewsController,
   ReviewsController,
 } from './controllers/customer-reviews.controller';
@@ -20,3 +12,10 @@ export { ReviewResponseDto } from './dto/review-response.dto';
 export { OrderReviewReaderModule } from './order-review-reader.module';
 export { ReviewsModule } from './reviews.module';
 export { CustomerReviewsService, ReviewService } from './services/customer-reviews.service';
+export { OrderReviewReaderService } from './services/order-review-reader.service';
+export type {
+  OrderFoodReviewSnapshot,
+  OrderReviewSummary,
+  OrderReviewSummaryRequest,
+  OrderShipperReviewSnapshot,
+} from './types/order-review-reader.types';

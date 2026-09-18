@@ -1,15 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { CATALOG_CHAT_READER, type CatalogChatReaderPort } from 'src/features/menu/public-api';
-import { CHAT_ORDERING, type ChatOrderingPort } from 'src/features/orders/public-api';
+import { Injectable } from '@nestjs/common';
+import { FoodIntegrationService } from 'src/features/menu/public-api';
+import { ChatOrderingService } from 'src/features/orders/public-api';
 import { ChatContext, ChatMenuItem } from '../types/chat.types';
 
 @Injectable()
 export class ChatContextService {
   constructor(
-    @Inject(CATALOG_CHAT_READER)
-    private readonly catalogReader: CatalogChatReaderPort,
-    @Inject(CHAT_ORDERING)
-    private readonly ordering: ChatOrderingPort,
+    private readonly catalogReader: FoodIntegrationService,
+    private readonly ordering: ChatOrderingService,
   ) {}
 
   async getContext(userId: string): Promise<ChatContext> {

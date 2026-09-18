@@ -3,9 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventsModule } from 'src/common/events/events.module';
-import { PaymentGatewayModule } from 'src/infra/payment-gateways/payment-gateway.module';
+import { PaymentGatewayModule } from 'src/infra/payment-gateways/public-api';
 import { Checkout } from '../../entities/checkout.entity';
-import { PAYMENT_CHECKOUT_COMMANDS } from './contracts/payment-checkout-commands.port';
 import { DemoPaymentController, DemoPaymentGuard } from './demo-payment.controller';
 import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { PaymentController } from './payment.controller';
@@ -31,8 +30,7 @@ import { PaymentService } from './payment.service';
     PaymentService,
     PaymentReconciliationService,
     DemoPaymentGuard,
-    { provide: PAYMENT_CHECKOUT_COMMANDS, useExisting: PaymentService },
   ],
-  exports: [PaymentService, PAYMENT_CHECKOUT_COMMANDS],
+  exports: [PaymentService],
 })
 export class PaymentModule {}

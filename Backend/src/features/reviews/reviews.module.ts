@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Review } from 'src/entities/review.entity';
 import { MenuModule } from '../menu/public-api';
-import { OrdersModule } from '../orders/public-api';
+import { OrderReviewEligibilityModule } from '../orders/order-review-eligibility.public-api';
 import { IdentityModule } from '../users/public-api';
 import { CustomerReviewsController } from './controllers/customer-reviews.controller';
 import { FoodReviewsController } from './controllers/food-reviews.controller';
@@ -14,7 +14,7 @@ import { CustomerReviewsService } from './services/customer-reviews.service';
     TypeOrmModule.forFeature([Review]),
     IdentityModule,
     MenuModule,
-    OrdersModule,
+    OrderReviewEligibilityModule,
     OrderReviewReaderModule,
   ],
   controllers: [CustomerReviewsController, FoodReviewsController],

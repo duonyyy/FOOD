@@ -14,7 +14,7 @@ describe('FoodCommandService', () => {
     const service = new FoodCommandService(
       foodRepository as never,
       {} as never,
-      ownershipPolicy,
+      ownershipPolicy as never,
       {} as never,
       {} as never,
       {} as never,
@@ -49,7 +49,7 @@ describe('FoodCommandService', () => {
       {
         assertCanManageRestaurant: jest.fn().mockResolvedValue(undefined),
         findRestaurant: jest.fn(),
-      },
+      } as never,
       storage as never,
       cache as never,
       {} as never,

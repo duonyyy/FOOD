@@ -2,13 +2,10 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Repository } from 'typeorm';
-import {
-  type MerchantCatalogPort,
-  type MerchantRestaurantSnapshot,
-} from '../contracts/merchant-catalog.port';
+import { type MerchantRestaurantSnapshot } from '../types/merchant-catalog.types';
 
 @Injectable()
-export class MerchantCatalogService implements MerchantCatalogPort {
+export class MerchantCatalogService {
   constructor(
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,

@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { FoodQueryService } from 'src/features/menu/foods/services/food-query.service';
 
-describe('FoodQueryService - MenuReaderPort', () => {
+describe('FoodQueryService orderable menu snapshot', () => {
   it('returns an immutable plain snapshot with food and selected topping values', async () => {
     const foodRepository = {
       findOne: jest.fn().mockResolvedValue({

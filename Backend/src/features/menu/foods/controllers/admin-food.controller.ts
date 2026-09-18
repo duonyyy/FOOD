@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { AdminFoodService } from '../services/admin-food.service';
 import { CustomerFoodService } from '../services/customer-food.service';

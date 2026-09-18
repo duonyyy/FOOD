@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from 'src/features/auth/auth.module';
+import { AuthModule } from 'src/features/auth/auth-module.public-api';
 import { RoleModule } from 'src/features/users/roles/role.module';
 import { UsersModule } from 'src/features/users/users.module';
 import { IdentityRoleQueryModule } from './roles/identity-role-query.module';

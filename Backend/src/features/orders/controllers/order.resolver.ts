@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Logger, UseGuards } from '@nestjs/common';
+import { ForbiddenException, Logger, UseGuards } from '@nestjs/common';
 import { Args, Context, Resolver, Subscription } from '@nestjs/graphql';
 import { Order } from 'src/entities/order.entity';
 import {
@@ -7,7 +7,7 @@ import {
   type GraphqlSubscriptionContext,
 } from 'src/features/auth/public-api';
 import { ActiveShipperTrackerService } from 'src/features/delivery/public-api';
-import { RESTAURANT_READER, type RestaurantReaderPort } from 'src/features/restaurants/public-api';
+import { RestaurantReaderService } from 'src/features/restaurants/public-api';
 import { pubSub } from 'src/pubsub';
 
 interface OrderCreatedPayload {
@@ -30,8 +30,7 @@ export class OrderResolver {
 
   constructor(
     private readonly activeShipperTracker: ActiveShipperTrackerService,
-    @Inject(RESTAURANT_READER)
-    private readonly restaurantReader: RestaurantReaderPort,
+    private readonly restaurantReader: RestaurantReaderService,
   ) {}
 
   @Subscription(() => Order, {

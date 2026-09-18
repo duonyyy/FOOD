@@ -2,15 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Review, ReviewType } from 'src/entities/review.entity';
 import { In, Repository } from 'typeorm';
-import {
-  type OrderReviewReaderPort,
-  type OrderReviewSummary,
-  type OrderReviewSummaryRequest,
-} from '../contracts/order-review-reader.port';
+import type { OrderReviewSummary, OrderReviewSummaryRequest } from '../types/order-review-reader.types';
 
 /** Read-only review projection consumed by Orders when rendering an order. */
 @Injectable()
-export class OrderReviewReaderService implements OrderReviewReaderPort {
+export class OrderReviewReaderService {
   constructor(
     @InjectRepository(Review)
     private readonly reviewRepository: Repository<Review>,

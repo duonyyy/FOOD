@@ -2,12 +2,9 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Category } from 'src/entities/category.entity';
 import { Food } from 'src/entities/food.entity';
-import {
-  MERCHANT_CATALOG,
-  type MerchantCatalogPort,
-} from 'src/features/restaurants/merchant-catalog.public-api';
+import { MerchantCatalogService } from 'src/features/restaurants/merchant-catalog.public-api';
 import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
+import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 import { ToppingCommandService } from '../../toppings/topping-command.service';
 import { CreateFoodDto } from '../dto/create-food.dto';
@@ -21,8 +18,7 @@ export class MerchantFoodService {
   constructor(
     @InjectRepository(Food) protected readonly foodRepository: Repository<Food>,
     @InjectRepository(Category) protected readonly categoryRepository: Repository<Category>,
-    @Inject(MERCHANT_CATALOG)
-    protected readonly merchantCatalog: MerchantCatalogPort,
+    protected readonly merchantCatalog: MerchantCatalogService,
     @Inject(STORAGE_PORT) protected readonly storage: StoragePort,
     @Inject(CACHE_PORT) protected readonly cache: CachePort,
     protected readonly toppingCommand: ToppingCommandService,

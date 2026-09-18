@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
 import { AuthGuard } from 'src/features/auth/guards/auth.guard';
 import { RolesGuard } from 'src/features/auth/guards/roles.guard';

@@ -1,38 +1,4 @@
 export {
-  CHAT_ORDERING,
-  type ChatOrderingPort,
-  type ChatReorderOrder,
-  type CreateChatOrderRequest,
-  type CreatedChatOrderSnapshot,
-} from './contracts/chat-ordering.port';
-export {
-  ORDER_ANALYTICS_READER,
-  type OrderAnalyticsPage,
-  type OrderAnalyticsReaderPort,
-  type OrderAnalyticsSnapshot,
-} from './contracts/order-analytics-reader.port';
-export {
-  ORDER_MESSAGING_READER,
-  type OrderMessagingReaderPort,
-  type OrderMessagingSnapshot,
-} from './contracts/order-messaging-reader.port';
-export {
-  ORDER_NOTIFICATION_READER,
-  type OrderNotificationReaderPort,
-  type OrderNotificationRecipient,
-} from './contracts/order-notification-reader.port';
-export {
-  ORDER_REVIEW_ELIGIBILITY_READER,
-  type FindOrderReviewEligibilityRequest,
-  type OrderReviewEligibilityReaderPort,
-  type OrderReviewEligibilitySnapshot,
-} from './contracts/order-review-eligibility-reader.port';
-export {
-  ORDER_TRACKING_READER,
-  type CustomerOrderTrackingSnapshot,
-  type OrderTrackingReaderPort,
-} from './contracts/order-tracking-reader.port';
-export {
   CalculateOrderDto,
   CalculateOrderItemDto,
   CalculateOrderToppingDto,
@@ -48,8 +14,8 @@ export { CreateOrderDto } from './dto/create-order.dto';
 export { PaymentDto } from './dto/payment.dto';
 export { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 export { ValidatePromotionDto } from './dto/validate-promotion.dto';
-export { OrderTrackingReaderModule } from './order-tracking-reader.module';
 export { OrdersModule } from './orders.module';
+export { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 export { AdminOrdersService } from './services/admin-orders.service';
 export { CustomerOrdersService } from './services/customer-orders.service';
 export { MerchantOrdersService } from './services/merchant-orders.service';
@@ -60,7 +26,6 @@ export {
   OrderCoreService,
   OrderPricingService,
   OrderStateMachine,
-  OrderStatus,
   createOrderItemSnapshot,
   parseOrderStatus,
   type OrderActorTarget,
@@ -72,3 +37,17 @@ export {
   type OrderPricingToppingSnapshot,
 } from './services/order-core.service';
 export { OrderService } from './services/order.service';
+export {
+  ChatOrderingService,
+  OrderAnalyticsReaderAdapter,
+  OrderNotificationReaderAdapter,
+} from './services/order-cross-feature.adapters';
+export { OrderMessagingReaderService } from './services/order-messaging-reader.service';
+export type {
+  ChatReorderOrder,
+  CreateChatOrderRequest,
+  CreatedChatOrderSnapshot,
+} from './types/chat-ordering.types';
+export type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from './types/order-analytics.types';
+export type { OrderMessagingSnapshot } from './types/order-messaging.types';
+export type { OrderNotificationRecipient } from './types/order-notification.types';

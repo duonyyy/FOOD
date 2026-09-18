@@ -6,16 +6,16 @@ import { PendingShipperAssignment } from '../../entities/pendingShipperAssignmen
 import { ShipperCertificateInfo } from '../../entities/shipperCertificateInfo.entity';
 import { ShippingDetail } from '../../entities/shippingDetail.entity';
 import { User } from '../../entities/user.entity';
-import { PendingAssignmentStore } from '../../infra/queue/pending-assignment-store.service';
-import { QueueModule } from '../../infra/queue/queue.module';
-import { QueueService } from '../../infra/queue/queue.service';
-import { AuthModule } from '../auth/auth.module';
+import {
+  PendingAssignmentStore,
+  QueueModule,
+  QueueService,
+} from 'src/infra/queue/public-api';
+import { AuthModule } from '../auth/auth-module.public-api';
 import { OrderTrackingReaderModule } from '../orders/order-tracking-reader.public-api';
 import { SystemConstraintsModule } from '../system-constraints/public-api';
 import { IdentityModule } from '../users/public-api';
 import { DELIVERY_ASSIGNMENT_QUEUE_PORT } from './contracts/delivery-assignment-queue.port';
-import { DELIVERY_ORDER_READER } from './contracts/delivery-order-reader.port';
-import { DELIVERY_QUOTE_PORT } from './contracts/delivery-quote.port';
 import { PENDING_ASSIGNMENT_STORE } from './contracts/pending-assignment-store.port';
 import { AdminDeliveryController } from './controllers/admin-delivery.controller';
 import { CustomerDeliveryController } from './controllers/customer-delivery.controller';
@@ -87,8 +87,6 @@ const queueProcessorProviders =
     AdminDeliveryService,
     ShipperService,
     ShipperResolver,
-    { provide: DELIVERY_ORDER_READER, useExisting: DeliveryIntegrationService },
-    { provide: DELIVERY_QUOTE_PORT, useExisting: DeliveryIntegrationService },
     { provide: DELIVERY_ASSIGNMENT_QUEUE_PORT, useExisting: QueueService },
     { provide: PENDING_ASSIGNMENT_STORE, useExisting: PendingAssignmentStore },
   ],
@@ -104,8 +102,6 @@ const queueProcessorProviders =
     AdminDeliveryService,
     DeliveryIntegrationService,
     ShipperService,
-    DELIVERY_ORDER_READER,
-    DELIVERY_QUOTE_PORT,
     DELIVERY_ASSIGNMENT_QUEUE_PORT,
     PENDING_ASSIGNMENT_STORE,
     ShipperProfileModule,

@@ -22,7 +22,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Order } from 'src/entities/order.entity';
 import { AuthGuard, Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { DeliveryAssignmentScheduler } from 'src/features/delivery/public-api';
@@ -30,13 +30,14 @@ import { PaymentService } from 'src/features/payments/public-api';
 import { RestaurantProfileService } from 'src/features/restaurants/public-api';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { pubSub } from 'src/pubsub';
+import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { CalculateOrderDto, CalculateOrderWithCustomAddressDto } from '../dto/calculate-order.dto';
 import { CreateOrderRequestDto } from '../dto/create-order-request.dto';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentDto } from '../dto/payment.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
 import { ValidatePromotionDto } from '../dto/validate-promotion.dto';
-import { OrderActorPolicy, OrderStatus, parseOrderStatus } from '../services/order-core.service';
+import { OrderActorPolicy, parseOrderStatus } from '../services/order-core.service';
 import { OrderService } from '../services/order.service';
 
 @Controller('orders')

@@ -25,12 +25,13 @@ describe('legacy slice cleanup', () => {
     expect(sources.some((source) => source.includes('modules/'))).toBe(false);
   });
 
-  it('keeps the Orders runtime import graph free of duplicate UsersModule entries', () => {
+  it('keeps the Orders runtime import graph on one IdentityModule entry', () => {
     const orderModule = readFileSync(
       resolve(process.cwd(), 'src/features/orders/orders.module.ts'),
       'utf8',
     );
-    expect(orderModule.match(/\bUsersModule\b/g)).toHaveLength(2); // import + one module import
+    expect(orderModule).not.toContain('UsersModule');
+    expect(orderModule.match(/\bIdentityModule\b/g)).toHaveLength(2); // import + one module import
   });
 
   it('has no runtime forwardRef call after contracts/events replaced cycles', () => {

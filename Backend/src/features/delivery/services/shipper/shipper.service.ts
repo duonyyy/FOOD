@@ -5,7 +5,7 @@ import { Order } from 'src/entities/order.entity';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
-import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
+import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.public-api';
 import { Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
 import { DeliveryReportService } from './delivery-report.service';

@@ -20,7 +20,7 @@ import {
 } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
-import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.service';
+import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.public-api';
 import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
 import { DeliveryAssignmentPolicy } from '../../contracts/delivery-dispatch.policy';

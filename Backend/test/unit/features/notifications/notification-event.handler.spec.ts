@@ -8,7 +8,7 @@ import { Notification } from 'src/entities/notification.entity';
 import { NotificationEventHandler } from 'src/features/notifications/handlers/notification-event.handler';
 import { NotificationDeadLetterService } from 'src/features/notifications/services/notification-dead-letter.service';
 import { NotificationService } from 'src/features/notifications/services/notification.service';
-import { ORDER_NOTIFICATION_READER } from 'src/features/orders/public-api';
+import { OrderNotificationReaderAdapter } from 'src/features/orders/public-api';
 import { pubSub } from 'src/pubsub';
 
 jest.mock('src/pubsub', () => ({
@@ -38,7 +38,7 @@ describe('NotificationEventHandler', () => {
         InProcessEventBus,
         { provide: NotificationService, useValue: notificationService },
         { provide: NotificationDeadLetterService, useValue: deadLetterService },
-        { provide: ORDER_NOTIFICATION_READER, useValue: orderNotificationReader },
+        { provide: OrderNotificationReaderAdapter, useValue: orderNotificationReader },
       ],
     }).compile();
 

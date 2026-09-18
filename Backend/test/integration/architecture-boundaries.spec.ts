@@ -54,6 +54,17 @@ describe('architecture boundary lint rules', () => {
     ]);
   });
 
+  it('allows narrow infrastructure public entrypoints while rejecting implementation files', async () => {
+    const source = [
+      "import { AppCacheModule } from 'src/infra/cache/public-api';",
+      "import { RouteAdapterModule } from 'src/infra/mapbox/public-api';",
+      "import { QueueModule } from 'src/infra/queue/public-api';",
+      "import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.public-api';",
+    ].join('\n');
+
+    await expect(architectureRuleIds(source, 'src/features/menu/menu.module.ts')).resolves.toEqual([]);
+  });
+
   it('allows the narrow Merchant Catalog public entrypoint without loading RestaurantsModule', async () => {
     await expect(
       architectureRuleIds(

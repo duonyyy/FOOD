@@ -1,145 +1,235 @@
+import { MODULE_METADATA } from '@nestjs/common/constants';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { DELIVERY_QUOTE_PORT } from 'src/features/delivery/public-api';
+import { DeliveryIntegrationService, DeliveryModule } from 'src/features/delivery/public-api';
 import {
-  GEOCODING_PORT,
-  LOCATION_READER,
-  type LocationReaderPort,
-} from 'src/features/locations/public-api';
+  ShipperProfileModule,
+  ShipperProfileService,
+} from 'src/features/delivery/shipper-profile.public-api';
+import { AddressModule } from 'src/features/locations/addresses/address.module';
+import { AddressService } from 'src/features/locations/public-api';
+import { CategoryModule } from 'src/features/menu/categories/category.module';
 import {
-  CATEGORY_READER,
-  FOOD_DISCOVERY_READER,
-  FOOD_REVIEW_TARGET_READER,
-  MENU_READER,
-  type CategoryReaderPort,
-  type FoodReviewTargetReaderPort,
-  type MenuReaderPort,
+  CategoryService,
+  FoodIntegrationService,
+  MenuModule,
+  type CatalogChatFoodSnapshot,
+  type CategorySnapshot,
+  type FoodPreviewSnapshot,
+  type GetOrderableItemsRequest,
 } from 'src/features/menu/public-api';
 import {
-  ORDER_ANALYTICS_READER,
-  ORDER_REVIEW_ELIGIBILITY_READER,
-  type OrderReviewEligibilityReaderPort,
+  OrderTrackingReaderModule,
+  OrderTrackingReaderService,
+} from 'src/features/orders/order-tracking-reader.public-api';
+import {
+  ChatOrderingService,
+  OrderAnalyticsReaderAdapter,
+  OrderMessagingReaderService,
+  OrderNotificationReaderAdapter,
+  OrdersModule,
 } from 'src/features/orders/public-api';
+import { PaymentModule, PaymentService } from 'src/features/payments/public-api';
+import { MerchantCatalogModule } from 'src/features/restaurants/merchant-catalog.module';
 import {
-  PAYMENT_CHECKOUT_COMMANDS,
-  type PaymentCheckoutCommandsPort,
-} from 'src/features/payments/public-api';
+  MerchantCatalogService,
+  RestaurantReaderService,
+  RestaurantsModule,
+} from 'src/features/restaurants/public-api';
 import {
-  PROMOTION_REDEMPTION_PORT,
-  type PromotionRedemptionPort,
-} from 'src/features/promotions/public-api';
-import { RESTAURANT_READER, type RestaurantReaderPort } from 'src/features/restaurants/public-api';
-import {
-  ORDER_REVIEW_READER,
-  type OrderReviewReaderPort,
+  OrderReviewReaderModule,
+  OrderReviewReaderService,
 } from 'src/features/reviews/review-reader.public-api';
-import { IDENTITY_READER, type IdentityReaderPort } from 'src/features/users/public-api';
+import { IdentityModule, IdentityUserQueryService } from 'src/features/users/public-api';
+import { IdentityUserQueryModule } from 'src/features/users/users/identity-user-query.module';
 
 describe('feature public contracts', () => {
-  it('exports one distinct injection token for every cross-feature contract', () => {
-    const tokens = [
-      MENU_READER,
-      CATEGORY_READER,
-      RESTAURANT_READER,
-      LOCATION_READER,
-      GEOCODING_PORT,
-      PROMOTION_REDEMPTION_PORT,
-      PAYMENT_CHECKOUT_COMMANDS,
-      DELIVERY_QUOTE_PORT,
-      IDENTITY_READER,
-      FOOD_REVIEW_TARGET_READER,
-      FOOD_DISCOVERY_READER,
-      ORDER_ANALYTICS_READER,
-      ORDER_REVIEW_ELIGIBILITY_READER,
-      ORDER_REVIEW_READER,
-    ];
+  it('exports CategoryService as the Menu public concrete service', () => {
+    const exports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, CategoryModule) as unknown[];
 
-    expect(new Set(tokens).size).toBe(tokens.length);
+    expect(exports).toContain(CategoryService);
   });
 
-  it('keeps port method signatures independent from ORM entities', () => {
-    const menuReader: MenuReaderPort = {
-      getOrderableItems: () => Promise.resolve([]),
-    };
-    const categoryReader: CategoryReaderPort = {
-      findCategoryById: () => Promise.resolve(null),
-    };
-    const restaurantReader: RestaurantReaderPort = {
-      findActiveRestaurant: () => Promise.resolve(null),
-      findRestaurantForMessaging: () => Promise.resolve(null),
-      listActiveRestaurantsForMessaging: () => Promise.resolve([]),
-    };
-    const promotionRedemption: PromotionRedemptionPort = {
-      reservePromotion: () =>
-        Promise.resolve({
-          reservationId: 'reservation-id',
-          promotionId: 'promotion-id',
-          promotionCode: 'WELCOME',
-          discountAmount: 10_000,
-          expiresAt: null,
-        }),
-      commitReservation: () => Promise.resolve(),
-      releaseReservation: () => Promise.resolve(),
-    };
-    const paymentCheckoutCommands: PaymentCheckoutCommandsPort = {
-      cancelPendingCheckoutForOrder: () => Promise.resolve(),
-    };
-    const locationReader: LocationReaderPort = {
-      findAddress: () => Promise.resolve(null),
-      findOwnedAddress: () => Promise.resolve(null),
-      findTemporaryAddress: () => Promise.resolve(null),
-      listOwnedAddresses: () => Promise.resolve([]),
-    };
-    const identityReader: IdentityReaderPort = {
-      findIdentityUser: () => Promise.resolve(null),
-      findIdentityUsers: () => Promise.resolve([]),
-    };
-    const foodReviewTargetReader: FoodReviewTargetReaderPort = {
-      findFoodReviewTarget: () => Promise.resolve(null),
-    };
-    const orderReviewEligibilityReader: OrderReviewEligibilityReaderPort = {
-      findReviewEligibility: () => Promise.resolve(null),
-    };
-    const orderReviewReader: OrderReviewReaderPort = {
-      findOrderReviewSummary: () =>
-        Promise.resolve({
-          foodReviews: [],
-          shipperReview: null,
-        }),
-    };
+  it('exports FoodIntegrationService as the Menu public concrete service', () => {
+    const exports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, MenuModule) as unknown[];
 
-    expect(menuReader).toBeDefined();
-    expect(categoryReader).toBeDefined();
-    expect(restaurantReader).toBeDefined();
-    expect(promotionRedemption).toBeDefined();
-    expect(paymentCheckoutCommands).toBeDefined();
-    expect(locationReader).toBeDefined();
-    expect(identityReader).toBeDefined();
-    expect(foodReviewTargetReader).toBeDefined();
-    expect(orderReviewEligibilityReader).toBeDefined();
-    expect(orderReviewReader).toBeDefined();
+    expect(exports).toContain(FoodIntegrationService);
+  });
 
-    const contractPaths = [
-      'src/features/menu/contracts/menu-reader.port.ts',
-      'src/features/menu/contracts/category-reader.port.ts',
-      'src/features/restaurants/contracts/restaurant-reader.port.ts',
-      'src/features/locations/contracts/location-reader.port.ts',
-      'src/features/locations/contracts/geocoding.port.ts',
-      'src/features/promotions/contracts/promotion-redemption.port.ts',
-      'src/features/payments/contracts/payment-checkout-commands.port.ts',
-      'src/features/delivery/contracts/delivery-quote.port.ts',
-      'src/features/users/contracts/identity-reader.port.ts',
-      'src/features/menu/contracts/food-review-target-reader.port.ts',
-      'src/features/menu/contracts/food-discovery-reader.port.ts',
-      'src/features/orders/contracts/order-review-eligibility-reader.port.ts',
-      'src/features/orders/contracts/order-analytics-reader.port.ts',
-      'src/features/reviews/contracts/order-review-reader.port.ts',
+  it('exports the Phase 2 concrete services from their owning modules', () => {
+    const merchantCatalogExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      MerchantCatalogModule,
+    ) as unknown[];
+    const restaurantExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      RestaurantsModule,
+    ) as unknown[];
+    const addressExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, AddressModule) as unknown[];
+    const identityExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      IdentityUserQueryModule,
+    ) as unknown[];
+
+    expect(merchantCatalogExports).toContain(MerchantCatalogService);
+    expect(restaurantExports).toContain(RestaurantReaderService);
+    expect(addressExports).toContain(AddressService);
+    expect(identityExports).toContain(IdentityUserQueryService);
+    expect(IdentityModule).toBeDefined();
+  });
+
+  it('exports the narrow Phase 3 Orders tracking reader without loading OrdersModule', () => {
+    const trackingReaderExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      OrderTrackingReaderModule,
+    ) as unknown[];
+
+    expect(trackingReaderExports).toContain(OrderTrackingReaderService);
+
+    const deliveryModule = readFileSync(
+      resolve(process.cwd(), 'src/features/delivery/delivery.module.ts'),
+      'utf8',
+    );
+    const deliveryController = readFileSync(
+      resolve(process.cwd(), 'src/features/delivery/controllers/customer-delivery.controller.ts'),
+      'utf8',
+    );
+    expect(deliveryModule).toContain('OrderTrackingReaderModule');
+    expect(deliveryModule).not.toContain('OrdersModule');
+    expect(deliveryController).toContain('order-tracking-reader.public-api');
+    expect(deliveryController).toContain('OrderTrackingReaderService');
+  });
+
+  it('keeps Menu snapshots independent from ORM entities', () => {
+    const menuRequest: GetOrderableItemsRequest = {
+      items: [{ foodId: 'food-id', toppingIds: [] }],
+    };
+    const catalogFood: CatalogChatFoodSnapshot = {
+      foodId: 'food-id',
+      restaurantId: 'restaurant-id',
+      restaurantName: 'Restaurant',
+      name: 'Food',
+      description: null,
+      image: null,
+      price: 10_000,
+    };
+    const foodPreview: FoodPreviewSnapshot = {
+      foodId: 'food-id',
+      name: 'Food',
+      image: null,
+      price: 10_000,
+      rating: null,
+      soldCount: null,
+    };
+    const categorySnapshot: CategorySnapshot = {
+      categoryId: 'category-id',
+      name: 'Main course',
+      image: null,
+      foodCount: 0,
+    };
+    expect(FoodIntegrationService).toBeDefined();
+    expect(menuRequest).toBeDefined();
+    expect(catalogFood).toBeDefined();
+    expect(foodPreview).toBeDefined();
+    expect(CategoryService).toBeDefined();
+    expect(categorySnapshot).toBeDefined();
+    const categoryTypes = readFileSync(
+      resolve(process.cwd(), 'src/features/menu/types/category.types.ts'),
+      'utf8',
+    );
+    expect(categoryTypes).not.toMatch(/typeorm|entities\//i);
+  });
+
+  it('exports Phase 3 concrete services from their owner modules', () => {
+    const ordersExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, OrdersModule) as unknown[];
+    const reviewReaderExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      OrderReviewReaderModule,
+    ) as unknown[];
+    const deliveryExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      DeliveryModule,
+    ) as unknown[];
+    const profileExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      ShipperProfileModule,
+    ) as unknown[];
+    const paymentExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, PaymentModule) as unknown[];
+
+    expect(ordersExports).toEqual(
+      expect.arrayContaining([
+        ChatOrderingService,
+        OrderAnalyticsReaderAdapter,
+        OrderMessagingReaderService,
+        OrderNotificationReaderAdapter,
+      ]),
+    );
+    expect(reviewReaderExports).toContain(OrderReviewReaderService);
+    expect(deliveryExports).toContain(DeliveryIntegrationService);
+    expect(profileExports).toContain(ShipperProfileService);
+    expect(paymentExports).toContain(PaymentService);
+  });
+
+  it('keeps Menu consumers on FoodIntegrationService through the public API', () => {
+    const consumers = [
+      'src/features/orders/services/customer-orders.service.ts',
+      'src/features/restaurants/services/restaurant-discovery.service.ts',
+      'src/features/reviews/services/customer-reviews.service.ts',
+      'src/features/communications/chat/services/chat-context.service.ts',
+      'src/features/communications/chat/flows/quick-reorder-flow.service.ts',
+      'src/features/communications/chat/services/chat-order-validation.service.ts',
     ];
 
-    for (const contractPath of contractPaths) {
-      const source = readFileSync(resolve(process.cwd(), contractPath), 'utf8');
+    for (const consumerPath of consumers) {
+      const source = readFileSync(resolve(process.cwd(), consumerPath), 'utf8');
 
-      expect(source).not.toMatch(/typeorm|entities\//i);
+      expect(source).toContain('src/features/menu/public-api');
+      expect(source).toContain('FoodIntegrationService');
+    }
+
+    const ordersModule = readFileSync(
+      resolve(process.cwd(), 'src/features/orders/orders.module.ts'),
+      'utf8',
+    );
+    expect(ordersModule).toContain("import { MenuModule } from 'src/features/menu/public-api';");
+  });
+
+  it('keeps Phase 2 consumers on owner public APIs and concrete services', () => {
+    const consumers = [
+      ['src/features/menu/foods/services/customer-food.service.ts', 'MerchantCatalogService'],
+      ['src/features/menu/foods/services/merchant-food.service.ts', 'MerchantCatalogService'],
+      ['src/features/menu/toppings/topping-command.service.ts', 'MerchantCatalogService'],
+      ['src/features/orders/services/customer-orders.service.ts', 'AddressService'],
+      ['src/features/orders/services/customer-orders.service.ts', 'RestaurantReaderService'],
+      ['src/features/orders/services/customer-orders.service.ts', 'IdentityUserQueryService'],
+      ['src/features/orders/controllers/order.resolver.ts', 'RestaurantReaderService'],
+      ['src/features/restaurants/services/restaurant-profile.service.ts', 'AddressService'],
+      [
+        'src/features/restaurants/services/restaurant-profile.service.ts',
+        'IdentityUserQueryService',
+      ],
+      [
+        'src/features/delivery/services/admin/admin-delivery.service.ts',
+        'IdentityUserQueryService',
+      ],
+      ['src/features/communications/messenger/messenger.service.ts', 'RestaurantReaderService'],
+      ['src/features/communications/messenger/messenger.service.ts', 'IdentityUserQueryService'],
+      [
+        'src/features/communications/chat/services/chat-order-validation.service.ts',
+        'AddressService',
+      ],
+      ['src/features/communications/chat/flows/quick-reorder-flow.service.ts', 'AddressService'],
+      [
+        'src/features/communications/chat/flows/order-conversation-flow.service.ts',
+        'AddressService',
+      ],
+    ] as const;
+
+    for (const [consumerPath, concreteService] of consumers) {
+      const source = readFileSync(resolve(process.cwd(), consumerPath), 'utf8');
+
+      expect(source).toContain('public-api');
+      expect(source).toContain(concreteService);
     }
   });
 });

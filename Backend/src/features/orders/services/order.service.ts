@@ -3,7 +3,7 @@ import { Order } from 'src/entities/order.entity';
 import type {
   OrderAnalyticsPage,
   OrderAnalyticsSnapshot,
-} from 'src/features/orders/contracts/order-analytics-reader.port';
+} from '../types/order-analytics.types';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentDto } from '../dto/payment.dto';
 import { AdminOrdersService } from './admin-orders.service';

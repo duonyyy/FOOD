@@ -3,11 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { estimateDeliveryTime, haversineDistance } from 'src/common/utils/geo.util';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import {
-  FOOD_DISCOVERY_READER,
-  type FoodDiscoveryReaderPort,
+  FoodIntegrationService,
   type FoodPreviewSnapshot,
 } from 'src/features/menu/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
+import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 
 export type DiscoveredRestaurant = Restaurant & {
@@ -22,8 +21,7 @@ export class RestaurantDiscoveryService {
   constructor(
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,
-    @Inject(FOOD_DISCOVERY_READER)
-    private readonly foodDiscoveryReader: FoodDiscoveryReaderPort,
+    private readonly foodDiscoveryReader: FoodIntegrationService,
     @Inject(CACHE_PORT)
     private readonly cache: CachePort,
   ) {}

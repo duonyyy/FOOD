@@ -1,9 +1,8 @@
-export {
-  ORDER_REVIEW_READER,
-  type OrderFoodReviewSnapshot,
-  type OrderReviewReaderPort,
-  type OrderReviewSummary,
-  type OrderReviewSummaryRequest,
-  type OrderShipperReviewSnapshot,
-} from './contracts/order-review-reader.port';
 export { OrderReviewReaderModule } from './order-review-reader.module';
+export { OrderReviewReaderService } from './services/order-review-reader.service';
+export type {
+  OrderFoodReviewSnapshot,
+  OrderReviewSummary,
+  OrderReviewSummaryRequest,
+  OrderShipperReviewSnapshot,
+} from './types/order-review-reader.types';

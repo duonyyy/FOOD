@@ -1,6 +1,6 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions } from 'src/features/auth/decorators/permissions.decorator';
 import {
   CurrentActor,

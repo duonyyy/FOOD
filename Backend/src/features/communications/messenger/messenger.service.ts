@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ForbiddenException,
-  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -14,14 +13,10 @@ import {
 } from 'src/common/events/notification-requested.event';
 import { Conversation, ConversationType } from 'src/entities/conversation.entity';
 import { Message } from 'src/entities/message.entity';
+import { OrderMessagingReaderService } from 'src/features/orders/public-api';
+import { RestaurantReaderService } from 'src/features/restaurants/public-api';
 import {
-  ORDER_MESSAGING_READER,
-  type OrderMessagingReaderPort,
-} from 'src/features/orders/public-api';
-import { RESTAURANT_READER, type RestaurantReaderPort } from 'src/features/restaurants/public-api';
-import {
-  IDENTITY_READER,
-  type IdentityReaderPort,
+  IdentityUserQueryService,
   type IdentityUserSnapshot,
 } from 'src/features/users/public-api';
 import { pubSub } from 'src/pubsub';
@@ -37,12 +32,9 @@ export class MessengerService {
     private conversationRepository: Repository<Conversation>,
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
-    @Inject(IDENTITY_READER)
-    private readonly identityReader: IdentityReaderPort,
-    @Inject(RESTAURANT_READER)
-    private readonly restaurantReader: RestaurantReaderPort,
-    @Inject(ORDER_MESSAGING_READER)
-    private readonly orderMessagingReader: OrderMessagingReaderPort,
+    private readonly identityReader: IdentityUserQueryService,
+    private readonly restaurantReader: RestaurantReaderService,
+    private readonly orderMessagingReader: OrderMessagingReaderService,
     private readonly eventBus: InProcessEventBus,
   ) {}
 

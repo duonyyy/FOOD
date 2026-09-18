@@ -1,5 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
 import { AuthGuard, RolesGuard } from 'src/features/users/public-api';
 import { IdentityRoleQueryController } from 'src/features/users/roles/identity-role-query.controller';

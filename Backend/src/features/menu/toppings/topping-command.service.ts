@@ -2,12 +2,9 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { InjectRepository } from '@nestjs/typeorm';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
-import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
+import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
-import {
-  MERCHANT_CATALOG,
-  type MerchantCatalogPort,
-} from '../../restaurants/merchant-catalog.public-api';
+import { MerchantCatalogService } from '../../restaurants/merchant-catalog.public-api';
 import { CreateToppingDto } from './dto/create-topping.dto';
 import { UpdateToppingDto } from './dto/update-topping.dto';
 
@@ -17,7 +14,7 @@ export class ToppingCommandService {
   constructor(
     @InjectRepository(Food) private readonly foodRepository: Repository<Food>,
     @InjectRepository(Topping) private readonly toppingRepository: Repository<Topping>,
-    @Inject(MERCHANT_CATALOG) private readonly merchantCatalog: MerchantCatalogPort,
+    private readonly merchantCatalog: MerchantCatalogService,
     @Inject(CACHE_PORT) private readonly cache: CachePort,
   ) {}
 

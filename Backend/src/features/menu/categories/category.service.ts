@@ -7,9 +7,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Category } from 'src/entities/category.entity';
-import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
+import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
-import { type CategoryReaderPort, type CategorySnapshot } from '../contracts/category-reader.port';
+import { type CategorySnapshot } from '../types/category.types';
 import { toCategoryResponse } from './category.mapper';
 import { CategoryListResponseDto, CategoryResponseDto } from './dto/category-response.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -19,7 +19,7 @@ const CATEGORY_LIST_TTL_SECONDS = 1_800;
 const CATEGORY_DETAIL_TTL_SECONDS = 300;
 
 @Injectable()
-export class CategoryService implements CategoryReaderPort {
+export class CategoryService {
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,

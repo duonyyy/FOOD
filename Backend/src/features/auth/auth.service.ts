@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Inject,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -10,12 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { User } from 'src/entities/user.entity';
-import {
-  SHIPPER_PROFILE_COMMANDS,
-  SHIPPER_PROFILE_READER,
-  type ShipperProfileCommandPort,
-  type ShipperProfileReaderPort,
-} from 'src/features/delivery/contracts/shipper-profile.port';
+import { ShipperProfileService } from 'src/features/delivery/shipper-profile.public-api';
 import { CreateUserDto } from 'src/features/users/dto/create-users.dto';
 import { RolesService } from 'src/features/users/roles/role.service';
 import { UsersService } from 'src/features/users/services/users.service';
@@ -25,7 +19,7 @@ import { CreateShipperDto } from './dto/create-shipper.dto';
 import { GoogleRegisterDto } from './dto/google-register.dto';
 import { RegisterDto } from './dto/register-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { AuthProvider } from './enums/auth-provider.enum';
+import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
 import { OtpService } from './services/otp.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { SocialAuthService } from './services/social-auth.service';
@@ -56,11 +50,9 @@ export class AuthService {
     @InjectRepository(Role)
     private readonly roleRepo: Repository<Role>,
 
-    @Inject(SHIPPER_PROFILE_READER)
-    private readonly shipperProfileReader: ShipperProfileReaderPort,
+    private readonly shipperProfileReader: ShipperProfileService,
 
-    @Inject(SHIPPER_PROFILE_COMMANDS)
-    private readonly shipperProfileCommands: ShipperProfileCommandPort,
+    private readonly shipperProfileCommands: ShipperProfileService,
   ) {}
 
   /**

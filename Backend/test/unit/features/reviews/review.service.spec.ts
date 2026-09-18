@@ -1,20 +1,22 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { ReviewType } from 'src/entities/review.entity';
+import { FoodIntegrationService } from 'src/features/menu/public-api';
+import { OrderReviewEligibilityService } from 'src/features/orders/order-review-eligibility.public-api';
 import { ReviewService } from 'src/features/reviews/services/customer-reviews.service';
 
 const completedOrder = {
   orderId: '00000000-0000-4000-8000-000000000001',
-  customerId: 'customer-1',
-  orderStatus: 'completed',
-  foodIds: ['00000000-0000-4000-8000-000000000002'],
+  foodId: '00000000-0000-4000-8000-000000000002',
   shipperId: 'shipper-1',
 };
 
 describe('ReviewService', () => {
   function createService(overrides?: {
-    order?: Partial<typeof completedOrder> | null;
     existingReview?: object | null;
     saveError?: Error;
+    foodReviewError?: Error;
+    shipperReviewError?: Error;
+    foodExistsError?: Error;
   }) {
     const reviewRepository = {
       findOne: jest.fn().mockResolvedValue(overrides?.existingReview ?? null),
@@ -33,23 +35,36 @@ describe('ReviewService', () => {
       delete: jest.fn(),
     };
     const orderReviewEligibilityReader = {
-      findReviewEligibility: jest
+      assertCustomerCanReviewFood: jest
         .fn()
-        .mockResolvedValue(
-          overrides?.order === null ? null : { ...completedOrder, ...overrides?.order },
+        .mockImplementation(() =>
+          overrides?.foodReviewError
+            ? Promise.reject(overrides.foodReviewError)
+            : Promise.resolve(),
+        ),
+      assertCustomerCanReviewShipper: jest
+        .fn()
+        .mockImplementation(() =>
+          overrides?.shipperReviewError
+            ? Promise.reject(overrides.shipperReviewError)
+            : Promise.resolve(),
         ),
     };
     const foodReviewTargetReader = {
-      findFoodReviewTarget: jest
+      assertFoodExists: jest
         .fn()
-        .mockResolvedValue({ foodId: completedOrder.foodIds[0], name: 'Bún bò' }),
+        .mockImplementation(() =>
+          overrides?.foodExistsError
+            ? Promise.reject(overrides.foodExistsError)
+            : Promise.resolve(),
+        ),
     };
 
     return {
       service: new ReviewService(
         reviewRepository as never,
-        orderReviewEligibilityReader,
-        foodReviewTargetReader,
+        orderReviewEligibilityReader as unknown as OrderReviewEligibilityService,
+        foodReviewTargetReader as unknown as FoodIntegrationService,
       ),
       reviewRepository,
       orderReviewEligibilityReader,
@@ -64,33 +79,33 @@ describe('ReviewService', () => {
     const response = await service.createFoodReview(
       {
         orderId: completedOrder.orderId,
-        foodId: completedOrder.foodIds[0],
+        foodId: completedOrder.foodId,
         rating: 5,
         comment: ' Ngon ',
       },
       'customer-1',
     );
 
-    expect(orderReviewEligibilityReader.findReviewEligibility).toHaveBeenCalledWith({
+    expect(orderReviewEligibilityReader.assertCustomerCanReviewFood).toHaveBeenCalledWith({
       orderId: completedOrder.orderId,
       customerId: 'customer-1',
+      foodId: completedOrder.foodId,
     });
-    expect(foodReviewTargetReader.findFoodReviewTarget).toHaveBeenCalledWith(
-      completedOrder.foodIds[0],
-    );
+    expect(foodReviewTargetReader.assertFoodExists).toHaveBeenCalledWith(completedOrder.foodId);
     expect(reviewRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         orderId: completedOrder.orderId,
         type: ReviewType.FOOD,
-        food: { id: completedOrder.foodIds[0] },
+        food: { id: completedOrder.foodId },
         shipper: undefined,
       }),
     );
-    expect(response).toMatchObject({ type: 'food', foodId: completedOrder.foodIds[0] });
+    expect(response).toMatchObject({ type: 'food', foodId: completedOrder.foodId });
   });
 
   it('creates a shipper review only for the shipper assigned to the completed order', async () => {
-    const { service, reviewRepository, foodReviewTargetReader } = createService();
+    const { service, reviewRepository, foodReviewTargetReader, orderReviewEligibilityReader } =
+      createService();
 
     const response = await service.createShipperReview(
       {
@@ -109,12 +124,19 @@ describe('ReviewService', () => {
         shipper: { id: 'shipper-1' },
       }),
     );
-    expect(foodReviewTargetReader.findFoodReviewTarget).not.toHaveBeenCalled();
+    expect(orderReviewEligibilityReader.assertCustomerCanReviewShipper).toHaveBeenCalledWith({
+      orderId: completedOrder.orderId,
+      customerId: 'customer-1',
+      shipperId: completedOrder.shipperId,
+    });
+    expect(foodReviewTargetReader.assertFoodExists).not.toHaveBeenCalled();
     expect(response).toMatchObject({ type: 'shipper', shipperId: 'shipper-1' });
   });
 
   it('rejects a food target that is not in the completed order', async () => {
-    const { service } = createService();
+    const { service } = createService({
+      foodReviewError: new ForbiddenException('The reviewed food was not purchased in this order'),
+    });
 
     await expect(
       service.createFoodReview(
@@ -130,7 +152,11 @@ describe('ReviewService', () => {
   });
 
   it('rejects review creation before the order is completed', async () => {
-    const { service } = createService({ order: { orderStatus: 'delivering' } });
+    const { service } = createService({
+      shipperReviewError: new ConflictException(
+        'Reviews are available only after the order is completed',
+      ),
+    });
 
     await expect(
       service.createShipperReview(
@@ -154,7 +180,7 @@ describe('ReviewService', () => {
       service.createFoodReview(
         {
           orderId: completedOrder.orderId,
-          foodId: completedOrder.foodIds[0],
+          foodId: completedOrder.foodId,
           rating: 5,
           comment: 'Trùng',
         },

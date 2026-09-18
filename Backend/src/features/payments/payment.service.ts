@@ -22,13 +22,12 @@ import type {
   VerifiedPaymentOutcome,
 } from 'src/features/payments/contracts/payment-webhook.contract';
 import { assertPaymentStatusTransition } from 'src/features/payments/domain/payment-status-machine';
-import { PaymentGatewayRouter } from 'src/infra/payment-gateways/payment-gateway.router';
+import { PaymentGatewayRouter } from 'src/infra/payment-gateways/public-api';
 import { Repository } from 'typeorm';
-import type { PaymentCheckoutCommandsPort } from './contracts/payment-checkout-commands.port';
 import { type PaymentResult, type PaymentStatusResponse } from './contracts/payment-gateway.port';
 
 @Injectable()
-export class PaymentService implements PaymentCheckoutCommandsPort {
+export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
   constructor(

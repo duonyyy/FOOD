@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Logger, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { AuthGuard, Permissions, RolesGuard } from 'src/features/auth/public-api';
 import {
   CurrentActor,

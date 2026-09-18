@@ -2,14 +2,10 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import { InjectRepository } from '@nestjs/typeorm';
 import { estimateDeliveryTime, haversineDistance } from 'src/common/utils/geo.util';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
-import {
-  LOCATION_WRITER,
-  type CreateAddressPayload,
-  type LocationWriterPort,
-} from 'src/features/locations/public-api';
+import { AddressService, type CreateAddressPayload } from 'src/features/locations/public-api';
 import { STORAGE_PORT, type StoragePort } from 'src/features/system-constraints/public-api';
-import { IDENTITY_READER, type IdentityReaderPort } from 'src/features/users/public-api';
-import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
+import { IdentityUserQueryService } from 'src/features/users/public-api';
+import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { DeepPartial, Repository } from 'typeorm';
 import { RequestRestaurantDto, UpdateOwnedRestaurantDto } from '../dto/restaurant-request.dto';
 
@@ -27,10 +23,8 @@ export class RestaurantProfileService {
   constructor(
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,
-    @Inject(IDENTITY_READER)
-    private readonly identityReader: IdentityReaderPort,
-    @Inject(LOCATION_WRITER)
-    private readonly locationWriter: LocationWriterPort,
+    private readonly identityReader: IdentityUserQueryService,
+    private readonly locationWriter: AddressService,
     @Inject(STORAGE_PORT)
     private readonly storagePort: StoragePort,
     @Inject(CACHE_PORT)

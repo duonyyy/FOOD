@@ -14,23 +14,6 @@ export {
   DeliveryAssignmentPolicy,
   DeliveryDispatchPolicy,
 } from './contracts/delivery-dispatch.policy';
-export {
-  DELIVERY_QUOTE_PORT,
-  type CoordinateSnapshot,
-  type DeliveryQuotePort,
-  type DeliveryQuoteRequest,
-  type DeliveryQuoteSnapshot,
-} from './contracts/delivery-quote.port';
-export {
-  SHIPPER_PROFILE_COMMANDS,
-  SHIPPER_PROFILE_READER,
-  SHIPPER_PROFILE_STATUS,
-  type CreateShipperProfileCommand,
-  type ShipperProfileCommandPort,
-  type ShipperProfileReaderPort,
-  type ShipperProfileSnapshot,
-  type ShipperProfileStatus,
-} from './contracts/shipper-profile.port';
 export { AdminDeliveryController } from './controllers/admin-delivery.controller';
 export { CustomerDeliveryController } from './controllers/customer-delivery.controller';
 export {
@@ -61,3 +44,15 @@ export { DeliveryReportService } from './services/shipper/delivery-report.servic
 export { ShipperDeliveryService } from './services/shipper/shipper-delivery.service';
 export { ShipperProfileService } from './services/shipper/shipper-profile.service';
 export { ShipperService } from './services/shipper/shipper.service';
+export type {
+  CoordinateSnapshot,
+  DeliveryOrderSnapshot,
+  DeliveryQuoteRequest,
+  DeliveryQuoteSnapshot,
+} from './types/delivery-integration.types';
+export {
+  SHIPPER_PROFILE_STATUS,
+  type CreateShipperProfileCommand,
+  type ShipperProfileSnapshot,
+  type ShipperProfileStatus,
+} from './types/shipper-profile.types';

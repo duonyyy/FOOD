@@ -3,15 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as moment from 'moment';
 import { User } from 'src/entities/user.entity';
 import { In, Repository } from 'typeorm';
-import {
-  type IdentityReaderPort,
-  type IdentityUserSnapshot,
-} from '../contracts/identity-reader.port';
+import { type IdentityUserSnapshot } from '../types/identity.types';
 import { IdentityUserListItemDto, IdentityUserResponseDto } from './dto/identity-user-response.dto';
 import { toIdentityUserListItem, toIdentityUserResponse } from './identity-user.mapper';
 
 @Injectable()
-export class IdentityUserQueryService implements IdentityReaderPort {
+export class IdentityUserQueryService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,

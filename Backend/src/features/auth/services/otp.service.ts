@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import Redis from 'ioredis';
-import { REDIS_CLIENT } from 'src/infra/cache/cache.constants';
+import { REDIS_CLIENT } from 'src/infra/cache/public-api';
 
 interface OtpRecord {
   hash: string;

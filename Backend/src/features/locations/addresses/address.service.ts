@@ -4,13 +4,9 @@ import { Address } from 'src/entities/address.entity';
 import { LessThan, Repository } from 'typeorm';
 import {
   type AddressSnapshot,
-  type LocationReaderPort,
-  type TemporaryAddressSnapshot,
-} from '../contracts/location-reader.port';
-import {
   type CreateAddressPayload,
-  type LocationWriterPort,
-} from '../contracts/location-writer.port';
+  type TemporaryAddressSnapshot,
+} from '../types/location.types';
 import { toAddressResponse } from './address.mapper';
 import { AddressResponseDto } from './dto/address-response.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
@@ -30,7 +26,7 @@ type AddressWriteData = Pick<
 >;
 
 @Injectable()
-export class AddressService implements LocationReaderPort, LocationWriterPort {
+export class AddressService {
   constructor(
     @InjectRepository(Address)
     private readonly addressRepository: Repository<Address>,
@@ -41,7 +37,7 @@ export class AddressService implements LocationReaderPort, LocationWriterPort {
     return toAddressResponse(await this.addressRepository.save(address));
   }
 
-  // --- LocationWriterPort Implementation ---
+  // --- Cross-feature write methods ---
 
   async writeAddress(
     data: CreateAddressPayload,

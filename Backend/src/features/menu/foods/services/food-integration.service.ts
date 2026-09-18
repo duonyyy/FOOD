@@ -2,47 +2,30 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Food } from 'src/entities/food.entity';
 import { Repository } from 'typeorm';
+import { type CatalogChatFoodSnapshot } from '../../types/catalog-chat.types';
+import { type FoodPreviewSnapshot } from '../../types/food-discovery.types';
 import {
-  CatalogChatFoodSnapshot,
-  CatalogChatReaderPort,
-} from '../../contracts/catalog-chat-reader.port';
-import {
-  FoodDiscoveryReaderPort,
-  FoodPreviewSnapshot,
-} from '../../contracts/food-discovery-reader.port';
-import {
-  FoodReviewTargetReaderPort,
-  FoodReviewTargetSnapshot,
-} from '../../contracts/food-review-target-reader.port';
-import {
-  GetOrderableItemsRequest,
-  MenuReaderPort,
-  OrderableItemSnapshot,
-  OrderableToppingSnapshot,
-} from '../../contracts/menu-reader.port';
+  type GetOrderableItemsRequest,
+  type OrderableItemSnapshot,
+  type OrderableToppingSnapshot,
+} from '../../types/menu.types';
 
 /**
  * Service tích hợp liên module (Inter-module Integration):
  * Cung cấp Snapshot dữ liệu món ăn an toàn cho các Bounded Context khác:
- * - Orders (MenuReaderPort)
- * - AI Chatbot (CatalogChatReaderPort)
- * - Reviews (FoodReviewTargetReaderPort)
- * - Restaurants Exploration (FoodDiscoveryReaderPort)
+ * - Orders
+ * - AI Chatbot
+ * - Reviews
+ * - Restaurants exploration
  */
 @Injectable()
-export class FoodIntegrationService
-  implements
-    FoodDiscoveryReaderPort,
-    CatalogChatReaderPort,
-    FoodReviewTargetReaderPort,
-    MenuReaderPort
-{
+export class FoodIntegrationService {
   constructor(
     @InjectRepository(Food)
     private readonly foodRepository: Repository<Food>,
   ) {}
 
-  // --- 1. FoodDiscoveryReaderPort (Khám phá món ăn cho Restaurant/Search) ---
+  // --- 1. Restaurant discovery (Khám phá món ăn cho Restaurant/Search) ---
 
   async listRestaurantFoods(
     restaurantId: string,
@@ -66,7 +49,7 @@ export class FoodIntegrationService
     }));
   }
 
-  // --- 2. CatalogChatReaderPort (Hỗ trợ AI Chatbot gợi ý món ăn) ---
+  // --- 2. Catalog chat (Hỗ trợ AI Chatbot gợi ý món ăn) ---
 
   async listAvailableFoods(): Promise<CatalogChatFoodSnapshot[]> {
     const foods = await this.foodRepository.find({
@@ -112,18 +95,19 @@ export class FoodIntegrationService
     ];
   }
 
-  // --- 3. FoodReviewTargetReaderPort (Kiểm tra món ăn khi khách hàng đánh giá) ---
+  // --- 3. Food review target (Kiểm tra món ăn khi khách hàng đánh giá) ---
 
-  async findFoodReviewTarget(foodId: string): Promise<FoodReviewTargetSnapshot | null> {
+  async assertFoodExists(foodId: string): Promise<void> {
     const food = await this.foodRepository.findOne({
       where: { id: foodId },
-      select: ['id', 'name'],
+      select: ['id'],
     });
-
-    return food ? { foodId: food.id, name: food.name ?? null } : null;
+    if (!food) {
+      throw new NotFoundException(`Food with id ${foodId} not found`);
+    }
   }
 
-  // --- 4. MenuReaderPort (Xác thực thông tin và topping khi tạo đơn hàng) ---
+  // --- 4. Orderable menu (Xác thực thông tin và topping khi tạo đơn hàng) ---
 
   async getOrderableItems(request: GetOrderableItemsRequest): Promise<OrderableItemSnapshot[]> {
     return Promise.all(

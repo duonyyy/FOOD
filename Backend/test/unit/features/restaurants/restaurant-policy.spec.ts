@@ -1,7 +1,7 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/features/auth/guards/roles.guard';
 import { RestaurantAdminController } from 'src/features/restaurants/controllers/admin-restaurants.controller';

@@ -9,7 +9,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { AuthProvider } from 'src/features/auth/enums/auth-provider.enum';
+import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
 
 export class CreateUserDto {
   @IsString()

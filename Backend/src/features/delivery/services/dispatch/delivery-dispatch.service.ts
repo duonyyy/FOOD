@@ -19,17 +19,14 @@ import {
   DeliveryDispatchPolicy,
 } from '../../contracts/delivery-dispatch.policy';
 import {
-  DELIVERY_ORDER_READER,
-  type DeliveryOrderReaderPort,
-  type DeliveryOrderSnapshot,
-} from '../../contracts/delivery-order-reader.port';
-import {
   PENDING_ASSIGNMENT_STORE,
   PendingAssignmentState,
   type PendingAssignmentStorePort,
 } from '../../contracts/pending-assignment-store.port';
 import { ShipperService } from '../shipper/shipper.service';
+import { DeliveryIntegrationService } from '../integration/delivery-integration.service';
 import { ActiveShipperTrackerService } from './active-shipper-tracker.service';
+import type { DeliveryOrderSnapshot } from '../../types/delivery-integration.types';
 
 interface ActiveShipper {
   shipperId: string;
@@ -56,8 +53,7 @@ export class DeliveryDispatchService {
   private readonly logger = new Logger(DeliveryDispatchService.name);
 
   constructor(
-    @Inject(DELIVERY_ORDER_READER)
-    private readonly orderReader: DeliveryOrderReaderPort,
+    private readonly orderReader: DeliveryIntegrationService,
     @Inject(DELIVERY_ASSIGNMENT_QUEUE_PORT)
     private readonly queueService: DeliveryAssignmentQueuePort,
     @Inject(PENDING_ASSIGNMENT_STORE)

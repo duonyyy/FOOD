@@ -118,9 +118,13 @@ module.exports = {
             return;
           }
 
+          const isInfraPublicApi = /^src\/infra\/[^/]+\/(?:[a-z-]+\.)?public-api$/.test(
+            targetPath,
+          );
           if (
             targetPath.startsWith('src/infra/') &&
-            !targetPath.startsWith('src/infra/contracts/')
+            !targetPath.startsWith('src/infra/contracts/') &&
+            !isInfraPublicApi
           ) {
             context.report({ node: node.source, messageId: 'internalInfraImport' });
             return;

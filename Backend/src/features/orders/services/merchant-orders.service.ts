@@ -8,13 +8,13 @@ import {
 import { Order } from 'src/entities/order.entity';
 import { DeliveryAssignmentScheduler } from 'src/features/delivery/public-api';
 import { pubSub } from 'src/pubsub';
+import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { Repository } from 'typeorm';
 import {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
   OrderCoreService,
   OrderStateMachine,
-  OrderStatus,
   parseOrderStatus,
 } from './order-core.service';
 

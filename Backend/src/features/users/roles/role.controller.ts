@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Role } from 'src/entities/role.entity';
 import { Permissions } from 'src/features/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/features/auth/guards/roles.guard';

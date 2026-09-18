@@ -17,7 +17,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions } from 'src/features/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/features/auth/guards/roles.guard';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';

@@ -1,24 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { Food } from 'src/entities/food.entity';
-import {
-  type CatalogChatFoodSnapshot,
-  type CatalogChatReaderPort,
-} from '../../contracts/catalog-chat-reader.port';
-import {
-  type FoodDiscoveryReaderPort,
-  type FoodPreviewSnapshot,
-} from '../../contracts/food-discovery-reader.port';
-import {
-  type FoodReviewTargetReaderPort,
-  type FoodReviewTargetSnapshot,
-} from '../../contracts/food-review-target-reader.port';
+import { type CatalogChatFoodSnapshot } from '../../types/catalog-chat.types';
+import { type FoodPreviewSnapshot } from '../../types/food-discovery.types';
 import {
   type GetOrderableItemsRequest,
-  type MenuReaderPort,
   type OrderableItemSnapshot,
   type OrderableToppingSnapshot,
-} from '../../contracts/menu-reader.port';
+} from '../../types/menu.types';
 import {
   CustomerFoodService,
   FoodPaginationResult,
@@ -36,7 +25,7 @@ export {
 };
 
 /**
- * Backward compatibility facade combining CustomerFoodService and External Reader Ports.
+ * Backward compatibility facade combining CustomerFoodService and cross-module snapshots.
  * Specialized services:
  * - CustomerFoodService: Customer facing menu and search operations
  * - MerchantFoodService: Merchant food management
@@ -44,14 +33,7 @@ export {
  * - FoodIntegrationService: Cross-module contract implementations
  */
 @Injectable()
-export class FoodQueryService
-  extends CustomerFoodService
-  implements
-    FoodDiscoveryReaderPort,
-    CatalogChatReaderPort,
-    FoodReviewTargetReaderPort,
-    MenuReaderPort
-{
+export class FoodQueryService extends CustomerFoodService {
   /**
    * Search foods for store/admin (compatibility delegator)
    */
@@ -122,7 +104,7 @@ export class FoodQueryService
     };
   }
 
-  // --- External Reader Ports Implementation ---
+  // --- Cross-module snapshot compatibility implementation ---
 
   async listRestaurantFoods(
     restaurantId: string,
@@ -188,15 +170,6 @@ export class FoodQueryService
         price: Number(food.price),
       },
     ];
-  }
-
-  async findFoodReviewTarget(foodId: string): Promise<FoodReviewTargetSnapshot | null> {
-    const food = await this.foodRepository.findOne({
-      where: { id: foodId },
-      select: ['id', 'name'],
-    });
-
-    return food ? { foodId: food.id, name: food.name ?? null } : null;
   }
 
   async getOrderableItems(request: GetOrderableItemsRequest): Promise<OrderableItemSnapshot[]> {

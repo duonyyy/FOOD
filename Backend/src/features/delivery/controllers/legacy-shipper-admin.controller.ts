@@ -1,8 +1,8 @@
 import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
-import { ShipperProfileStatus } from '../contracts/shipper-profile.port';
+import type { ShipperProfileStatus } from '../types/shipper-profile.types';
 import { AdminDeliveryService } from '../services/admin/admin-delivery.service';
 
 /**

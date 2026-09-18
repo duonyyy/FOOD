@@ -1,21 +1,13 @@
 import {
   ConflictException,
   ForbiddenException,
-  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Review, ReviewType } from 'src/entities/review.entity';
-import {
-  FOOD_REVIEW_TARGET_READER,
-  type FoodReviewTargetReaderPort,
-} from 'src/features/menu/public-api';
-import {
-  ORDER_REVIEW_ELIGIBILITY_READER,
-  type OrderReviewEligibilityReaderPort,
-  type OrderReviewEligibilitySnapshot,
-} from 'src/features/orders/public-api';
+import { FoodIntegrationService } from 'src/features/menu/public-api';
+import { OrderReviewEligibilityService } from 'src/features/orders/order-review-eligibility.public-api';
 import { Repository } from 'typeorm';
 import {
   CreateFoodReviewDto,
@@ -30,25 +22,20 @@ export class CustomerReviewsService {
   constructor(
     @InjectRepository(Review)
     private readonly reviewRepository: Repository<Review>,
-    @Inject(ORDER_REVIEW_ELIGIBILITY_READER)
-    private readonly orderReviewEligibilityReader: OrderReviewEligibilityReaderPort,
-    @Inject(FOOD_REVIEW_TARGET_READER)
-    private readonly foodReviewTargetReader: FoodReviewTargetReaderPort,
+    private readonly orderReviewEligibilityReader: OrderReviewEligibilityService,
+    private readonly foodReviewTargetReader: FoodIntegrationService,
   ) {}
 
   async createFoodReview(
     createReviewDto: CreateFoodReviewDto,
     actorUserId: string,
   ): Promise<ReviewResponseDto> {
-    const order = await this.requireCompletedCustomerOrder(createReviewDto.orderId, actorUserId);
-    if (!order.foodIds.includes(createReviewDto.foodId)) {
-      throw new ForbiddenException('The reviewed food was not purchased in this order');
-    }
-
-    const food = await this.foodReviewTargetReader.findFoodReviewTarget(createReviewDto.foodId);
-    if (!food) {
-      throw new NotFoundException(`Food with id ${createReviewDto.foodId} not found`);
-    }
+    await this.orderReviewEligibilityReader.assertCustomerCanReviewFood({
+      orderId: createReviewDto.orderId,
+      customerId: actorUserId,
+      foodId: createReviewDto.foodId,
+    });
+    await this.foodReviewTargetReader.assertFoodExists(createReviewDto.foodId);
 
     await this.rejectDuplicate({
       orderId: createReviewDto.orderId,
@@ -72,10 +59,11 @@ export class CustomerReviewsService {
     createReviewDto: CreateShipperReviewDto,
     actorUserId: string,
   ): Promise<ReviewResponseDto> {
-    const order = await this.requireCompletedCustomerOrder(createReviewDto.orderId, actorUserId);
-    if (!order.shipperId || order.shipperId !== createReviewDto.shipperId) {
-      throw new ForbiddenException('The reviewed shipper did not deliver this order');
-    }
+    await this.orderReviewEligibilityReader.assertCustomerCanReviewShipper({
+      orderId: createReviewDto.orderId,
+      customerId: actorUserId,
+      shipperId: createReviewDto.shipperId,
+    });
 
     await this.rejectDuplicate({
       orderId: createReviewDto.orderId,
@@ -113,8 +101,7 @@ export class CustomerReviewsService {
     minRating?: number,
     maxRating?: number,
   ) {
-    const food = await this.foodReviewTargetReader.findFoodReviewTarget(foodId);
-    if (!food) throw new NotFoundException(`Food with id ${foodId} not found`);
+    await this.foodReviewTargetReader.assertFoodExists(foodId);
 
     const query = this.reviewRepository
       .createQueryBuilder('review')
@@ -190,23 +177,6 @@ export class CustomerReviewsService {
   async deleteReview(reviewId: string, actorUserId: string): Promise<void> {
     await this.requireOwnedReview(reviewId, actorUserId);
     await this.reviewRepository.delete(reviewId);
-  }
-
-  private async requireCompletedCustomerOrder(
-    orderId: string,
-    actorUserId: string,
-  ): Promise<OrderReviewEligibilitySnapshot> {
-    const order = await this.orderReviewEligibilityReader.findReviewEligibility({
-      orderId,
-      customerId: actorUserId,
-    });
-    if (!order) {
-      throw new ForbiddenException('This order is not available for review by the current user');
-    }
-    if (order.orderStatus !== 'completed') {
-      throw new ConflictException('Reviews are available only after the order is completed');
-    }
-    return order;
   }
 
   private async rejectDuplicate(input: {

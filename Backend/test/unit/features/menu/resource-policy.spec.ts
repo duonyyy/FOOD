@@ -1,7 +1,7 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
 import { CategoryController } from 'src/features/menu/categories/category.controller';
 import { AdminFoodController } from 'src/features/menu/foods/controllers/admin-food.controller';
@@ -36,9 +36,9 @@ describe('Catalog resource policies', () => {
     expect(writeGuards).toContain(RolesGuard);
   });
 
-  it('does not expose TypeORM entities from the snapshot contract', () => {
+  it('does not expose TypeORM entities from the orderable-menu snapshot type', () => {
     const source = readFileSync(
-      resolve(process.cwd(), 'src/features/menu/contracts/menu-reader.port.ts'),
+      resolve(process.cwd(), 'src/features/menu/types/menu.types.ts'),
       'utf8',
     );
     expect(source).not.toContain("from 'src/entities/food.entity'");

@@ -1,6 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { LOCATION_READER, type LocationReaderPort } from 'src/features/locations/public-api';
-import { CATALOG_CHAT_READER, type CatalogChatReaderPort } from 'src/features/menu/public-api';
+import { Injectable } from '@nestjs/common';
+import { AddressService } from 'src/features/locations/public-api';
+import { FoodIntegrationService } from 'src/features/menu/public-api';
 import { ChatMetadata } from '../types/chat.types';
 
 export interface ValidatedChatOrderItem {
@@ -28,10 +28,8 @@ export interface ChatOrderValidationResult {
 @Injectable()
 export class ChatOrderValidationService {
   constructor(
-    @Inject(CATALOG_CHAT_READER)
-    private readonly catalogReader: CatalogChatReaderPort,
-    @Inject(LOCATION_READER)
-    private readonly locationReader: LocationReaderPort,
+    private readonly catalogReader: FoodIntegrationService,
+    private readonly locationReader: AddressService,
   ) {}
 
   async validate(userId: string, metadata: ChatMetadata): Promise<ChatOrderValidationResult> {

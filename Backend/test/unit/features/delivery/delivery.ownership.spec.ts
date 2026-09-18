@@ -3,12 +3,11 @@ import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import {
-  SHIPPER_PROFILE_COMMANDS,
-  SHIPPER_PROFILE_READER,
-} from 'src/features/delivery/contracts/shipper-profile.port';
 import { DeliveryModule } from 'src/features/delivery/delivery.module';
-import { ShipperProfileModule } from 'src/features/delivery/shipper-profile.module';
+import {
+  ShipperProfileModule,
+  ShipperProfileService,
+} from 'src/features/delivery/shipper-profile.public-api';
 import { OrderTrackingReaderModule } from 'src/features/orders/order-tracking-reader.public-api';
 
 describe('Delivery ownership boundary', () => {
@@ -35,10 +34,10 @@ describe('Delivery ownership boundary', () => {
     );
   });
 
-  it('exports a profile read contract', () => {
+  it('exports the concrete profile service from the narrow profile module', () => {
     expect(Reflect.getMetadata('imports', DeliveryModule)).toContain(ShipperProfileModule);
     expect(Reflect.getMetadata('exports', ShipperProfileModule)).toEqual(
-      expect.arrayContaining([SHIPPER_PROFILE_READER, SHIPPER_PROFILE_COMMANDS]),
+      expect.arrayContaining([ShipperProfileService]),
     );
   });
 

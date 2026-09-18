@@ -1,6 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/features/auth/guards/roles.guard';
 import { CategoryController } from 'src/features/menu/categories/category.controller';

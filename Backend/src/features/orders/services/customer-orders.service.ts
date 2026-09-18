@@ -6,22 +6,16 @@ import { OutboxService } from 'src/common/events/outbox.service';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
+import { AddressService } from 'src/features/locations/public-api';
 import {
-  LOCATION_READER,
-  LOCATION_WRITER,
-  type LocationReaderPort,
-  type LocationWriterPort,
-} from 'src/features/locations/public-api';
-import {
-  MENU_READER,
-  type MenuReaderPort,
+  FoodIntegrationService,
   type OrderableItemSnapshot,
 } from 'src/features/menu/public-api';
 import { PromotionRedemptionService, PromotionService } from 'src/features/promotions/public-api';
-import { RESTAURANT_READER, type RestaurantReaderPort } from 'src/features/restaurants/public-api';
+import { RestaurantReaderService } from 'src/features/restaurants/public-api';
 import { SystemConstraintsService } from 'src/features/system-constraints/public-api';
-import { IDENTITY_READER, type IdentityReaderPort } from 'src/features/users/public-api';
-import { ROUTE_PORT, type RoutePort } from 'src/infra/contracts/route.port';
+import { IdentityUserQueryService } from 'src/features/users/public-api';
+import { ROUTE_PORT, type RoutePort } from 'src/infra/mapbox/public-api';
 import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentDto } from '../dto/payment.dto';
@@ -58,16 +52,11 @@ export class CustomerOrdersService {
     @Inject(ROUTE_PORT)
     private readonly routePort: RoutePort,
     private readonly orderCoreService: OrderCoreService,
-    @Inject(MENU_READER)
-    private readonly menuReader: MenuReaderPort,
-    @Inject(LOCATION_READER)
-    private readonly locationReader: LocationReaderPort,
-    @Inject(LOCATION_WRITER)
-    private readonly locationWriter: LocationWriterPort,
-    @Inject(RESTAURANT_READER)
-    private readonly restaurantReader: RestaurantReaderPort,
-    @Inject(IDENTITY_READER)
-    private readonly identityReader: IdentityReaderPort,
+    private readonly menuReader: FoodIntegrationService,
+    private readonly locationReader: AddressService,
+    private readonly locationWriter: AddressService,
+    private readonly restaurantReader: RestaurantReaderService,
+    private readonly identityReader: IdentityUserQueryService,
   ) {}
 
   /**

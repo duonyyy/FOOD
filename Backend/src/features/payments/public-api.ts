@@ -1,8 +1,4 @@
 export {
-  PAYMENT_CHECKOUT_COMMANDS,
-  type PaymentCheckoutCommandsPort,
-} from './contracts/payment-checkout-commands.port';
-export {
   PaymentStatus,
   type PaymentGatewayConfig,
   type PaymentGatewayPort,

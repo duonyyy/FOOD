@@ -8,7 +8,6 @@ import { MenuModule } from '../menu/public-api';
 import { IdentityModule } from '../users/public-api';
 import { MerchantCatalogModule } from './merchant-catalog.module';
 
-import { RESTAURANT_READER } from './contracts/restaurant-reader.port';
 import { RestaurantAdminController } from './controllers/admin-restaurants.controller';
 import { RestaurantMerchantController } from './controllers/merchant-profile.controller';
 import { RestaurantDiscoveryController } from './controllers/public-discovery.controller';
@@ -36,13 +35,12 @@ import { RestaurantReaderService } from './services/restaurant-reader.service';
     RestaurantProfileService,
     RestaurantApprovalService,
     RestaurantReaderService,
-    { provide: RESTAURANT_READER, useExisting: RestaurantReaderService },
   ],
   exports: [
     RestaurantDiscoveryService,
     RestaurantProfileService,
     RestaurantApprovalService,
-    RESTAURANT_READER,
+    RestaurantReaderService,
     MerchantCatalogModule,
   ],
 })

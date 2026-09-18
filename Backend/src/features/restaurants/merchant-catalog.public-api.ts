@@ -5,9 +5,6 @@
  * ownership contract from Catalog must not pull the Restaurant feature back
  * into the Menu module graph.
  */
-export {
-  MERCHANT_CATALOG,
-  type MerchantCatalogPort,
-  type MerchantRestaurantSnapshot,
-} from './contracts/merchant-catalog.port';
 export { MerchantCatalogModule } from './merchant-catalog.module';
+export { MerchantCatalogService } from './services/merchant-catalog.service';
+export type { MerchantRestaurantSnapshot } from './types/merchant-catalog.types';

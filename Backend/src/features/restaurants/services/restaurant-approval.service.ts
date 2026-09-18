@@ -10,7 +10,7 @@ import {
   RestaurantApprovalAction,
   RestaurantApprovalAudit,
 } from 'src/entities/restaurantApprovalAudit.entity';
-import { CACHE_PORT, type CachePort } from 'src/infra/contracts/cache.port';
+import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 import { ApproveRestaurantDto, RejectRestaurantDto } from '../dto/restaurant-approval.dto';
 

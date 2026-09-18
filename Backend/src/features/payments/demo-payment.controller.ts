@@ -15,8 +15,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { type PaymentIntent } from 'src/features/payments/contracts/payment-gateway.port';
-import { MomoPaymentGateway } from 'src/infra/payment-gateways/momo-payment.gateway';
-import { VnpayPaymentGateway } from 'src/infra/payment-gateways/vnpay-payment.gateway';
+import {
+  MomoPaymentGateway,
+  VnpayPaymentGateway,
+} from 'src/infra/payment-gateways/public-api';
 import { CreateDemoCheckoutDto, CreateDemoOrderDto, DemoWebhookDto } from './dto/demo-payment.dto';
 
 // Define interfaces for our dummy data

@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
@@ -8,18 +8,15 @@ import {
 } from 'src/common/events/notification-requested.event';
 import { Order } from 'src/entities/order.entity';
 import { DeliveryAssignmentScheduler } from 'src/features/delivery/public-api';
-import {
-  PAYMENT_CHECKOUT_COMMANDS,
-  type PaymentCheckoutCommandsPort,
-} from 'src/features/payments/public-api';
+import { PaymentService } from 'src/features/payments/public-api';
 import { pubSub } from 'src/pubsub';
+import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { LessThan, Repository } from 'typeorm';
 import {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
   OrderCoreService,
   OrderStateMachine,
-  OrderStatus,
   parseOrderStatus,
 } from './order-core.service';
 
@@ -34,8 +31,7 @@ export class AdminOrdersService {
     private readonly orderCoreService: OrderCoreService,
     private readonly pendingAssignmentService: DeliveryAssignmentScheduler,
     private readonly eventBus: InProcessEventBus,
-    @Inject(PAYMENT_CHECKOUT_COMMANDS)
-    private readonly paymentCheckoutCommands: PaymentCheckoutCommandsPort,
+    private readonly paymentCheckoutCommands: PaymentService,
   ) {}
 
   /**

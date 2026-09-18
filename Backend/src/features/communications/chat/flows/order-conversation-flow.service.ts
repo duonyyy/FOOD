@@ -1,6 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { LOCATION_READER, type LocationReaderPort } from 'src/features/locations/public-api';
-import { CHAT_ORDERING, type ChatOrderingPort } from 'src/features/orders/public-api';
+import { Injectable } from '@nestjs/common';
+import { AddressService } from 'src/features/locations/public-api';
+import { ChatOrderingService } from 'src/features/orders/public-api';
 import { ChatLlmService } from '../services/chat-llm.service';
 import { ChatOrderValidationService } from '../services/chat-order-validation.service';
 import { ChatAddress, ChatContext, ChatMetadata, ChatReply } from '../types/chat.types';
@@ -8,10 +8,8 @@ import { ChatAddress, ChatContext, ChatMetadata, ChatReply } from '../types/chat
 @Injectable()
 export class OrderConversationFlowService {
   constructor(
-    @Inject(LOCATION_READER)
-    private readonly locationReader: LocationReaderPort,
-    @Inject(CHAT_ORDERING)
-    private readonly ordering: ChatOrderingPort,
+    private readonly locationReader: AddressService,
+    private readonly ordering: ChatOrderingService,
     private readonly orderValidationService: ChatOrderValidationService,
     private readonly llmService: ChatLlmService,
   ) {}

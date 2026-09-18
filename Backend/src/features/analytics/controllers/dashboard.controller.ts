@@ -1,7 +1,7 @@
 import { Controller, DefaultValuePipe, Get, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 
-import { Permission } from 'src/constants/permission.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { DashboardService } from '../services/dashboard.service';
 

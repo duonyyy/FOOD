@@ -9,7 +9,7 @@ import {
 
 describe('CustomerDeliveryController', () => {
   const orderTrackingReader = {
-    findCustomerOrderForTracking: jest.fn(),
+    assertCustomerCanTrackOrder: jest.fn(),
   };
   const deliveryIntegrationService = {
     getDeliveryTracking: jest.fn(),
@@ -22,7 +22,7 @@ describe('CustomerDeliveryController', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('allows the JWT customer to track their order and removes shipper phone', async () => {
-    orderTrackingReader.findCustomerOrderForTracking.mockResolvedValue({ orderId: 'order-a' });
+    orderTrackingReader.assertCustomerCanTrackOrder.mockResolvedValue(undefined);
     deliveryIntegrationService.getDeliveryTracking.mockResolvedValue({
       orderId: 'order-a',
       trackingStatus: 'SHIPPING',
@@ -32,7 +32,7 @@ describe('CustomerDeliveryController', () => {
 
     const result = await controller.trackOrder('order-a', actor);
 
-    expect(orderTrackingReader.findCustomerOrderForTracking).toHaveBeenCalledWith(
+    expect(orderTrackingReader.assertCustomerCanTrackOrder).toHaveBeenCalledWith(
       'order-a',
       'customer-a',
     );
@@ -45,13 +45,15 @@ describe('CustomerDeliveryController', () => {
   });
 
   it('returns the same 404 for another customer and does not load tracking details', async () => {
-    orderTrackingReader.findCustomerOrderForTracking.mockResolvedValue(null);
+    orderTrackingReader.assertCustomerCanTrackOrder.mockRejectedValue(
+      new NotFoundException('Delivery tracking not found'),
+    );
 
     await expect(controller.trackOrder('order-a', { userId: 'customer-b' })).rejects.toBeInstanceOf(
       NotFoundException,
     );
 
-    expect(orderTrackingReader.findCustomerOrderForTracking).toHaveBeenCalledWith(
+    expect(orderTrackingReader.assertCustomerCanTrackOrder).toHaveBeenCalledWith(
       'order-a',
       'customer-b',
     );

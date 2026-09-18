@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
 import {
@@ -7,13 +7,15 @@ import {
 } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import {
-  IDENTITY_READER,
-  type IdentityReaderPort,
+  IdentityUserQueryService,
   type IdentityUserSnapshot,
 } from 'src/features/users/public-api';
 import { Repository } from 'typeorm';
-import { SHIPPER_PROFILE_STATUS, ShipperProfileStatus } from '../../contracts/shipper-profile.port';
 import { ShipperProfileService } from '../shipper/shipper-profile.service';
+import {
+  SHIPPER_PROFILE_STATUS,
+  type ShipperProfileStatus,
+} from '../../types/shipper-profile.types';
 
 /**
  * AdminDeliveryService handles administrative operations for delivery management:
@@ -31,8 +33,7 @@ export class AdminDeliveryService {
     @InjectRepository(PendingShipperAssignment)
     private readonly pendingAssignmentRepository: Repository<PendingShipperAssignment>,
     private readonly shipperProfileService: ShipperProfileService,
-    @Inject(IDENTITY_READER)
-    private readonly identityReader: IdentityReaderPort,
+    private readonly identityReader: IdentityUserQueryService,
   ) {}
 
   async getShippers(status?: ShipperProfileStatus) {

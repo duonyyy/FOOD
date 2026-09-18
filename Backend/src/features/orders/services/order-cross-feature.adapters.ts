@@ -1,34 +1,30 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from 'src/entities/order.entity';
 import { CustomerOrdersService } from 'src/features/orders/services/customer-orders.service';
 import { OrderCoreService } from 'src/features/orders/services/order-core.service';
 import { Repository } from 'typeorm';
-import {
-  type ChatOrderingPort,
-  type ChatReorderOrder,
-  type CreateChatOrderRequest,
-  type CreatedChatOrderSnapshot,
-} from '../contracts/chat-ordering.port';
-import {
-  type OrderAnalyticsPage,
-  type OrderAnalyticsReaderPort,
-  type OrderAnalyticsSnapshot,
-} from '../contracts/order-analytics-reader.port';
-import {
-  type OrderNotificationReaderPort,
-  type OrderNotificationRecipient,
-} from '../contracts/order-notification-reader.port';
-import {
-  type FindOrderReviewEligibilityRequest,
-  type OrderReviewEligibilityReaderPort,
-  type OrderReviewEligibilitySnapshot,
-} from '../contracts/order-review-eligibility-reader.port';
 import { CreateOrderDto } from '../dto/create-order.dto';
+import type {
+  ChatReorderOrder,
+  CreateChatOrderRequest,
+  CreatedChatOrderSnapshot,
+} from '../types/chat-ordering.types';
+import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
+import type { OrderNotificationRecipient } from '../types/order-notification.types';
+import type {
+  AssertCustomerCanReviewFoodRequest,
+  AssertCustomerCanReviewShipperRequest,
+} from '../types/order-review-eligibility.types';
 
 /** Compatibility adapter: Analytics receives an Ordering snapshot, never persistence. */
 @Injectable()
-export class OrderAnalyticsReaderAdapter implements OrderAnalyticsReaderPort {
+export class OrderAnalyticsReaderAdapter {
   constructor(private readonly orderCoreService: OrderCoreService) {}
 
   async findAnalyticsSnapshot(orderId: string): Promise<OrderAnalyticsSnapshot | null> {
@@ -47,7 +43,7 @@ export class OrderAnalyticsReaderAdapter implements OrderAnalyticsReaderPort {
 
 /** Compatibility adapter: Notifications sees an Ordering snapshot, never Order persistence. */
 @Injectable()
-export class OrderNotificationReaderAdapter implements OrderNotificationReaderPort {
+export class OrderNotificationReaderAdapter {
   constructor(private readonly orderCoreService: OrderCoreService) {}
 
   async findNotificationRecipient(orderId: string): Promise<OrderNotificationRecipient | null> {
@@ -62,45 +58,52 @@ export class OrderNotificationReaderAdapter implements OrderNotificationReaderPo
   }
 }
 
-/** Review eligibility adapter: determines whether customer can review foods and shippers. */
+/** Orders owns review permission; Reviews receives no Order data. */
 @Injectable()
-export class OrderReviewEligibilityService implements OrderReviewEligibilityReaderPort {
+export class OrderReviewEligibilityService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {}
 
-  async findReviewEligibility(
-    request: FindOrderReviewEligibilityRequest,
-  ): Promise<OrderReviewEligibilitySnapshot | null> {
+  async assertCustomerCanReviewFood(request: AssertCustomerCanReviewFoodRequest): Promise<void> {
+    const order = await this.findCompletedCustomerOrder(request.orderId, request.customerId);
+    const hasPurchasedFood = (order.orderDetails ?? []).some(
+      (detail) => detail.food?.id === request.foodId,
+    );
+    if (!hasPurchasedFood) {
+      throw new ForbiddenException('The reviewed food was not purchased in this order');
+    }
+  }
+
+  async assertCustomerCanReviewShipper(
+    request: AssertCustomerCanReviewShipperRequest,
+  ): Promise<void> {
+    const order = await this.findCompletedCustomerOrder(request.orderId, request.customerId);
+    if (order.shippingDetail?.shipper?.id !== request.shipperId) {
+      throw new ForbiddenException('The reviewed shipper did not deliver this order');
+    }
+  }
+
+  private async findCompletedCustomerOrder(orderId: string, customerId: string): Promise<Order> {
     const order = await this.orderRepository.findOne({
-      where: { id: request.orderId, user: { id: request.customerId } },
-      relations: [
-        'user',
-        'orderDetails',
-        'orderDetails.food',
-        'shippingDetail',
-        'shippingDetail.shipper',
-      ],
+      where: { id: orderId, user: { id: customerId } },
+      relations: ['orderDetails', 'orderDetails.food', 'shippingDetail', 'shippingDetail.shipper'],
     });
 
-    if (!order || !order.user) {
-      return null;
+    if (!order) {
+      throw new ForbiddenException('This order is not available for review by the current user');
     }
-
-    return {
-      orderId: order.id,
-      customerId: order.user.id,
-      orderStatus: order.status ?? null,
-      foodIds: (order.orderDetails ?? []).map((detail) => detail.food.id),
-      shipperId: order.shippingDetail?.shipper?.id ?? null,
-    };
+    if (order.status !== 'completed') {
+      throw new ConflictException('Reviews are available only after the order is completed');
+    }
+    return order;
   }
 }
 
 /** Chat ordering adapter: supports quick reorder and conversational order placement. */
 @Injectable()
-export class ChatOrderingService implements ChatOrderingPort {
+export class ChatOrderingService {
   constructor(private readonly customerOrdersService: CustomerOrdersService) {}
 
   async getRecentOrdersForReorder(customerId: string, limit: number): Promise<ChatReorderOrder[]> {

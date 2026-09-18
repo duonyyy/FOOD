@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 
 export const DELIVERY_DISPATCH_POLICY = Object.freeze({
   offerHoldTtlSeconds: 2 * 60,
@@ -30,7 +31,7 @@ export class DeliveryDispatchPolicy {
   }
 
   static assertOfferable(orderStatus: string, hasShippingDetail: boolean): void {
-    if (orderStatus !== 'confirmed') {
+    if (orderStatus !== String(OrderStatus.CONFIRMED)) {
       throw new BadRequestException('Order must be confirmed to assign to shipper');
     }
     if (hasShippingDetail) {

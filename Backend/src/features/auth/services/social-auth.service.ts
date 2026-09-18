@@ -10,7 +10,7 @@ import { CreateUserDto } from 'src/features/users/dto/create-users.dto';
 import { RolesService } from 'src/features/users/roles/role.service';
 import { UsersService } from 'src/features/users/services/users.service';
 import { GoogleRegisterDto } from '../dto/google-register.dto';
-import { AuthProvider } from '../enums/auth-provider.enum';
+import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
 
 @Injectable()
 export class SocialAuthService {

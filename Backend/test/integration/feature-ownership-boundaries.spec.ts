@@ -13,9 +13,9 @@ describe('feature ownership boundaries', () => {
     expect(module).toContain('TypeOrmModule.forFeature([Conversation, Message])');
     expect(module).not.toMatch(/\b(User|Order|Restaurant|ShippingDetail)\b.*forFeature/);
     expect(service).not.toMatch(/@InjectRepository\((User|Order|Restaurant|ShippingDetail)\)/);
-    expect(service).toContain('ORDER_MESSAGING_READER');
-    expect(service).toContain('RESTAURANT_READER');
-    expect(service).toContain('IDENTITY_READER');
+    expect(service).toContain('OrderMessagingReaderService');
+    expect(service).toContain('RestaurantReaderService');
+    expect(service).toContain('IdentityUserQueryService');
   });
 
   it('keeps shipper administration in Delivery while retaining the legacy route', () => {
@@ -47,19 +47,21 @@ describe('feature ownership boundaries', () => {
     expect(promotionsModule).not.toMatch(/forFeature\(\[[^\]]*\b(Food|Order)\b/);
   });
 
-  it('uses ports and public APIs for Orders and Promotions technical dependencies', () => {
+  it('uses ports through infrastructure public APIs for Orders and Promotions technical dependencies', () => {
     const customerOrders = source('src/features/orders/services/customer-orders.service.ts');
     const adminOrders = source('src/features/orders/services/admin-orders.service.ts');
     const merchantOrders = source('src/features/orders/services/merchant-orders.service.ts');
     const promotionService = source('src/features/promotions/services/promotion.service.ts');
 
     expect(customerOrders).toContain('ROUTE_PORT');
-    expect(customerOrders).not.toContain('src/infra/mapbox');
-    expect(adminOrders).not.toContain('src/infra/queue');
-    expect(merchantOrders).not.toContain('src/infra/queue');
+    expect(customerOrders).toContain('src/infra/mapbox/public-api');
+    expect(customerOrders).not.toContain('src/infra/mapbox/route-port.adapter');
+    expect(adminOrders).not.toContain('src/infra/queue/queue.service');
+    expect(merchantOrders).not.toContain('src/infra/queue/queue.service');
     expect(promotionService).toContain('STORAGE_PORT');
     expect(promotionService).toContain('CACHE_PORT');
     expect(promotionService).not.toContain('src/infra/minio');
-    expect(promotionService).not.toContain('src/infra/cache');
+    expect(promotionService).toContain('src/infra/cache/public-api');
+    expect(promotionService).not.toContain('src/infra/cache/cache.service');
   });
 });

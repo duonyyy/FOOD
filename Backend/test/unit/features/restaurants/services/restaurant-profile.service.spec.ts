@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
+import { AddressService } from 'src/features/locations/public-api';
 import { RestaurantProfileService } from 'src/features/restaurants/services/restaurant-profile.service';
+import { IdentityUserQueryService } from 'src/features/users/public-api';
 import { type CachePort } from 'src/infra/contracts/cache.port';
 import { DeepPartial } from 'typeorm';
 
@@ -35,8 +37,8 @@ describe('RestaurantProfileService', () => {
   };
   const service = new RestaurantProfileService(
     repository as never,
-    identityReader,
-    locationWriter,
+    identityReader as unknown as IdentityUserQueryService,
+    locationWriter as unknown as AddressService,
     storagePort,
     cache,
   );

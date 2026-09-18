@@ -2,8 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import { AdminOrdersService } from 'src/features/orders/services/admin-orders.service';
 import { MerchantOrdersService } from 'src/features/orders/services/merchant-orders.service';
-import { OrderStatus } from 'src/features/orders/services/order-core.service';
 import { pubSub } from 'src/pubsub';
+import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 
 describe('MerchantOrdersService and AdminOrdersService commands', () => {
   const createServices = () => {

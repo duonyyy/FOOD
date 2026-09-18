@@ -3,22 +3,18 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { Order } from 'src/entities/order.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import {
-  DeliveryOrderReaderPort,
+import { Repository } from 'typeorm';
+import type {
   DeliveryOrderSnapshot,
-} from 'src/features/delivery/contracts/delivery-order-reader.port';
-import {
-  DeliveryQuotePort,
   DeliveryQuoteRequest,
   DeliveryQuoteSnapshot,
-} from 'src/features/delivery/contracts/delivery-quote.port';
-import { Repository } from 'typeorm';
+} from '../../types/delivery-integration.types';
 
 /**
- * DeliveryIntegrationService implements read and quote ports for cross-module integration (Orders, Customer app).
+ * Delivery integration service used by Orders and Customer app through the Delivery public API.
  */
 @Injectable()
-export class DeliveryIntegrationService implements DeliveryOrderReaderPort, DeliveryQuotePort {
+export class DeliveryIntegrationService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,

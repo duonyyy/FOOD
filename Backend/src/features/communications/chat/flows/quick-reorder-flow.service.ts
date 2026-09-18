@@ -1,9 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { LOCATION_READER, type LocationReaderPort } from 'src/features/locations/public-api';
-import { CATALOG_CHAT_READER, type CatalogChatReaderPort } from 'src/features/menu/public-api';
+import { Injectable } from '@nestjs/common';
+import { AddressService } from 'src/features/locations/public-api';
+import { FoodIntegrationService } from 'src/features/menu/public-api';
 import {
-  CHAT_ORDERING,
-  type ChatOrderingPort,
+  ChatOrderingService,
   type ChatReorderOrder,
 } from 'src/features/orders/public-api';
 import { ChatMetadata, ChatReply } from '../types/chat.types';
@@ -11,12 +10,9 @@ import { ChatMetadata, ChatReply } from '../types/chat.types';
 @Injectable()
 export class QuickReorderFlowService {
   constructor(
-    @Inject(CHAT_ORDERING)
-    private readonly ordering: ChatOrderingPort,
-    @Inject(LOCATION_READER)
-    private readonly locationReader: LocationReaderPort,
-    @Inject(CATALOG_CHAT_READER)
-    private readonly catalogReader: CatalogChatReaderPort,
+    private readonly ordering: ChatOrderingService,
+    private readonly locationReader: AddressService,
+    private readonly catalogReader: FoodIntegrationService,
   ) {}
 
   isStartRequest(userMessage: string): boolean {

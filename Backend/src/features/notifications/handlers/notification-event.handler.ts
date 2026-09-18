@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { createHash } from 'crypto';
 import {
   DELIVERY_COMPLETED_EVENT,
@@ -18,10 +18,7 @@ import {
   PAYMENT_SUCCEEDED_EVENT,
   type PaymentSucceededEvent,
 } from 'src/common/events/payment-succeeded.event';
-import {
-  ORDER_NOTIFICATION_READER,
-  type OrderNotificationReaderPort,
-} from 'src/features/orders/public-api';
+import { OrderNotificationReaderAdapter } from 'src/features/orders/public-api';
 import { pubSub } from 'src/pubsub';
 import { NotificationDeadLetterService } from '../services/notification-dead-letter.service';
 import { NotificationService } from '../services/notification.service';
@@ -47,8 +44,7 @@ export class NotificationEventHandler implements OnModuleInit, OnModuleDestroy {
     private readonly eventBus: InProcessEventBus,
     private readonly notificationService: NotificationService,
     private readonly deadLetterService: NotificationDeadLetterService,
-    @Inject(ORDER_NOTIFICATION_READER)
-    private readonly orderNotificationReader: OrderNotificationReaderPort,
+    private readonly orderNotificationReader: OrderNotificationReaderAdapter,
   ) {}
 
   onModuleInit(): void {

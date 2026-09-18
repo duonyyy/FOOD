@@ -1,19 +1,14 @@
-export { CreateAddressDto, UpdateAddressDto } from './contracts/address-dto.contract';
 export {
   GEOCODING_PORT,
   type GeocodeAddressRequest,
   type GeocodingPort,
   type GeocodingSnapshot,
-} from './contracts/geocoding.port';
-export {
-  LOCATION_READER,
-  type AddressSnapshot,
-  type LocationReaderPort,
-  type TemporaryAddressSnapshot,
-} from './contracts/location-reader.port';
-export {
-  LOCATION_WRITER,
-  type CreateAddressPayload,
-  type LocationWriterPort,
-} from './contracts/location-writer.port';
+} from 'src/infra/mapbox/public-api';
+export { AddressService } from './addresses/address.service';
+export { CreateAddressDto, UpdateAddressDto } from './contracts/address-dto.contract';
 export { LocationsModule } from './locations.module';
+export type {
+  AddressSnapshot,
+  CreateAddressPayload,
+  TemporaryAddressSnapshot,
+} from './types/location.types';
