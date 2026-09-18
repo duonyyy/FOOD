@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { OrderAnalyticsReaderAdapter } from 'src/features/orders/public-api';
+import { OrderAnalyticsReaderAdapter } from 'src/features/orders/order-analytics-reader.public-api';
 import { AnalyticsProjectionService } from './analytics-projection.service';
 
 /** Explicit rebuild entry point for operational reconciliation, never an HTTP write endpoint. */

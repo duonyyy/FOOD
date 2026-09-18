@@ -72,6 +72,22 @@ describe('feature ownership boundaries', () => {
     expect(completion).not.toContain('orderRepository');
   });
 
+  it('keeps Analytics on a narrow Orders reader contract', () => {
+    const analyticsModule = source('src/features/analytics/analytics.module.ts');
+
+    expect(analyticsModule).toContain('order-analytics-reader.public-api');
+    expect(analyticsModule).toContain('OrderAnalyticsReaderModule');
+    expect(analyticsModule).not.toContain('OrdersModule');
+
+    for (const analyticsConsumer of [
+      'src/features/analytics/services/analytics-projection.service.ts',
+      'src/features/analytics/services/analytics-reconciliation.service.ts',
+    ]) {
+      expect(source(analyticsConsumer)).toContain('order-analytics-reader.public-api');
+      expect(source(analyticsConsumer)).not.toContain('src/features/orders/public-api');
+    }
+  });
+
   it('keeps Delivery assignment state changes out of the legacy Order transaction', () => {
     const shipperDelivery = source(
       'src/features/delivery/services/shipper/shipper-delivery.service.ts',

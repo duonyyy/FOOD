@@ -4,7 +4,7 @@ import { AnalyticsOrderMetric } from 'src/entities/analyticsOrderMetric.entity';
 import {
   OrderAnalyticsReaderAdapter,
   type OrderAnalyticsSnapshot,
-} from 'src/features/orders/public-api';
+} from 'src/features/orders/order-analytics-reader.public-api';
 import { Repository } from 'typeorm';
 
 @Injectable()

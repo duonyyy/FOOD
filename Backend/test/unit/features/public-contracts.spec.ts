@@ -18,6 +18,7 @@ import {
   type FoodPreview,
   type GetOrderableItemsRequest,
 } from 'src/features/menu/public-api';
+import { OrderAnalyticsReaderModule } from 'src/features/orders/order-analytics-reader.public-api';
 import {
   OrderTrackingReaderModule,
   OrderTrackingReaderService,
@@ -98,6 +99,21 @@ describe('feature public contracts', () => {
     expect(deliveryModule).not.toContain('OrdersModule');
     expect(deliveryController).toContain('order-tracking-reader.public-api');
     expect(deliveryController).toContain('OrderTrackingReaderService');
+  });
+
+  it('keeps Analytics on a narrow Orders reader without loading OrdersModule', () => {
+    const analyticsReaderExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      OrderAnalyticsReaderModule,
+    ) as unknown[];
+    const analyticsModule = readFileSync(
+      resolve(process.cwd(), 'src/features/analytics/analytics.module.ts'),
+      'utf8',
+    );
+
+    expect(analyticsReaderExports).toContain(OrderAnalyticsReaderAdapter);
+    expect(analyticsModule).toContain('OrderAnalyticsReaderModule');
+    expect(analyticsModule).not.toContain('OrdersModule');
   });
 
   it('keeps Menu read models independent from ORM entities', () => {

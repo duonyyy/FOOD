@@ -3,7 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventsModule } from 'src/common/events/events.module';
 import { AnalyticsOrderMetric } from 'src/entities/analyticsOrderMetric.entity';
-import { OrdersModule } from 'src/features/orders/public-api';
+import { OrderAnalyticsReaderModule } from 'src/features/orders/order-analytics-reader.public-api';
 import { IdentityModule } from 'src/features/users/public-api';
 import { DashboardController } from './controllers/dashboard.controller';
 import { AnalyticsProjectionHandler } from './handlers/analytics-projection.handler';
@@ -17,7 +17,7 @@ import { DashboardService } from './services/dashboard.service';
   imports: [
     TypeOrmModule.forFeature([AnalyticsOrderMetric]),
     EventsModule,
-    OrdersModule,
+    OrderAnalyticsReaderModule,
     IdentityModule,
     JwtModule,
   ],
