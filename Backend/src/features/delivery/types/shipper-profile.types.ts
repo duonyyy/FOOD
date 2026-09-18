@@ -13,7 +13,7 @@ export interface CreateShipperProfileCommand {
   driverLicense?: string;
 }
 
-export interface ShipperProfileSnapshot {
+export interface ShipperProfileView {
   userId: string;
   cccd: string | null;
   driverLicense: string | null;

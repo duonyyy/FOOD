@@ -14,8 +14,8 @@ export { ReviewsModule } from './reviews.module';
 export { CustomerReviewsService, ReviewService } from './services/customer-reviews.service';
 export { OrderReviewReaderService } from './services/order-review-reader.service';
 export type {
-  OrderFoodReviewSnapshot,
+  OrderFoodReview,
   OrderReviewSummary,
   OrderReviewSummaryRequest,
-  OrderShipperReviewSnapshot,
+  OrderShipperReview,
 } from './types/order-review-reader.types';

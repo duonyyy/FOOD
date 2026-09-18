@@ -8,12 +8,12 @@ export { MerchantFoodService } from './foods/services/merchant-food.service';
 export { MenuModule } from './menu.module';
 export { ToppingCommandService } from './toppings/topping-command.service';
 export { ToppingModule } from './toppings/topping.module';
-export type { CatalogChatFoodSnapshot } from './types/catalog-chat.types';
-export type { CategorySnapshot } from './types/category.types';
-export type { FoodPreviewSnapshot } from './types/food-discovery.types';
+export type { CatalogChatFood } from './types/catalog-chat.types';
+export type { CategorySummary } from './types/category.types';
+export type { FoodPreview } from './types/food-discovery.types';
 export type {
   GetOrderableItemsRequest,
-  OrderableItemSnapshot,
-  OrderableToppingSnapshot,
+  OrderableMenuItem,
+  OrderableTopping,
   RequestedMenuItem,
 } from './types/menu.types';

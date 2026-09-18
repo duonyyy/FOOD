@@ -1,10 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from 'src/entities/order.entity';
 import { Repository } from 'typeorm';
-import type { OrderMessagingSnapshot } from '../types/order-messaging.types';
+import type {
+  AssertCustomerCanChatWithShipperRequest,
+  CustomerShipperChatPartner,
+} from '../types/order-messaging.types';
 
-/** Read-only order projection used by Communications to authorize conversations. */
+/** Orders-owned authorization and minimal partner lookup for Communications. */
 @Injectable()
 export class OrderMessagingReaderService {
   constructor(
@@ -12,18 +15,29 @@ export class OrderMessagingReaderService {
     private readonly orderRepository: Repository<Order>,
   ) {}
 
-  async findOrderForMessaging(orderId: string): Promise<OrderMessagingSnapshot | null> {
+  async assertCustomerCanChatWithShipper(
+    request: AssertCustomerCanChatWithShipperRequest,
+  ): Promise<void> {
     const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['user', 'shippingDetail', 'shippingDetail.shipper'],
+      where: { id: request.orderId, user: { id: request.customerId } },
+      relations: ['shippingDetail', 'shippingDetail.shipper'],
     });
-    return order?.user ? this.toSnapshot(order) : null;
+    if (!order) {
+      throw new NotFoundException('Order not found or does not belong to you');
+    }
+    if (order.shippingDetail?.shipper?.id !== request.shipperId) {
+      throw new ForbiddenException('You can only chat with the shipper assigned to your order');
+    }
+    if (!this.isShipperMessagingAllowedStatus(order.status)) {
+      throw new ForbiddenException(
+        'You can only chat with shipper when order is confirmed or being delivered',
+      );
+    }
   }
 
-  async listCustomerShipperChatPartners(customerId: string): Promise<OrderMessagingSnapshot[]> {
+  async listCustomerShipperChatPartners(customerId: string): Promise<CustomerShipperChatPartner[]> {
     const orders = await this.orderRepository
       .createQueryBuilder('order')
-      .leftJoinAndSelect('order.user', 'customer')
       .leftJoinAndSelect('order.shippingDetail', 'shippingDetail')
       .leftJoinAndSelect('shippingDetail.shipper', 'shipper')
       .where('order.user_id = :customerId', { customerId })
@@ -33,15 +47,28 @@ export class OrderMessagingReaderService {
       })
       .getMany();
 
-    return orders.filter((order) => Boolean(order.user)).map((order) => this.toSnapshot(order));
+    return orders.flatMap((order) => this.toCustomerShipperChatPartner(order));
   }
 
-  private toSnapshot(order: Order): OrderMessagingSnapshot {
-    return {
-      orderId: order.id,
-      customerId: order.user.id,
-      status: order.status,
-      shipperId: order.shippingDetail?.shipper?.id ?? null,
-    };
+  async isOrderOpenForShipperMessaging(orderId: string): Promise<boolean> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    return !order || this.isShipperMessagingAllowedStatus(order.status);
+  }
+
+  private toCustomerShipperChatPartner(order: Order): CustomerShipperChatPartner[] {
+    const shipperId = order.shippingDetail?.shipper?.id;
+    return shipperId
+      ? [
+          {
+            orderId: order.id,
+            status: order.status,
+            shipperId,
+          },
+        ]
+      : [];
+  }
+
+  private isShipperMessagingAllowedStatus(status: string): boolean {
+    return ['confirmed', 'delivering', 'completed'].includes(status);
   }
 }

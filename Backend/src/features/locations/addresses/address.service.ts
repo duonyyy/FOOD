@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Address } from 'src/entities/address.entity';
 import { LessThan, Repository } from 'typeorm';
 import {
-  type AddressSnapshot,
+  type DeliveryAddress,
   type CreateAddressPayload,
-  type TemporaryAddressSnapshot,
+  type TemporaryDeliveryAddress,
 } from '../types/location.types';
 import { toAddressResponse } from './address.mapper';
 import { AddressResponseDto } from './dto/address-response.dto';
@@ -135,28 +135,28 @@ export class AddressService {
     return this.deleteAddress(id);
   }
 
-  async findAddress(addressId: string): Promise<AddressSnapshot | null> {
+  async findAddress(addressId: string): Promise<DeliveryAddress | null> {
     const address = await this.addressRepository.findOne({ where: { id: addressId } });
-    return address ? this.toSnapshot(address) : null;
+    return address ? this.toDeliveryAddress(address) : null;
   }
 
-  async findOwnedAddress(addressId: string, ownerUserId: string): Promise<AddressSnapshot | null> {
+  async findOwnedAddress(addressId: string, ownerUserId: string): Promise<DeliveryAddress | null> {
     const address = await this.addressRepository.findOne({
       where: { id: addressId, user: { id: ownerUserId } },
     });
-    return address ? this.toSnapshot(address) : null;
+    return address ? this.toDeliveryAddress(address) : null;
   }
 
-  async findTemporaryAddress(addressId: string): Promise<TemporaryAddressSnapshot | null> {
-    const snapshot = await this.findAddress(addressId);
-    return snapshot?.isTemporary ? { ...snapshot, isTemporary: true } : null;
+  async findTemporaryAddress(addressId: string): Promise<TemporaryDeliveryAddress | null> {
+    const address = await this.findAddress(addressId);
+    return address?.isTemporary ? { ...address, isTemporary: true } : null;
   }
 
-  async listOwnedAddresses(ownerUserId: string): Promise<AddressSnapshot[]> {
+  async listOwnedAddresses(ownerUserId: string): Promise<DeliveryAddress[]> {
     const addresses = await this.addressRepository.find({
       where: { user: { id: ownerUserId } },
     });
-    return addresses.map((address) => this.toSnapshot(address));
+    return addresses.map((address) => this.toDeliveryAddress(address));
   }
 
   private async loadAddress(id: string): Promise<Address> {
@@ -203,7 +203,7 @@ export class AddressService {
     };
   }
 
-  private toSnapshot(address: Address): AddressSnapshot {
+  private toDeliveryAddress(address: Address): DeliveryAddress {
     return {
       addressId: address.id,
       street: address.street,

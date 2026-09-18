@@ -18,7 +18,7 @@ export interface CreateChatOrderRequest {
   items: Array<{ foodId: string; quantity: number }>;
 }
 
-export interface CreatedChatOrderSnapshot {
+export interface CreatedChatOrder {
   orderId: string;
   total: number;
   status: string;

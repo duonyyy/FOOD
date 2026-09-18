@@ -3,6 +3,6 @@ export { ShipperProfileModule } from './shipper-profile.module';
 export {
   SHIPPER_PROFILE_STATUS,
   type CreateShipperProfileCommand,
-  type ShipperProfileSnapshot,
+  type ShipperProfileView,
   type ShipperProfileStatus,
 } from './types/shipper-profile.types';

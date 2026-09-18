@@ -4,7 +4,7 @@ import { estimateDeliveryTime, haversineDistance } from 'src/common/utils/geo.ut
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import {
   FoodIntegrationService,
-  type FoodPreviewSnapshot,
+  type FoodPreview,
 } from 'src/features/menu/public-api';
 import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
@@ -76,7 +76,7 @@ export class RestaurantDiscoveryService {
     restaurantId: string,
     page = 1,
     pageSize = 3,
-  ): Promise<FoodPreviewSnapshot[]> {
+  ): Promise<FoodPreview[]> {
     await this.findOne(restaurantId);
     const cacheKey = this.cacheKey('restaurant:foods', { restaurantId, page, pageSize });
     return this.cache.remember(cacheKey, RESTAURANT_CACHE_TTL_SECONDS, () =>

@@ -5,11 +5,11 @@ export interface OrderReviewSummaryRequest {
 }
 
 export interface OrderReviewSummary {
-  foodReviews: readonly OrderFoodReviewSnapshot[];
-  shipperReview: OrderShipperReviewSnapshot | null;
+  foodReviews: readonly OrderFoodReview[];
+  shipperReview: OrderShipperReview | null;
 }
 
-export interface OrderFoodReviewSnapshot {
+export interface OrderFoodReview {
   id: string;
   foodId: string;
   rating: number;
@@ -17,7 +17,7 @@ export interface OrderFoodReviewSnapshot {
   createdAt: Date;
 }
 
-export interface OrderShipperReviewSnapshot {
+export interface OrderShipperReview {
   id: string;
   rating: number;
   comment: string;

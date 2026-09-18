@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as moment from 'moment';
 import { User } from 'src/entities/user.entity';
 import { In, Repository } from 'typeorm';
-import { type IdentityUserSnapshot } from '../types/identity.types';
+import { type UserIdentity } from '../types/identity.types';
 import { IdentityUserListItemDto, IdentityUserResponseDto } from './dto/identity-user-response.dto';
 import { toIdentityUserListItem, toIdentityUserResponse } from './identity-user.mapper';
 
@@ -39,12 +39,12 @@ export class IdentityUserQueryService {
     return users.map((user) => toIdentityUserListItem(user, this.toStatus(user)));
   }
 
-  async findIdentityUser(userId: string): Promise<IdentityUserSnapshot | null> {
+  async findIdentityUser(userId: string): Promise<UserIdentity | null> {
     const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['role'] });
-    return user ? this.toIdentitySnapshot(user) : null;
+    return user ? this.toUserIdentity(user) : null;
   }
 
-  async findIdentityUsers(userIds: readonly string[]): Promise<IdentityUserSnapshot[]> {
+  async findIdentityUsers(userIds: readonly string[]): Promise<UserIdentity[]> {
     const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
     if (uniqueUserIds.length === 0) {
       return [];
@@ -54,7 +54,7 @@ export class IdentityUserQueryService {
       where: { id: In(uniqueUserIds) },
       relations: ['role'],
     });
-    return users.map((user) => this.toIdentitySnapshot(user));
+    return users.map((user) => this.toUserIdentity(user));
   }
 
   private async requireUser(userId: string): Promise<User> {
@@ -74,7 +74,7 @@ export class IdentityUserQueryService {
     return daysAgo > 0 ? `${daysAgo} days ago` : 'Active';
   }
 
-  private toIdentitySnapshot(user: User): IdentityUserSnapshot {
+  private toUserIdentity(user: User): UserIdentity {
     return {
       userId: user.id,
       username: user.username,

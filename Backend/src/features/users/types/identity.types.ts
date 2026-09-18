@@ -1,4 +1,4 @@
-export interface IdentityUserSnapshot {
+export interface UserIdentity {
   userId: string;
   username: string;
   name: string | null;

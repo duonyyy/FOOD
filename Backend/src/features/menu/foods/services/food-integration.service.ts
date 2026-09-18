@@ -2,17 +2,17 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Food } from 'src/entities/food.entity';
 import { Repository } from 'typeorm';
-import { type CatalogChatFoodSnapshot } from '../../types/catalog-chat.types';
-import { type FoodPreviewSnapshot } from '../../types/food-discovery.types';
+import { type CatalogChatFood } from '../../types/catalog-chat.types';
+import { type FoodPreview } from '../../types/food-discovery.types';
 import {
   type GetOrderableItemsRequest,
-  type OrderableItemSnapshot,
-  type OrderableToppingSnapshot,
+  type OrderableMenuItem,
+  type OrderableTopping,
 } from '../../types/menu.types';
 
 /**
  * Service tích hợp liên module (Inter-module Integration):
- * Cung cấp Snapshot dữ liệu món ăn an toàn cho các Bounded Context khác:
+ * Cung cấp dữ liệu món ăn tối thiểu, an toàn cho các feature khác:
  * - Orders
  * - AI Chatbot
  * - Reviews
@@ -31,7 +31,7 @@ export class FoodIntegrationService {
     restaurantId: string,
     page: number,
     pageSize: number,
-  ): Promise<FoodPreviewSnapshot[]> {
+  ): Promise<FoodPreview[]> {
     const foods = await this.foodRepository.find({
       where: { restaurant: { id: restaurantId }, status: 'available' },
       order: { soldCount: 'DESC' },
@@ -51,20 +51,20 @@ export class FoodIntegrationService {
 
   // --- 2. Catalog chat (Hỗ trợ AI Chatbot gợi ý món ăn) ---
 
-  async listAvailableFoods(): Promise<CatalogChatFoodSnapshot[]> {
+  async listAvailableFoods(): Promise<CatalogChatFood[]> {
     const foods = await this.foodRepository.find({
       where: { status: 'available' },
       relations: ['restaurant'],
       order: { name: 'ASC' },
     });
 
-    return foods.flatMap((food) => this.toChatSnapshot(food));
+    return foods.flatMap((food) => this.toCatalogChatFoods(food));
   }
 
   async findAvailableFood(
     foodId: string,
     restaurantId?: string,
-  ): Promise<CatalogChatFoodSnapshot | null> {
+  ): Promise<CatalogChatFood | null> {
     const food = await this.foodRepository.findOne({
       where: {
         id: foodId,
@@ -74,10 +74,10 @@ export class FoodIntegrationService {
       relations: ['restaurant'],
     });
 
-    return food ? (this.toChatSnapshot(food)[0] ?? null) : null;
+    return food ? (this.toCatalogChatFoods(food)[0] ?? null) : null;
   }
 
-  private toChatSnapshot(food: Food): CatalogChatFoodSnapshot[] {
+  private toCatalogChatFoods(food: Food): CatalogChatFood[] {
     if (!food.restaurant?.id || String(food.restaurant.status) !== 'approved') {
       return [];
     }
@@ -109,16 +109,16 @@ export class FoodIntegrationService {
 
   // --- 4. Orderable menu (Xác thực thông tin và topping khi tạo đơn hàng) ---
 
-  async getOrderableItems(request: GetOrderableItemsRequest): Promise<OrderableItemSnapshot[]> {
+  async getOrderableItems(request: GetOrderableItemsRequest): Promise<OrderableMenuItem[]> {
     return Promise.all(
-      request.items.map((item) => this.toOrderableSnapshot(item.foodId, item.toppingIds ?? [])),
+      request.items.map((item) => this.toOrderableMenuItem(item.foodId, item.toppingIds ?? [])),
     );
   }
 
-  private async toOrderableSnapshot(
+  private async toOrderableMenuItem(
     foodId: string,
     toppingIds: string[],
-  ): Promise<OrderableItemSnapshot> {
+  ): Promise<OrderableMenuItem> {
     const food = await this.foodRepository.findOne({
       where: { id: foodId },
       relations: ['restaurant', 'toppings'],
@@ -126,7 +126,7 @@ export class FoodIntegrationService {
     if (!food?.restaurant) throw new NotFoundException(`Food with ID ${foodId} not found`);
 
     const toppingsById = new Map((food.toppings ?? []).map((topping) => [topping.id, topping]));
-    const toppings: OrderableToppingSnapshot[] = toppingIds.map((toppingId) => {
+    const toppings: OrderableTopping[] = toppingIds.map((toppingId) => {
       const topping = toppingsById.get(toppingId);
       if (!topping) {
         throw new BadRequestException(`Topping ${toppingId} is not attached to food ${foodId}`);

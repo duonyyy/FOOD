@@ -111,21 +111,21 @@ export class OrderStateMachine {
 // 2. ORDER PRICING SERVICE
 // ==========================================
 
-export interface OrderPricingToppingSnapshot {
+export interface OrderPricingTopping {
   readonly id: string;
   readonly unitPrice: number;
 }
 
-export interface OrderPricingItemSnapshot {
+export interface OrderPricingItem {
   readonly foodId: string;
   readonly unitPrice: number;
   readonly discountPercent: number;
   readonly quantity: number;
-  readonly toppings: readonly OrderPricingToppingSnapshot[];
+  readonly toppings: readonly OrderPricingTopping[];
 }
 
 export interface OrderPricingInput {
-  readonly items: readonly OrderPricingItemSnapshot[];
+  readonly items: readonly OrderPricingItem[];
   readonly shippingFee: number;
   readonly promotionDiscount: number;
 }

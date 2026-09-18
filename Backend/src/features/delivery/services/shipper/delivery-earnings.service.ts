@@ -9,7 +9,7 @@ import { DeliveryEarningsEvent } from 'src/entities/deliveryEarningsEvent.entity
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { EntityManager, Repository } from 'typeorm';
 
-export interface DeliveryEarningsProjectionSnapshot {
+export interface DeliveryEarningsProjection {
   shipperId: string;
   completedDeliveries: number;
   totalEarnings: number;
@@ -82,7 +82,7 @@ export class DeliveryEarningsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async rebuild(shipperId: string): Promise<DeliveryEarningsProjectionSnapshot> {
+  async rebuild(shipperId: string): Promise<DeliveryEarningsProjection> {
     return this.eventRepository.manager.transaction((manager) =>
       this.rebuildProfile(manager, shipperId),
     );
@@ -99,7 +99,7 @@ export class DeliveryEarningsService implements OnModuleInit, OnModuleDestroy {
   private async rebuildProfile(
     manager: EntityManager,
     shipperId: string,
-  ): Promise<DeliveryEarningsProjectionSnapshot> {
+  ): Promise<DeliveryEarningsProjection> {
     const eventRepository = manager.getRepository(DeliveryEarningsEvent);
     const profileRepository = manager.getRepository(ShipperProfile);
     const entries = await eventRepository.find({ where: { shipperId } });

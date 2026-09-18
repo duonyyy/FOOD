@@ -7,7 +7,7 @@ export interface RequestedMenuItem {
   toppingIds: string[];
 }
 
-export interface OrderableItemSnapshot {
+export interface OrderableMenuItem {
   readonly foodId: string;
   readonly restaurantId: string;
   readonly name: string;
@@ -15,10 +15,10 @@ export interface OrderableItemSnapshot {
   readonly discountPercent: number;
   readonly status: string | null;
   readonly isAvailable: boolean;
-  readonly toppings: readonly OrderableToppingSnapshot[];
+  readonly toppings: readonly OrderableTopping[];
 }
 
-export interface OrderableToppingSnapshot {
+export interface OrderableTopping {
   readonly toppingId: string;
   readonly name: string;
   readonly unitPrice: number;

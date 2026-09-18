@@ -13,9 +13,9 @@ import {
   CategoryService,
   FoodIntegrationService,
   MenuModule,
-  type CatalogChatFoodSnapshot,
-  type CategorySnapshot,
-  type FoodPreviewSnapshot,
+  type CatalogChatFood,
+  type CategorySummary,
+  type FoodPreview,
   type GetOrderableItemsRequest,
 } from 'src/features/menu/public-api';
 import {
@@ -100,11 +100,11 @@ describe('feature public contracts', () => {
     expect(deliveryController).toContain('OrderTrackingReaderService');
   });
 
-  it('keeps Menu snapshots independent from ORM entities', () => {
+  it('keeps Menu read models independent from ORM entities', () => {
     const menuRequest: GetOrderableItemsRequest = {
       items: [{ foodId: 'food-id', toppingIds: [] }],
     };
-    const catalogFood: CatalogChatFoodSnapshot = {
+    const catalogFood: CatalogChatFood = {
       foodId: 'food-id',
       restaurantId: 'restaurant-id',
       restaurantName: 'Restaurant',
@@ -113,7 +113,7 @@ describe('feature public contracts', () => {
       image: null,
       price: 10_000,
     };
-    const foodPreview: FoodPreviewSnapshot = {
+    const foodPreview: FoodPreview = {
       foodId: 'food-id',
       name: 'Food',
       image: null,
@@ -121,7 +121,7 @@ describe('feature public contracts', () => {
       rating: null,
       soldCount: null,
     };
-    const categorySnapshot: CategorySnapshot = {
+    const categorySummary: CategorySummary = {
       categoryId: 'category-id',
       name: 'Main course',
       image: null,
@@ -132,7 +132,7 @@ describe('feature public contracts', () => {
     expect(catalogFood).toBeDefined();
     expect(foodPreview).toBeDefined();
     expect(CategoryService).toBeDefined();
-    expect(categorySnapshot).toBeDefined();
+    expect(categorySummary).toBeDefined();
     const categoryTypes = readFileSync(
       resolve(process.cwd(), 'src/features/menu/types/category.types.ts'),
       'utf8',

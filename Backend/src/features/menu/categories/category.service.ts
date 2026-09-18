@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Category } from 'src/entities/category.entity';
 import { CACHE_PORT, type CachePort } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
-import { type CategorySnapshot } from '../types/category.types';
+import { type CategorySummary } from '../types/category.types';
 import { toCategoryResponse } from './category.mapper';
 import { CategoryListResponseDto, CategoryResponseDto } from './dto/category-response.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -69,7 +69,7 @@ export class CategoryService {
     });
   }
 
-  async findCategoryById(categoryId: string): Promise<CategorySnapshot | null> {
+  async findCategoryById(categoryId: string): Promise<CategorySummary | null> {
     const category = await this.findCategoryResponse(categoryId);
 
     return category

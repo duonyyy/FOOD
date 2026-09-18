@@ -1,17 +1,16 @@
-export interface ActiveRestaurantSnapshot {
+export interface RestaurantForOrder {
   restaurantId: string;
   ownerId: string;
-  name: string;
   isActive: boolean;
-  location: RestaurantLocationSnapshot | null;
+  location: RestaurantDeliveryLocation | null;
 }
 
-export interface RestaurantLocationSnapshot {
+export interface RestaurantDeliveryLocation {
   latitude: number | null;
   longitude: number | null;
 }
 
-export interface MessagingRestaurantSnapshot {
+export interface MessagingRestaurant {
   restaurantId: string;
   ownerId: string;
   name: string;

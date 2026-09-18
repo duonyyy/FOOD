@@ -9,7 +9,7 @@ import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { AddressService } from 'src/features/locations/public-api';
 import {
   FoodIntegrationService,
-  type OrderableItemSnapshot,
+  type OrderableMenuItem,
 } from 'src/features/menu/public-api';
 import { PromotionRedemptionService, PromotionService } from 'src/features/promotions/public-api';
 import { RestaurantReaderService } from 'src/features/restaurants/public-api';
@@ -24,7 +24,7 @@ import {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
   OrderCoreService,
-  OrderPricingItemSnapshot,
+  OrderPricingItem,
   OrderPricingService,
   OrderStateMachine,
 } from './order-core.service';
@@ -670,7 +670,7 @@ export class CustomerOrdersService {
   private async getPricingItems(
     items: readonly { foodId: string; quantity: number; toppingIds: readonly string[] }[],
     restaurantId: string,
-  ): Promise<OrderPricingItemSnapshot[]> {
+  ): Promise<OrderPricingItem[]> {
     const menuItems = await this.getOrderableItems(items, restaurantId);
     return menuItems.map((item, index) => ({
       foodId: item.foodId,
@@ -687,7 +687,7 @@ export class CustomerOrdersService {
   private async getOrderableItems(
     items: readonly { foodId: string; quantity: number; toppingIds: readonly string[] }[],
     restaurantId: string,
-  ): Promise<OrderableItemSnapshot[]> {
+  ): Promise<OrderableMenuItem[]> {
     const menuItems = await this.menuReader.getOrderableItems({
       items: items.map((item) => ({
         foodId: item.foodId,

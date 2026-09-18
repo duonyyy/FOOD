@@ -13,16 +13,16 @@ export interface DeliveryOrderSnapshot {
 
 export interface DeliveryQuoteRequest {
   restaurantId: string;
-  origin: CoordinateSnapshot;
-  destination: CoordinateSnapshot;
+  origin: Coordinates;
+  destination: Coordinates;
 }
 
-export interface CoordinateSnapshot {
+export interface Coordinates {
   latitude: number;
   longitude: number;
 }
 
-export interface DeliveryQuoteSnapshot {
+export interface DeliveryQuote {
   distanceKilometers: number;
   deliveryFee: number;
   estimatedMinutes: number | null;

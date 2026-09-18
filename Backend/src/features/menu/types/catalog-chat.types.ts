@@ -1,4 +1,4 @@
-export interface CatalogChatFoodSnapshot {
+export interface CatalogChatFood {
   foodId: string;
   restaurantId: string;
   restaurantName: string;

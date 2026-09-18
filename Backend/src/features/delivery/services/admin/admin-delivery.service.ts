@@ -8,7 +8,7 @@ import {
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import {
   IdentityUserQueryService,
-  type IdentityUserSnapshot,
+  type UserIdentity,
 } from 'src/features/users/public-api';
 import { Repository } from 'typeorm';
 import { ShipperProfileService } from '../shipper/shipper-profile.service';
@@ -127,7 +127,7 @@ export class AdminDeliveryService {
 
   private toShipperListItem(
     profile: Awaited<ReturnType<ShipperProfileService['findByStatus']>>[number],
-    user: IdentityUserSnapshot,
+    user: UserIdentity,
   ) {
     return {
       id: profile.userId,
@@ -137,7 +137,7 @@ export class AdminDeliveryService {
     };
   }
 
-  private toIdentityProjection(user: IdentityUserSnapshot) {
+  private toIdentityProjection(user: UserIdentity) {
     return {
       id: user.userId,
       username: user.username,

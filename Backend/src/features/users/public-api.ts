@@ -4,5 +4,5 @@ export {
   type CurrentActor as CurrentActorData,
 } from './contracts/current-actor.decorator';
 export { IdentityModule } from './identity.module';
-export type { IdentityUserSnapshot } from './types/identity.types';
+export type { UserIdentity } from './types/identity.types';
 export { IdentityUserQueryService } from './users/identity-user-query.service';

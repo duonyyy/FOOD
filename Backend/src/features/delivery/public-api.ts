@@ -26,7 +26,7 @@ export { DeliveryModule } from './delivery.module';
 export { AdminDeliveryService } from './services/admin/admin-delivery.service';
 export {
   ActiveShipperTrackerService,
-  type ActiveShipperSnapshot,
+  type ActiveShipperState,
 } from './services/dispatch/active-shipper-tracker.service';
 export { DeliveryAssignmentCommandService } from './services/dispatch/delivery-assignment-command.service';
 export {
@@ -38,21 +38,21 @@ export { DeliveryIntegrationService } from './services/integration/delivery-inte
 export {
   DeliveryEarningsProjectionService,
   DeliveryEarningsService,
-  type DeliveryEarningsProjectionSnapshot,
+  type DeliveryEarningsProjection,
 } from './services/shipper/delivery-earnings.service';
 export { DeliveryReportService } from './services/shipper/delivery-report.service';
 export { ShipperDeliveryService } from './services/shipper/shipper-delivery.service';
 export { ShipperProfileService } from './services/shipper/shipper-profile.service';
 export { ShipperService } from './services/shipper/shipper.service';
 export type {
-  CoordinateSnapshot,
+  Coordinates,
   DeliveryOrderSnapshot,
   DeliveryQuoteRequest,
-  DeliveryQuoteSnapshot,
+  DeliveryQuote,
 } from './types/delivery-integration.types';
 export {
   SHIPPER_PROFILE_STATUS,
   type CreateShipperProfileCommand,
-  type ShipperProfileSnapshot,
+  type ShipperProfileView,
   type ShipperProfileStatus,
 } from './types/shipper-profile.types';

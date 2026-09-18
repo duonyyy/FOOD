@@ -3,8 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { Repository } from 'typeorm';
 import {
-  type ActiveRestaurantSnapshot,
-  type MessagingRestaurantSnapshot,
+  type MessagingRestaurant,
+  type RestaurantForOrder,
 } from '../types/restaurant-reader.types';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class RestaurantReaderService {
     private readonly restaurantRepository: Repository<Restaurant>,
   ) {}
 
-  async findActiveRestaurant(restaurantId: string): Promise<ActiveRestaurantSnapshot | null> {
+  async findActiveRestaurant(restaurantId: string): Promise<RestaurantForOrder | null> {
     const restaurant = await this.restaurantRepository.findOne({
       where: { id: restaurantId, status: RestaurantStatus.APPROVED },
       relations: ['owner', 'address'],
@@ -25,7 +25,6 @@ export class RestaurantReaderService {
     return {
       restaurantId: restaurant.id,
       ownerId: restaurant.owner.id,
-      name: restaurant.name ?? '',
       isActive: true,
       location: this.toLocation(restaurant),
     };
@@ -33,25 +32,25 @@ export class RestaurantReaderService {
 
   async findRestaurantForMessaging(
     restaurantId: string,
-  ): Promise<MessagingRestaurantSnapshot | null> {
+  ): Promise<MessagingRestaurant | null> {
     const restaurant = await this.restaurantRepository.findOne({
       where: { id: restaurantId },
       relations: ['owner'],
     });
-    return restaurant?.owner ? this.toMessagingSnapshot(restaurant) : null;
+    return restaurant?.owner ? this.toMessagingRestaurant(restaurant) : null;
   }
 
-  async listActiveRestaurantsForMessaging(): Promise<MessagingRestaurantSnapshot[]> {
+  async listActiveRestaurantsForMessaging(): Promise<MessagingRestaurant[]> {
     const restaurants = await this.restaurantRepository.find({
       where: { status: RestaurantStatus.APPROVED },
       relations: ['owner'],
     });
     return restaurants
       .filter((restaurant) => Boolean(restaurant.owner))
-      .map((restaurant) => this.toMessagingSnapshot(restaurant));
+      .map((restaurant) => this.toMessagingRestaurant(restaurant));
   }
 
-  private toMessagingSnapshot(restaurant: Restaurant): MessagingRestaurantSnapshot {
+  private toMessagingRestaurant(restaurant: Restaurant): MessagingRestaurant {
     return {
       restaurantId: restaurant.id,
       ownerId: restaurant.owner.id,
@@ -60,7 +59,7 @@ export class RestaurantReaderService {
     };
   }
 
-  private toLocation(restaurant: Restaurant): ActiveRestaurantSnapshot['location'] {
+  private toLocation(restaurant: Restaurant): RestaurantForOrder['location'] {
     const latitude = restaurant.address?.latitude ?? restaurant.latitude;
     const longitude = restaurant.address?.longitude ?? restaurant.longitude;
     return latitude != null && longitude != null

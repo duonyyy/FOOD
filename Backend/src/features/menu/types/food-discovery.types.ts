@@ -1,4 +1,4 @@
-export interface FoodPreviewSnapshot {
+export interface FoodPreview {
   foodId: string;
   name: string | null;
   image: string | null;

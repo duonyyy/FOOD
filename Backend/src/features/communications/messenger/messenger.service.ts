@@ -15,10 +15,7 @@ import { Conversation, ConversationType } from 'src/entities/conversation.entity
 import { Message } from 'src/entities/message.entity';
 import { OrderMessagingReaderService } from 'src/features/orders/public-api';
 import { RestaurantReaderService } from 'src/features/restaurants/public-api';
-import {
-  IdentityUserQueryService,
-  type IdentityUserSnapshot,
-} from 'src/features/users/public-api';
+import { IdentityUserQueryService, type UserIdentity } from 'src/features/users/public-api';
 import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -157,25 +154,11 @@ export class MessengerService {
       throw new BadRequestException('Order ID is required for shipper conversations');
     }
 
-    // Check if order exists and belongs to the user
-    const order = await this.orderMessagingReader.findOrderForMessaging(orderId);
-
-    if (!order || order.customerId !== userId) {
-      throw new NotFoundException('Order not found or does not belong to you');
-    }
-
-    // Check if order has been assigned to the shipper
-    if (order.shipperId !== shipperId) {
-      throw new ForbiddenException('You can only chat with the shipper assigned to your order');
-    }
-
-    // Check if order is in a state where communication is allowed
-    const allowedStatuses = ['confirmed', 'delivering', 'completed'];
-    if (!allowedStatuses.includes(order.status)) {
-      throw new ForbiddenException(
-        'You can only chat with shipper when order is confirmed or being delivered',
-      );
-    }
+    await this.orderMessagingReader.assertCustomerCanChatWithShipper({
+      orderId,
+      customerId: userId,
+      shipperId,
+    });
   }
 
   /**
@@ -223,7 +206,7 @@ export class MessengerService {
     // Get shippers from user's orders that are assigned and in progress
     const partners = await this.identityReader.findIdentityUsers([
       ...restaurants.map((restaurant) => restaurant.ownerId),
-      ...orders.flatMap((order) => (order.shipperId ? [order.shipperId] : [])),
+      ...orders.map((order) => order.shipperId),
     ]);
     const partnersById = new Map(partners.map((partner) => [partner.userId, partner]));
 
@@ -240,7 +223,7 @@ export class MessengerService {
           : [];
       }),
       shippers: orders.flatMap((order) => {
-        const shipper = order.shipperId ? partnersById.get(order.shipperId) : null;
+        const shipper = partnersById.get(order.shipperId);
         return shipper
           ? [
               {
@@ -287,9 +270,11 @@ export class MessengerService {
       conversation.conversationType === ConversationType.CUSTOMER_SHIPPER &&
       conversation.orderId
     ) {
-      const order = await this.orderMessagingReader.findOrderForMessaging(conversation.orderId);
+      const isOrderOpen = await this.orderMessagingReader.isOrderOpenForShipperMessaging(
+        conversation.orderId,
+      );
 
-      if (order && !['confirmed', 'delivering', 'completed'].includes(order.status)) {
+      if (!isOrderOpen) {
         throw new ForbiddenException('Cannot send messages for orders that are not active');
       }
     }
@@ -563,7 +548,7 @@ export class MessengerService {
     return { id: userId } as Conversation['participant1'];
   }
 
-  private toMessagingParticipant(user: IdentityUserSnapshot): MessagingParticipant {
+  private toMessagingParticipant(user: UserIdentity): MessagingParticipant {
     return {
       id: user.userId,
       username: user.username,

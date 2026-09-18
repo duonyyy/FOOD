@@ -32,9 +32,9 @@ export {
   type OrderItemSnapshot,
   type OrderItemToppingSnapshot,
   type OrderPricingInput,
-  type OrderPricingItemSnapshot,
+  type OrderPricingItem,
   type OrderPricingResult,
-  type OrderPricingToppingSnapshot,
+  type OrderPricingTopping,
 } from './services/order-core.service';
 export { OrderService } from './services/order.service';
 export {
@@ -46,8 +46,11 @@ export { OrderMessagingReaderService } from './services/order-messaging-reader.s
 export type {
   ChatReorderOrder,
   CreateChatOrderRequest,
-  CreatedChatOrderSnapshot,
+  CreatedChatOrder,
 } from './types/chat-ordering.types';
 export type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from './types/order-analytics.types';
-export type { OrderMessagingSnapshot } from './types/order-messaging.types';
+export type {
+  AssertCustomerCanChatWithShipperRequest,
+  CustomerShipperChatPartner,
+} from './types/order-messaging.types';
 export type { OrderNotificationRecipient } from './types/order-notification.types';

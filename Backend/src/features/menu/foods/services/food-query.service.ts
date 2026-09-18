@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { Food } from 'src/entities/food.entity';
-import { type CatalogChatFoodSnapshot } from '../../types/catalog-chat.types';
-import { type FoodPreviewSnapshot } from '../../types/food-discovery.types';
+import { type CatalogChatFood } from '../../types/catalog-chat.types';
+import { type FoodPreview } from '../../types/food-discovery.types';
 import {
   type GetOrderableItemsRequest,
-  type OrderableItemSnapshot,
-  type OrderableToppingSnapshot,
+  type OrderableMenuItem,
+  type OrderableTopping,
 } from '../../types/menu.types';
 import {
   CustomerFoodService,
@@ -110,7 +110,7 @@ export class FoodQueryService extends CustomerFoodService {
     restaurantId: string,
     page: number,
     pageSize: number,
-  ): Promise<FoodPreviewSnapshot[]> {
+  ): Promise<FoodPreview[]> {
     const foods = await this.foodRepository.find({
       where: { restaurant: { id: restaurantId }, status: 'available' },
       order: { soldCount: 'DESC' },
@@ -128,20 +128,20 @@ export class FoodQueryService extends CustomerFoodService {
     }));
   }
 
-  async listAvailableFoods(): Promise<CatalogChatFoodSnapshot[]> {
+  async listAvailableFoods(): Promise<CatalogChatFood[]> {
     const foods = await this.foodRepository.find({
       where: { status: 'available' },
       relations: ['restaurant'],
       order: { name: 'ASC' },
     });
 
-    return foods.flatMap((food) => this.toChatSnapshot(food));
+    return foods.flatMap((food) => this.toCatalogChatFoods(food));
   }
 
   async findAvailableFood(
     foodId: string,
     restaurantId?: string,
-  ): Promise<CatalogChatFoodSnapshot | null> {
+  ): Promise<CatalogChatFood | null> {
     const food = await this.foodRepository.findOne({
       where: {
         id: foodId,
@@ -151,10 +151,10 @@ export class FoodQueryService extends CustomerFoodService {
       relations: ['restaurant'],
     });
 
-    return food ? (this.toChatSnapshot(food)[0] ?? null) : null;
+    return food ? (this.toCatalogChatFoods(food)[0] ?? null) : null;
   }
 
-  private toChatSnapshot(food: Food): CatalogChatFoodSnapshot[] {
+  private toCatalogChatFoods(food: Food): CatalogChatFood[] {
     if (!food.restaurant?.id || String(food.restaurant.status) !== 'approved') {
       return [];
     }
@@ -172,16 +172,16 @@ export class FoodQueryService extends CustomerFoodService {
     ];
   }
 
-  async getOrderableItems(request: GetOrderableItemsRequest): Promise<OrderableItemSnapshot[]> {
+  async getOrderableItems(request: GetOrderableItemsRequest): Promise<OrderableMenuItem[]> {
     return Promise.all(
-      request.items.map((item) => this.toOrderableSnapshot(item.foodId, item.toppingIds ?? [])),
+      request.items.map((item) => this.toOrderableMenuItem(item.foodId, item.toppingIds ?? [])),
     );
   }
 
-  private async toOrderableSnapshot(
+  private async toOrderableMenuItem(
     foodId: string,
     toppingIds: string[],
-  ): Promise<OrderableItemSnapshot> {
+  ): Promise<OrderableMenuItem> {
     const food = await this.foodRepository.findOne({
       where: { id: foodId },
       relations: ['restaurant', 'toppings'],
@@ -189,7 +189,7 @@ export class FoodQueryService extends CustomerFoodService {
     if (!food?.restaurant) throw new NotFoundException(`Food with ID ${foodId} not found`);
 
     const toppingsById = new Map((food.toppings ?? []).map((topping) => [topping.id, topping]));
-    const toppings: OrderableToppingSnapshot[] = toppingIds.map((toppingId) => {
+    const toppings: OrderableTopping[] = toppingIds.map((toppingId) => {
       const topping = toppingsById.get(toppingId);
       if (!topping) {
         throw new BadRequestException(`Topping ${toppingId} is not attached to food ${foodId}`);

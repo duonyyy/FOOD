@@ -4,17 +4,17 @@ import { SystemConstraintsService } from 'src/features/system-constraints/public
 import { ShipperProfileService } from '../shipper/shipper-profile.service';
 import {
   SHIPPER_PROFILE_STATUS,
-  type ShipperProfileSnapshot,
+  type ShipperProfileView,
 } from '../../types/shipper-profile.types';
 
-export interface ActiveShipperSnapshot {
+export interface ActiveShipperState {
   shipperId: string;
   latitude: number;
   longitude: number;
   maxDistance: number;
   lastSeen: Date;
   eligibilityScore: number;
-  profile: ShipperProfileSnapshot;
+  profile: ShipperProfileView;
 }
 
 /**
@@ -24,7 +24,7 @@ export interface ActiveShipperSnapshot {
  */
 @Injectable()
 export class ActiveShipperTrackerService implements OnModuleDestroy {
-  private readonly activeShippers = new Map<string, ActiveShipperSnapshot>();
+  private readonly activeShippers = new Map<string, ActiveShipperState>();
   private readonly cleanupInterval = setInterval(() => void this.cleanup(), 5 * 60 * 1000);
 
   constructor(
@@ -123,7 +123,7 @@ export class ActiveShipperTrackerService implements OnModuleDestroy {
     return best;
   }
 
-  getAllShippers(): ActiveShipperSnapshot[] {
+  getAllShippers(): ActiveShipperState[] {
     return [...this.activeShippers.values()];
   }
 
@@ -160,7 +160,7 @@ export class ActiveShipperTrackerService implements OnModuleDestroy {
     clearInterval(this.cleanupInterval);
   }
 
-  private async getEligibility(profile: ShipperProfileSnapshot): Promise<{
+  private async getEligibility(profile: ShipperProfileView): Promise<{
     eligible: boolean;
     reason: string;
     score: number;

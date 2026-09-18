@@ -13,7 +13,7 @@ import { CreateOrderDto } from '../dto/create-order.dto';
 import type {
   ChatReorderOrder,
   CreateChatOrderRequest,
-  CreatedChatOrderSnapshot,
+  CreatedChatOrder,
 } from '../types/chat-ordering.types';
 import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
 import type { OrderNotificationRecipient } from '../types/order-notification.types';
@@ -124,7 +124,7 @@ export class ChatOrderingService {
     }));
   }
 
-  async createOrder(request: CreateChatOrderRequest): Promise<CreatedChatOrderSnapshot> {
+  async createOrder(request: CreateChatOrderRequest): Promise<CreatedChatOrder> {
     const dto: CreateOrderDto = {
       userId: request.customerId,
       restaurantId: request.restaurantId,

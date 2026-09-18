@@ -9,7 +9,7 @@ import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
 import {
   SHIPPER_PROFILE_STATUS,
   type CreateShipperProfileCommand,
-  type ShipperProfileSnapshot,
+  type ShipperProfileView,
   type ShipperProfileStatus,
 } from '../../types/shipper-profile.types';
 
@@ -30,15 +30,15 @@ export class ShipperProfileService {
     private readonly certRepo?: Repository<ShipperCertificateInfo>,
   ) {}
 
-  async findByUserId(userId: string): Promise<ShipperProfileSnapshot | null> {
+  async findByUserId(userId: string): Promise<ShipperProfileView | null> {
     const profile = await this.profileRepository.findOne({ where: { userId } });
-    return profile ? this.toSnapshot(profile) : null;
+    return profile ? this.toProfileView(profile) : null;
   }
 
   async findByStatus(
     status?: ShipperProfileStatus,
     userId?: string,
-  ): Promise<ShipperProfileSnapshot[]> {
+  ): Promise<ShipperProfileView[]> {
     const where: FindOptionsWhere<ShipperProfile> = {};
     if (status) {
       where.certificateStatus = status;
@@ -48,10 +48,10 @@ export class ShipperProfileService {
     }
 
     const profiles = await this.profileRepository.find({ where });
-    return profiles.map((profile) => this.toSnapshot(profile));
+    return profiles.map((profile) => this.toProfileView(profile));
   }
 
-  async createPending(command: CreateShipperProfileCommand): Promise<ShipperProfileSnapshot> {
+  async createPending(command: CreateShipperProfileCommand): Promise<ShipperProfileView> {
     const existing = await this.profileRepository.findOne({
       where: { userId: command.userId },
     });
@@ -67,13 +67,13 @@ export class ShipperProfileService {
       profile.certificateStatus = SHIPPER_PROFILE_STATUS.PENDING;
     }
 
-    return this.toSnapshot(await this.profileRepository.save(profile));
+    return this.toProfileView(await this.profileRepository.save(profile));
   }
 
   async updateCertificateStatus(
     userId: string,
     status: ShipperProfileStatus,
-  ): Promise<ShipperProfileSnapshot> {
+  ): Promise<ShipperProfileView> {
     const profile = await this.profileRepository.findOne({ where: { userId } });
     if (!profile) {
       throw new NotFoundException('Shipper profile not found');
@@ -81,7 +81,7 @@ export class ShipperProfileService {
 
     profile.certificateStatus = status;
     profile.certificateVerifiedAt = status === SHIPPER_PROFILE_STATUS.APPROVED ? new Date() : null;
-    return this.toSnapshot(await this.profileRepository.save(profile));
+    return this.toProfileView(await this.profileRepository.save(profile));
   }
 
   async updateDriverProfile(userId: string, dto: UpdateDriverProfileDto) {
@@ -180,7 +180,7 @@ export class ShipperProfileService {
     return { message: 'Location updated successfully', success: true };
   }
 
-  private toSnapshot(profile: ShipperProfile): ShipperProfileSnapshot {
+  private toProfileView(profile: ShipperProfile): ShipperProfileView {
     return {
       userId: profile.userId,
       cccd: profile.cccd,

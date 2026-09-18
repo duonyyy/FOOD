@@ -7,7 +7,7 @@ import { Repository } from 'typeorm';
 import type {
   DeliveryOrderSnapshot,
   DeliveryQuoteRequest,
-  DeliveryQuoteSnapshot,
+  DeliveryQuote,
 } from '../../types/delivery-integration.types';
 
 /**
@@ -36,7 +36,7 @@ export class DeliveryIntegrationService {
     });
   }
 
-  async quoteDelivery(request: DeliveryQuoteRequest): Promise<DeliveryQuoteSnapshot> {
+  async quoteDelivery(request: DeliveryQuoteRequest): Promise<DeliveryQuote> {
     const distanceKm = haversineDistance(
       request.origin.latitude,
       request.origin.longitude,

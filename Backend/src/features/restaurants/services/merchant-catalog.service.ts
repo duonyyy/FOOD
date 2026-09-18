@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Repository } from 'typeorm';
-import { type MerchantRestaurantSnapshot } from '../types/merchant-catalog.types';
+import { type MerchantRestaurantLocation } from '../types/merchant-catalog.types';
 
 @Injectable()
 export class MerchantCatalogService {
@@ -22,13 +22,12 @@ export class MerchantCatalogService {
     }
   }
 
-  async findRestaurant(restaurantId: string): Promise<MerchantRestaurantSnapshot | null> {
+  async findRestaurant(restaurantId: string): Promise<MerchantRestaurantLocation | null> {
     const restaurant = await this.restaurantRepository.findOne({ where: { id: restaurantId } });
     if (!restaurant) return null;
 
     return {
       restaurantId: restaurant.id,
-      name: restaurant.name ?? '',
       latitude: restaurant.latitude == null ? null : Number(restaurant.latitude),
       longitude: restaurant.longitude == null ? null : Number(restaurant.longitude),
     };

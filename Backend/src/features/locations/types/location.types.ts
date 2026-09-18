@@ -1,4 +1,4 @@
-export interface AddressSnapshot {
+export interface DeliveryAddress {
   addressId: string;
   street: string;
   ward: string;
@@ -9,7 +9,7 @@ export interface AddressSnapshot {
   isTemporary: boolean;
 }
 
-export interface TemporaryAddressSnapshot extends AddressSnapshot {
+export interface TemporaryDeliveryAddress extends DeliveryAddress {
   isTemporary: true;
 }
 
