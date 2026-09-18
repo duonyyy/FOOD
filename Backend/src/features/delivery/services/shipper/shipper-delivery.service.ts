@@ -5,14 +5,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  DELIVERY_COMPLETED_EVENT,
-  DeliveryCompletedEvent,
-} from 'src/common/events/delivery-completed.event';
-import { OutboxService } from 'src/common/events/outbox.service';
 import { Order } from 'src/entities/order.entity';
 import {
   CertificateStatus,
@@ -24,6 +18,7 @@ import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.pub
 import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
 import { DeliveryAssignmentPolicy } from '../../contracts/delivery-dispatch.policy';
+import { DeliveryCompletionService } from './delivery-completion.service';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -47,7 +42,7 @@ export class ShipperDeliveryService {
     @InjectRepository(ShipperCertificateInfo)
     protected readonly certRepo: Repository<ShipperCertificateInfo>,
     protected pendingAssignmentService: PendingAssignmentService,
-    @Optional() protected readonly outboxService?: OutboxService,
+    protected readonly deliveryCompletionService: DeliveryCompletionService,
   ) {}
 
   /**
@@ -394,171 +389,7 @@ export class ShipperDeliveryService {
   }
 
   async markOrderCompleted(orderId: string, shipperId: string) {
-    const completion = await this.orderRepository.manager.transaction(async (manager) => {
-      const orderRepository = manager.getRepository(Order);
-      const shippingDetailRepository = manager.getRepository(ShippingDetail);
-      const userRepository = manager.getRepository(User);
-
-      const order = await orderRepository.findOne({
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!order) {
-        throw new NotFoundException('Đơn hàng không tồn tại');
-      }
-
-      const shippingDetail = await shippingDetailRepository.findOne({
-        where: { order: { id: orderId } },
-        relations: ['shipper'],
-      });
-      if (!shippingDetail) {
-        throw new NotFoundException('Không tìm thấy thông tin vận chuyển');
-      }
-      if (shippingDetail.shipper?.id !== shipperId) {
-        throw new ForbiddenException('You are not assigned to this order');
-      }
-      if (order.status === 'completed' && shippingDetail.status === ShippingStatus.COMPLETED) {
-        return {
-          order,
-          alreadyCompleted: true,
-          deliveryCompletedEventId: undefined,
-          response: {
-            message: 'Đơn hàng đã được hoàn thành trước đó',
-            earnings: order.shipperEarnings || 0,
-          },
-        };
-      }
-      if (order.status !== 'delivering') {
-        throw new BadRequestException('Order must be delivering before completion');
-      }
-
-      const shipper = await userRepository.findOne({
-        where: { id: shipperId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!shipper) {
-        throw new NotFoundException('Shipper not found');
-      }
-
-      shippingDetail.status = ShippingStatus.COMPLETED;
-      shippingDetail.actualDeliveryTime = new Date();
-
-      const deliveryTime = shippingDetail.estimatedDeliveryTime
-        ? Math.abs(
-            shippingDetail.actualDeliveryTime.getTime() -
-              shippingDetail.estimatedDeliveryTime.getTime(),
-          ) /
-          (1000 * 60)
-        : 0;
-      const isOnTime = deliveryTime <= (order.estimatedDeliveryTime || 30);
-      const shippingFee = order.shippingFee || 25000;
-      const distance = order.deliveryDistance || 2;
-      const baseEarnings = Math.round(shippingFee * 0.85);
-      const distanceBonus = Math.max(0, (distance - 1) * 5000);
-      const orderValueBonus = Math.min(10000, (order.total || 0) * 0.01);
-      const hour = new Date().getHours();
-      const timeBonus =
-        (hour >= 11 && hour <= 13) || (hour >= 17 && hour <= 20)
-          ? 5000
-          : hour >= 22 || hour <= 6
-            ? 8000
-            : 0;
-      const onTimeBonus = isOnTime ? 3000 : 0;
-      const completedDeliveries = shipper.completedDeliveries || 0;
-      const performanceBonus =
-        completedDeliveries > 100
-          ? 2000
-          : completedDeliveries > 50
-            ? 1000
-            : completedDeliveries > 20
-              ? 500
-              : 0;
-      const calculatedEarnings =
-        baseEarnings + distanceBonus + orderValueBonus + timeBonus + onTimeBonus + performanceBonus;
-      const shipperEarnings = order.shipperEarnings || Math.max(calculatedEarnings, 20000);
-
-      order.status = 'completed';
-      order.shipperEarnings = shipperEarnings;
-      shipper.completedDeliveries = completedDeliveries + 1;
-      shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
-      shipper.totalEarnings = (shipper.totalEarnings || 0) + shipperEarnings;
-      shipper.dailyEarnings = (shipper.dailyEarnings || 0) + shipperEarnings;
-      shipper.weeklyEarnings = (shipper.weeklyEarnings || 0) + shipperEarnings;
-      shipper.monthlyEarnings = (shipper.monthlyEarnings || 0) + shipperEarnings;
-      shipper.averageDeliveryTime =
-        ((shipper.averageDeliveryTime || 0) * completedDeliveries + deliveryTime) /
-        shipper.completedDeliveries;
-      if (isOnTime) {
-        shipper.onTimeDeliveries = (shipper.onTimeDeliveries || 0) + 1;
-      } else {
-        shipper.lateDeliveries = (shipper.lateDeliveries || 0) + 1;
-      }
-      shipper.lastActiveAt = new Date();
-
-      await shippingDetailRepository.save(shippingDetail);
-      await orderRepository.save(order);
-      await userRepository.save(shipper);
-
-      const deliveryCompletedEvent = this.outboxService
-        ? await this.outboxService.enqueue(manager, {
-            eventType: DELIVERY_COMPLETED_EVENT,
-            aggregateType: 'delivery',
-            aggregateId: order.id,
-            idempotencyKey: `delivery-completed:${order.id}`,
-            payload: {
-              orderId: order.id,
-              shipperId,
-              shippingDetailId: shippingDetail.id,
-              completedAt: shippingDetail.actualDeliveryTime.toISOString(),
-              earnings: shipperEarnings,
-              deliveryTimeMinutes: Math.round(deliveryTime),
-              onTime: isOnTime,
-            } satisfies DeliveryCompletedEvent,
-          })
-        : null;
-
-      return {
-        order,
-        alreadyCompleted: false,
-        deliveryCompletedEventId: deliveryCompletedEvent?.id,
-        response: {
-          message: 'Đơn hàng đã được hoàn thành',
-          earnings: shipperEarnings,
-          earningsBreakdown: {
-            baseEarnings,
-            distanceBonus,
-            orderValueBonus,
-            timeBonus,
-            onTimeBonus,
-            performanceBonus,
-            totalEarnings: shipperEarnings,
-          },
-          isOnTime,
-          deliveryTime: Math.round(deliveryTime),
-          totalCompletedDeliveries: shipper.completedDeliveries,
-          distance,
-          orderValue: order.total,
-        },
-      };
-    });
-
-    if (!completion.alreadyCompleted) {
-      await pubSub.publish('orderStatusUpdated', {
-        orderStatusUpdated: completion.order,
-      });
-
-      if (completion.deliveryCompletedEventId && this.outboxService) {
-        try {
-          await this.outboxService.dispatchAfterCommit(completion.deliveryCompletedEventId);
-        } catch (error) {
-          this.logger.error(
-            `DeliveryCompleted dispatch deferred for order ${orderId}: ${errorMessage(error)}`,
-          );
-        }
-      }
-    }
-
-    return completion.response;
+    return this.deliveryCompletionService.complete(orderId, shipperId);
   }
 
   async getCompletedOrdersByShipper(shipperId: string) {

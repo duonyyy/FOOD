@@ -1,7 +1,18 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { haversineDistance } from 'src/common/utils/geo.util';
-import { pubSub } from 'src/pubsub';
+import {
+  SHIPPER_OFFER_REQUESTED_EVENT,
+  type ShipperOfferRequestedEvent,
+} from 'src/common/events/shipper-offer-requested.event';
+import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
+import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import {
+  OrderDeliveryDispatchReaderService,
+  type DeliveryDispatchCandidate,
+} from 'src/features/orders/order-delivery-dispatch-reader.public-api';
+import { Repository } from 'typeorm';
 import {
   DELIVERY_ASSIGNMENT_QUEUE,
   DELIVERY_ASSIGNMENT_QUEUE_PORT,
@@ -24,9 +35,7 @@ import {
   type PendingAssignmentStorePort,
 } from '../../contracts/pending-assignment-store.port';
 import { ShipperService } from '../shipper/shipper.service';
-import { DeliveryIntegrationService } from '../integration/delivery-integration.service';
 import { ActiveShipperTrackerService } from './active-shipper-tracker.service';
-import type { DeliveryOrderSnapshot } from '../../types/delivery-integration.types';
 
 interface ActiveShipper {
   shipperId: string;
@@ -37,7 +46,7 @@ interface ActiveShipper {
 }
 
 export type ExpiredPendingAssignment = Omit<PendingAssignmentState, 'createdAt'> & {
-  order: DeliveryOrderSnapshot;
+  order: DeliveryDispatchCandidate;
   createdAt: Date;
 };
 
@@ -53,13 +62,16 @@ export class DeliveryDispatchService {
   private readonly logger = new Logger(DeliveryDispatchService.name);
 
   constructor(
-    private readonly orderReader: DeliveryIntegrationService,
+    private readonly orderDispatchReader: OrderDeliveryDispatchReaderService,
+    @InjectRepository(ShippingDetail)
+    private readonly shippingDetailRepository: Repository<ShippingDetail>,
     @Inject(DELIVERY_ASSIGNMENT_QUEUE_PORT)
     private readonly queueService: DeliveryAssignmentQueuePort,
     @Inject(PENDING_ASSIGNMENT_STORE)
     private readonly store: PendingAssignmentStorePort,
     private readonly shipperService: ShipperService,
     private readonly activeShipperTracker: ActiveShipperTrackerService,
+    private readonly eventBus: InProcessEventBus,
   ) {}
 
   // ==========================================
@@ -146,7 +158,7 @@ export class DeliveryDispatchService {
     const result: ExpiredPendingAssignment[] = [];
 
     for (const assignment of assignments) {
-      const order = await this.findOrderForAssignment(assignment.orderId);
+      const order = await this.findDispatchCandidate(assignment.orderId);
       if (order) {
         result.push({
           ...assignment,
@@ -270,13 +282,8 @@ export class DeliveryDispatchService {
     }
 
     try {
-      const order = await this.findOrderForAssignment(orderId);
-      if (!order || order.status !== 'confirmed') {
-        await this.store.remove(assignment);
-        return;
-      }
-
-      if (order.shippingDetail) {
+      const order = await this.findDispatchCandidate(orderId);
+      if (!order || (await this.hasShippingDetail(orderId))) {
         await this.store.remove(assignment);
         return;
       }
@@ -287,26 +294,19 @@ export class DeliveryDispatchService {
         return;
       }
 
-      const shippingFee = order.shippingFee || 0;
-      const shipperEarnings = order.shipperEarnings || Math.round(shippingFee * 0.8);
-      const distance = order.deliveryDistance || 0;
+      const shippingFee = order.shippingFee ?? 0;
+      const shipperEarnings = order.shipperEarnings ?? Math.round(shippingFee * 0.8);
+      const distance = order.deliveryDistance ?? 0;
 
-      await pubSub.publish('orderConfirmedForShippers', {
-        orderConfirmedForShippers: {
-          ...order,
-          shipperEarnings,
-          shippingFee,
-        },
+      await this.eventBus.publish<ShipperOfferRequestedEvent>(SHIPPER_OFFER_REQUESTED_EVENT, {
+        orderId: order.orderId,
         targetShipperId: nearestShipper.shipperId,
         distanceKm: distance,
         priorityScore: assignment.priority,
-        earningsInfo: {
-          shippingFee,
-          shipperEarnings,
-          platformFee: shippingFee - shipperEarnings,
-          netProfit: Math.max(0, shipperEarnings - distance * 3000),
-          earningsPerKm: distance > 0 ? Math.round(shipperEarnings / distance) : 0,
-        },
+        shippingFee,
+        shipperEarnings,
+        shipperCommissionRate: order.shipperCommissionRate ?? 0.8,
+        estimatedDeliveryTime: order.estimatedDeliveryTime ?? 30,
       });
 
       assignment.isSentToShipper = true;
@@ -359,8 +359,8 @@ export class DeliveryDispatchService {
   // ==========================================
 
   private async validatePendingAssignment(assignment: PendingAssignmentState): Promise<boolean> {
-    const order = await this.findOrderForAssignment(assignment.orderId);
-    if (!order || order.status !== 'confirmed' || order.shippingDetail) {
+    const order = await this.findDispatchCandidate(assignment.orderId);
+    if (!order || (await this.hasShippingDetail(assignment.orderId))) {
       return false;
     }
 
@@ -419,15 +419,15 @@ export class DeliveryDispatchService {
   }
 
   private async findNearestAvailableShipper(
-    order: DeliveryOrderSnapshot,
+    order: DeliveryDispatchCandidate,
   ): Promise<ActiveShipper | null> {
-    if (!order.restaurant?.latitude || !order.restaurant?.longitude) {
+    if (!order.restaurantLocation) {
       return null;
     }
 
-    const restaurantLat = Number(order.restaurant.latitude);
-    const restaurantLng = Number(order.restaurant.longitude);
-    const alreadyNotified = await this.store.getNotifiedShippers(order.id);
+    const restaurantLat = order.restaurantLocation.latitude;
+    const restaurantLng = order.restaurantLocation.longitude;
+    const alreadyNotified = await this.store.getNotifiedShippers(order.orderId);
     let nearestShipper: ActiveShipper | null = null;
     let shortestDistance = Infinity;
 
@@ -478,26 +478,28 @@ export class DeliveryDispatchService {
     await this.store.save(assignment);
   }
 
-  private async validateOrderForAssignment(orderId: string): Promise<DeliveryOrderSnapshot> {
-    const order = await this.findOrderForAssignment(orderId);
+  private async validateOrderForAssignment(orderId: string): Promise<DeliveryDispatchCandidate> {
+    const order = await this.findDispatchCandidate(orderId);
 
     if (!order) {
       throw new Error(`Order ${orderId} not found`);
     }
 
-    if (order.status !== 'confirmed') {
-      throw new Error(`Order ${orderId} is not confirmed (status: ${order.status})`);
-    }
-
-    if (order.shippingDetail) {
+    if (await this.hasShippingDetail(orderId)) {
       throw new Error(`Order ${orderId} is already assigned to a shipper`);
     }
 
     return order;
   }
 
-  private async findOrderForAssignment(orderId: string): Promise<DeliveryOrderSnapshot | null> {
-    return this.orderReader.findOrderForDeliveryAssignment(orderId);
+  private async findDispatchCandidate(orderId: string): Promise<DeliveryDispatchCandidate | null> {
+    return this.orderDispatchReader.findConfirmedDispatchCandidate(orderId);
+  }
+
+  private async hasShippingDetail(orderId: string): Promise<boolean> {
+    return Boolean(
+      await this.shippingDetailRepository.exist({ where: { order: { id: orderId } } }),
+    );
   }
 
   private async handleShipperResponseTimeout(
@@ -509,9 +511,9 @@ export class DeliveryDispatchService {
       return;
     }
 
-    const order = await this.findOrderForAssignment(assignment.orderId);
+    const order = await this.findDispatchCandidate(assignment.orderId);
 
-    if (!order || order.status !== 'confirmed' || order.shippingDetail) {
+    if (!order || (await this.hasShippingDetail(assignment.orderId))) {
       await this.store.remove(assignment);
       return;
     }

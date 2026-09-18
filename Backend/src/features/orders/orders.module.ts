@@ -28,6 +28,7 @@ import {
 import {
   DeliveryCompletedOrderHandler,
   PaymentSucceededOrderHandler,
+  ShipperOfferRequestedOrderHandler,
 } from './services/order-events.handler';
 import { OrderMessagingReaderService } from './services/order-messaging-reader.service';
 import { OrderService } from './services/order.service';
@@ -60,6 +61,7 @@ import { OrderService } from './services/order.service';
     OrderResolver,
     PaymentSucceededOrderHandler,
     DeliveryCompletedOrderHandler,
+    ShipperOfferRequestedOrderHandler,
     ChatOrderingService,
     OrderAnalyticsReaderAdapter,
     OrderNotificationReaderAdapter,

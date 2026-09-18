@@ -118,9 +118,7 @@ module.exports = {
             return;
           }
 
-          const isInfraPublicApi = /^src\/infra\/[^/]+\/(?:[a-z-]+\.)?public-api$/.test(
-            targetPath,
-          );
+          const isInfraPublicApi = /^src\/infra\/[^/]+\/(?:[a-z-]+\.)?public-api$/.test(targetPath);
           if (
             targetPath.startsWith('src/infra/') &&
             !targetPath.startsWith('src/infra/contracts/') &&
@@ -136,6 +134,10 @@ module.exports = {
             targetPath === `src/features/${targetFeature}/auth-module.public-api` ||
             targetPath === `src/features/${targetFeature}/merchant-catalog.public-api` ||
             targetPath === `src/features/${targetFeature}/review-reader.public-api` ||
+            targetPath ===
+              `src/features/${targetFeature}/order-delivery-dispatch-reader.public-api` ||
+            targetPath ===
+              `src/features/${targetFeature}/order-delivery-completion-reader.public-api` ||
             targetPath === `src/features/${targetFeature}/order-tracking-reader.public-api`;
           if (targetFeature && targetFeature !== sourceFeature && !isPublicApi) {
             context.report({ node: node.source, messageId: 'deepFeatureImport' });

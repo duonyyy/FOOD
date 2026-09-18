@@ -96,7 +96,7 @@ export class AdminOrdersService {
   /**
    * Mark order completed from delivery handler (operational fulfillment)
    */
-  async completeFromDelivery(orderId: string): Promise<Order> {
+  async completeFromDelivery(orderId: string, shipperEarnings?: number): Promise<Order> {
     const result = await this.orderRepository.manager.transaction(async (manager) => {
       const repository = manager.getRepository(Order);
       const order = await repository.findOne({
@@ -121,6 +121,10 @@ export class AdminOrdersService {
           );
         }
         throw error;
+      }
+
+      if (shipperEarnings != null) {
+        order.shipperEarnings = shipperEarnings;
       }
 
       return { order: await repository.save(order), changed: true };
@@ -228,7 +232,7 @@ export class AdminOrdersService {
     for (const assignment of expiredAssignments) {
       try {
         const order = await this.orderRepository.findOne({
-          where: { id: assignment.order.id },
+          where: { id: assignment.order.orderId },
           relations: ['shippingDetail', 'restaurant', 'user'],
         });
 
@@ -264,7 +268,7 @@ export class AdminOrdersService {
           });
         }
       } catch (error) {
-        this.logger.error(`❌ Failed to auto-cancel order ${assignment.order.id}:`, error);
+        this.logger.error(`❌ Failed to auto-cancel order ${assignment.order.orderId}:`, error);
       }
     }
   }

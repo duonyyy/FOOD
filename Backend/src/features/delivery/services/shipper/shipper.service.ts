@@ -1,6 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { OutboxService } from 'src/common/events/outbox.service';
 import { Order } from 'src/entities/order.entity';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
@@ -8,6 +7,7 @@ import { User } from 'src/entities/user.entity';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.public-api';
 import { Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
+import { DeliveryCompletionService } from './delivery-completion.service';
 import { DeliveryReportService } from './delivery-report.service';
 import { ShipperDeliveryService } from './shipper-delivery.service';
 import { ShipperProfileService } from './shipper-profile.service';
@@ -36,7 +36,7 @@ export class ShipperService extends ShipperDeliveryService {
     @InjectRepository(ShipperCertificateInfo)
     certRepo: Repository<ShipperCertificateInfo>,
     pendingAssignmentService: PendingAssignmentService,
-    @Optional() outboxService?: OutboxService,
+    deliveryCompletionService: DeliveryCompletionService,
     @Optional() deliveryReportService?: DeliveryReportService,
     @Optional() shipperProfileService?: ShipperProfileService,
   ) {
@@ -46,7 +46,7 @@ export class ShipperService extends ShipperDeliveryService {
       userRepository,
       certRepo,
       pendingAssignmentService,
-      outboxService,
+      deliveryCompletionService,
     );
     this.reportService =
       deliveryReportService ?? new DeliveryReportService(shippingDetailRepository, userRepository);

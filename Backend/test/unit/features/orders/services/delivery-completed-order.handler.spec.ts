@@ -3,7 +3,9 @@ import { DeliveryCompletedOrderHandler } from 'src/features/orders/services/orde
 
 describe('DeliveryCompletedOrderHandler', () => {
   it('subscribes and delegates completion to Ordering', async () => {
-    let subscribedHandler: ((event: { orderId: string }) => Promise<void>) | undefined;
+    let subscribedHandler:
+      | ((event: { orderId: string; earnings: number }) => Promise<void>)
+      | undefined;
     const eventBus = {
       subscribe: jest.fn((_eventName: string, handler: typeof subscribedHandler) => {
         subscribedHandler = handler;
@@ -19,10 +21,10 @@ describe('DeliveryCompletedOrderHandler', () => {
     );
 
     handler.onModuleInit();
-    await subscribedHandler?.({ orderId: 'order-1' });
+    await subscribedHandler?.({ orderId: 'order-1', earnings: 28_000 });
 
     expect(eventBus.subscribe).toHaveBeenCalledWith(DELIVERY_COMPLETED_EVENT, expect.any(Function));
-    expect(orderCommandService.completeFromDelivery).toHaveBeenCalledWith('order-1');
+    expect(orderCommandService.completeFromDelivery).toHaveBeenCalledWith('order-1', 28_000);
   });
 
   it('unsubscribes when the module is destroyed', () => {

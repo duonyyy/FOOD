@@ -1,17 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventsModule } from 'src/common/events/events.module';
+import { PendingAssignmentStore, QueueModule, QueueService } from 'src/infra/queue/public-api';
 import { DeliveryEarningsEvent } from '../../entities/deliveryEarningsEvent.entity';
-import { Order } from '../../entities/order.entity';
 import { PendingShipperAssignment } from '../../entities/pendingShipperAssignment.entity';
 import { ShipperCertificateInfo } from '../../entities/shipperCertificateInfo.entity';
+import { ShipperProfile } from '../../entities/shipperProfile.entity';
 import { ShippingDetail } from '../../entities/shippingDetail.entity';
 import { User } from '../../entities/user.entity';
-import {
-  PendingAssignmentStore,
-  QueueModule,
-  QueueService,
-} from 'src/infra/queue/public-api';
 import { AuthModule } from '../auth/auth-module.public-api';
+import { OrderDeliveryCompletionReaderModule } from '../orders/order-delivery-completion-reader.public-api';
+import { OrderDeliveryDispatchReaderModule } from '../orders/order-delivery-dispatch-reader.public-api';
 import { OrderTrackingReaderModule } from '../orders/order-tracking-reader.public-api';
 import { SystemConstraintsModule } from '../system-constraints/public-api';
 import { IdentityModule } from '../users/public-api';
@@ -34,6 +33,7 @@ import {
   DeliveryDispatchService,
 } from './services/dispatch/delivery-dispatch.service';
 import { DeliveryIntegrationService } from './services/integration/delivery-integration.service';
+import { DeliveryCompletionService } from './services/shipper/delivery-completion.service';
 import {
   DeliveryEarningsProjectionService,
   DeliveryEarningsService,
@@ -55,10 +55,13 @@ const queueProcessorProviders =
       ShippingDetail,
       DeliveryEarningsEvent,
       ShipperCertificateInfo,
+      ShipperProfile,
       User,
-      Order,
     ]),
+    EventsModule,
     AuthModule,
+    OrderDeliveryDispatchReaderModule,
+    OrderDeliveryCompletionReaderModule,
     OrderTrackingReaderModule,
     IdentityModule,
     SystemConstraintsModule,
@@ -81,6 +84,7 @@ const queueProcessorProviders =
     DeliveryEarningsService,
     { provide: DeliveryEarningsProjectionService, useExisting: DeliveryEarningsService },
     DeliveryIntegrationService,
+    DeliveryCompletionService,
     DeliverySubscriptionAccessService,
     ShipperDeliveryService,
     DeliveryReportService,

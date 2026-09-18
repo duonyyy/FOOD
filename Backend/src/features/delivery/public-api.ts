@@ -46,7 +46,6 @@ export { ShipperProfileService } from './services/shipper/shipper-profile.servic
 export { ShipperService } from './services/shipper/shipper.service';
 export type {
   Coordinates,
-  DeliveryOrderSnapshot,
   DeliveryQuoteRequest,
   DeliveryQuote,
 } from './types/delivery-integration.types';

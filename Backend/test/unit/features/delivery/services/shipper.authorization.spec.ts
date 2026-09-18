@@ -39,6 +39,7 @@ describe('Shipper assignment authorization characterization', () => {
       {} as never,
       {} as never,
       pendingAssignmentService as never,
+      { complete: jest.fn() } as never,
     );
   });
 
@@ -52,14 +53,19 @@ describe('Shipper assignment authorization characterization', () => {
   });
 
   it('returns 403 when a different shipper completes an assigned order', async () => {
-    orderRepository.findOne.mockResolvedValue({ id: 'order-1', status: 'delivering' });
-    shippingDetailRepository.findOne.mockResolvedValue({
-      order: { id: 'order-1' },
-      shipper: { id: 'shipper-b' },
-    });
+    const completion = { complete: jest.fn().mockRejectedValue(new ForbiddenException()) };
+    service = new ShipperService(
+      orderRepository as never,
+      shippingDetailRepository as never,
+      {} as never,
+      {} as never,
+      pendingAssignmentService as never,
+      completion as never,
+    );
 
     await expect(service.markOrderCompleted('order-1', 'shipper-a')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+    expect(completion.complete).toHaveBeenCalledWith('order-1', 'shipper-a');
   });
 });

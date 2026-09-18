@@ -1,11 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { haversineDistance } from 'src/common/utils/geo.util';
-import { Order } from 'src/entities/order.entity';
-import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import { Repository } from 'typeorm';
 import type {
-  DeliveryOrderSnapshot,
   DeliveryQuoteRequest,
   DeliveryQuote,
 } from '../../types/delivery-integration.types';
@@ -16,25 +14,9 @@ import type {
 @Injectable()
 export class DeliveryIntegrationService {
   constructor(
-    @InjectRepository(Order)
-    private readonly orderRepository: Repository<Order>,
     @InjectRepository(ShippingDetail)
     private readonly shippingDetailRepository: Repository<ShippingDetail>,
   ) {}
-
-  async findOrderForDeliveryAssignment(orderId: string): Promise<DeliveryOrderSnapshot | null> {
-    return this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: [
-        'restaurant',
-        'user',
-        'address',
-        'orderDetails',
-        'orderDetails.food',
-        'shippingDetail',
-      ],
-    });
-  }
 
   async quoteDelivery(request: DeliveryQuoteRequest): Promise<DeliveryQuote> {
     const distanceKm = haversineDistance(
@@ -59,17 +41,13 @@ export class DeliveryIntegrationService {
   async getDeliveryTracking(orderId: string) {
     const shippingDetail = await this.shippingDetailRepository.findOne({
       where: { order: { id: orderId } },
-      relations: ['order', 'shipper'],
+      relations: ['shipper'],
     });
 
     if (!shippingDetail) {
-      const order = await this.orderRepository.findOne({ where: { id: orderId } });
-      if (!order) {
-        throw new NotFoundException(`Order ${orderId} not found`);
-      }
       return {
-        orderId: order.id,
-        status: order.status,
+        orderId,
+        status: 'confirmed',
         trackingStatus: 'PENDING_SHIPPER',
         estimatedDeliveryTime: null,
         shipper: null,
@@ -77,8 +55,8 @@ export class DeliveryIntegrationService {
     }
 
     return {
-      orderId: shippingDetail.order?.id ?? orderId,
-      status: shippingDetail.order?.status ?? 'delivering',
+      orderId,
+      status: shippingDetail.status === ShippingStatus.COMPLETED ? 'completed' : 'delivering',
       trackingStatus: shippingDetail.status,
       estimatedDeliveryTime: shippingDetail.estimatedDeliveryTime,
       actualDeliveryTime: shippingDetail.actualDeliveryTime,

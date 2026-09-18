@@ -47,6 +47,31 @@ describe('feature ownership boundaries', () => {
     expect(promotionsModule).not.toMatch(/forFeature\(\[[^\]]*\b(Food|Order)\b/);
   });
 
+  it('keeps Delivery dispatch on the narrow Orders API instead of the Order repository', () => {
+    const deliveryModule = source('src/features/delivery/delivery.module.ts');
+    const dispatch = source('src/features/delivery/services/dispatch/delivery-dispatch.service.ts');
+    const integration = source(
+      'src/features/delivery/services/integration/delivery-integration.service.ts',
+    );
+
+    expect(deliveryModule).not.toContain('entities/order.entity');
+    expect(deliveryModule).not.toContain('      Order,');
+    expect(dispatch).toContain('order-delivery-dispatch-reader.public-api');
+    expect(dispatch).not.toContain('DeliveryIntegrationService');
+    expect(integration).not.toContain('entities/order.entity');
+    expect(integration).not.toContain('findOrderForDeliveryAssignment');
+  });
+
+  it('keeps Delivery completion on a narrow Orders reader contract', () => {
+    const completion = source(
+      'src/features/delivery/services/shipper/delivery-completion.service.ts',
+    );
+
+    expect(completion).toContain('order-delivery-completion-reader.public-api');
+    expect(completion).not.toContain('entities/order.entity');
+    expect(completion).not.toContain('orderRepository');
+  });
+
   it('uses ports through infrastructure public APIs for Orders and Promotions technical dependencies', () => {
     const customerOrders = source('src/features/orders/services/customer-orders.service.ts');
     const adminOrders = source('src/features/orders/services/admin-orders.service.ts');
