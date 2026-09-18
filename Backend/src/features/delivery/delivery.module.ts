@@ -11,6 +11,10 @@ import { User } from '../../entities/user.entity';
 import { AuthModule } from '../auth/auth-module.public-api';
 import { OrderDeliveryCompletionReaderModule } from '../orders/order-delivery-completion-reader.public-api';
 import { OrderDeliveryDispatchReaderModule } from '../orders/order-delivery-dispatch-reader.public-api';
+import {
+  OrderDeliveryLifecycleCommandModule,
+  OrderDeliveryShipperReaderModule,
+} from '../orders/order-delivery-shipper.public-api';
 import { OrderTrackingReaderModule } from '../orders/order-tracking-reader.public-api';
 import { SystemConstraintsModule } from '../system-constraints/public-api';
 import { IdentityModule } from '../users/public-api';
@@ -33,6 +37,7 @@ import {
   DeliveryDispatchService,
 } from './services/dispatch/delivery-dispatch.service';
 import { DeliveryIntegrationService } from './services/integration/delivery-integration.service';
+import { DeliveryAssignmentSagaService } from './services/shipper/delivery-assignment-saga.service';
 import { DeliveryCompletionService } from './services/shipper/delivery-completion.service';
 import {
   DeliveryEarningsProjectionService,
@@ -62,6 +67,8 @@ const queueProcessorProviders =
     AuthModule,
     OrderDeliveryDispatchReaderModule,
     OrderDeliveryCompletionReaderModule,
+    OrderDeliveryLifecycleCommandModule,
+    OrderDeliveryShipperReaderModule,
     OrderTrackingReaderModule,
     IdentityModule,
     SystemConstraintsModule,
@@ -84,6 +91,7 @@ const queueProcessorProviders =
     DeliveryEarningsService,
     { provide: DeliveryEarningsProjectionService, useExisting: DeliveryEarningsService },
     DeliveryIntegrationService,
+    DeliveryAssignmentSagaService,
     DeliveryCompletionService,
     DeliverySubscriptionAccessService,
     ShipperDeliveryService,

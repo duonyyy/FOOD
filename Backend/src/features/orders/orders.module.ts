@@ -25,7 +25,9 @@ import {
   OrderAnalyticsReaderAdapter,
   OrderNotificationReaderAdapter,
 } from './services/order-cross-feature.adapters';
+import { OrderDeliveryAssignmentCommandService } from './services/order-delivery-assignment-command.service';
 import {
+  DeliveryAssignmentRequestedOrderHandler,
   DeliveryCompletedOrderHandler,
   PaymentSucceededOrderHandler,
   ShipperOfferRequestedOrderHandler,
@@ -61,6 +63,8 @@ import { OrderService } from './services/order.service';
     OrderResolver,
     PaymentSucceededOrderHandler,
     DeliveryCompletedOrderHandler,
+    DeliveryAssignmentRequestedOrderHandler,
+    OrderDeliveryAssignmentCommandService,
     ShipperOfferRequestedOrderHandler,
     ChatOrderingService,
     OrderAnalyticsReaderAdapter,

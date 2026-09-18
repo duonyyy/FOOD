@@ -72,6 +72,37 @@ describe('feature ownership boundaries', () => {
     expect(completion).not.toContain('orderRepository');
   });
 
+  it('keeps Delivery assignment state changes out of the legacy Order transaction', () => {
+    const shipperDelivery = source(
+      'src/features/delivery/services/shipper/shipper-delivery.service.ts',
+    );
+    const assignmentSaga = source(
+      'src/features/delivery/services/shipper/delivery-assignment-saga.service.ts',
+    );
+    const assignmentMethod = shipperDelivery.match(
+      /async assignOrderToShipper[\s\S]*?(?=\n\s{2}async getOrder)/,
+    )?.[0];
+
+    expect(assignmentMethod).toContain('deliveryAssignmentSagaService.assign');
+    expect(assignmentMethod).not.toContain('orderRepository');
+    expect(assignmentSaga).not.toContain('entities/order.entity');
+    expect(assignmentSaga).toContain('DELIVERY_ASSIGNMENT_REQUESTED_EVENT');
+  });
+
+  it('routes shipper reads and lifecycle changes through narrow Orders APIs', () => {
+    const shipperDelivery = source(
+      'src/features/delivery/services/shipper/shipper-delivery.service.ts',
+    );
+
+    expect(shipperDelivery).toContain('order-delivery-shipper.public-api');
+    expect(shipperDelivery).toContain('orderLifecycleCommand.startDelivery');
+    expect(shipperDelivery).toContain('orderLifecycleCommand.cancelDelivery');
+    expect(shipperDelivery).toContain('orderShipperReader.getShipperOrder');
+    expect(shipperDelivery).not.toContain('entities/order.entity');
+    expect(shipperDelivery).not.toContain('orderRepository');
+    expect(shipperDelivery).not.toContain('orderReassignedToShippers');
+  });
+
   it('uses ports through infrastructure public APIs for Orders and Promotions technical dependencies', () => {
     const customerOrders = source('src/features/orders/services/customer-orders.service.ts');
     const adminOrders = source('src/features/orders/services/admin-orders.service.ts');

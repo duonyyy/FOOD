@@ -7,17 +7,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Order } from 'src/entities/order.entity';
-import {
-  CertificateStatus,
-  ShipperCertificateInfo,
-} from 'src/entities/shipperCertificateInfo.entity';
+import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { User } from 'src/entities/user.entity';
+import {
+  OrderDeliveryLifecycleCommandService,
+  OrderDeliveryShipperReaderService,
+} from 'src/features/orders/order-delivery-shipper.public-api';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.public-api';
 import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
 import { DeliveryAssignmentPolicy } from '../../contracts/delivery-dispatch.policy';
+import { SHIPPER_PROFILE_STATUS } from '../../types/shipper-profile.types';
+import { DeliveryAssignmentSagaService } from './delivery-assignment-saga.service';
 import { DeliveryCompletionService } from './delivery-completion.service';
 
 function errorMessage(error: unknown): string {
@@ -33,33 +34,21 @@ export class ShipperDeliveryService {
   protected readonly logger = new Logger(ShipperDeliveryService.name);
 
   constructor(
-    @InjectRepository(Order)
-    protected orderRepository: Repository<Order>,
     @InjectRepository(ShippingDetail)
     protected shippingDetailRepository: Repository<ShippingDetail>,
-    @InjectRepository(User)
-    protected userRepository: Repository<User>,
-    @InjectRepository(ShipperCertificateInfo)
-    protected readonly certRepo: Repository<ShipperCertificateInfo>,
+    @InjectRepository(ShipperProfile)
+    protected shipperProfileRepository: Repository<ShipperProfile>,
     protected pendingAssignmentService: PendingAssignmentService,
+    protected readonly deliveryAssignmentSagaService: DeliveryAssignmentSagaService,
     protected readonly deliveryCompletionService: DeliveryCompletionService,
+    protected readonly orderLifecycleCommand: OrderDeliveryLifecycleCommandService,
+    protected readonly orderShipperReader: OrderDeliveryShipperReaderService,
   ) {}
 
   /**
    * Request order assignment (temporary hold)
    */
   async requestOrderAssignment(orderId: string, shipperId: string) {
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['restaurant', 'user', 'shippingDetail'],
-    });
-
-    if (!order) {
-      throw new BadRequestException('Order not found');
-    }
-
-    DeliveryAssignmentPolicy.assertOfferable(order.status, Boolean(order.shippingDetail));
-
     const existingAssignment =
       await this.pendingAssignmentService.getPendingAssignmentForShipper(shipperId);
 
@@ -73,16 +62,12 @@ export class ShipperDeliveryService {
       throw new ConflictException('Order is currently being considered by another shipper');
     }
 
-    const shipper = await this.userRepository.findOne({
-      where: { id: shipperId },
-      relations: ['role', 'shipperCertificateInfo'],
-    });
+    const profile = await this.shipperProfileRepository.findOne({ where: { userId: shipperId } });
+    this.assertShipperCanReceiveOffer(profile);
 
-    DeliveryAssignmentPolicy.assertEligible(
-      shipper?.role?.name,
-      shipper?.shipperCertificateInfo?.status,
-    );
-
+    // DeliveryDispatchService validates that Orders still exposes a confirmed,
+    // unassigned dispatch candidate through its narrow read API.
+    await this.pendingAssignmentService.addPendingAssignment(orderId);
     const hold = await this.pendingAssignmentService.createShipperHold(orderId, shipperId);
 
     this.logger.log(`Temporary assignment created for order ${orderId} to shipper ${shipperId}`);
@@ -114,14 +99,17 @@ export class ShipperDeliveryService {
 
     const result = await this.assignOrderToShipper(assignment.orderId, shipperId);
 
-    await pubSub.publish('orderAssignedToShipper', {
-      orderAssignedToShipper: {
-        orderId: assignment.orderId,
-        shipperId,
-      },
-    });
-
-    this.logger.log(`Order ${assignment.orderId} accepted by shipper ${shipperId}`);
+    if (result.status === ShippingStatus.SHIPPING) {
+      await pubSub.publish('orderAssignedToShipper', {
+        orderAssignedToShipper: {
+          orderId: assignment.orderId,
+          shipperId,
+        },
+      });
+      this.logger.log(`Order ${assignment.orderId} accepted by shipper ${shipperId}`);
+    } else {
+      this.logger.warn(`Order ${assignment.orderId} assignment is pending Outbox processing`);
+    }
 
     return result;
   }
@@ -141,8 +129,6 @@ export class ShipperDeliveryService {
 
     await this.pendingAssignmentService.markOfferRejected(assignment.orderId, shipperId);
 
-    await this.reassignToOtherShippers(assignment.orderId);
-
     this.logger.log(`Order ${assignment.orderId} rejected by shipper ${shipperId}`);
 
     return { message: 'Order rejected successfully' };
@@ -157,67 +143,16 @@ export class ShipperDeliveryService {
     );
   }
 
-  /**
-   * Reassign order to other available shippers
-   */
-  protected async reassignToOtherShippers(orderId: string) {
-    const order = await this.orderRepository.manager.transaction(async (manager) => {
-      const orderRepository = manager.getRepository(Order);
-      const shippingDetailRepository = manager.getRepository(ShippingDetail);
-
-      const lockedOrder = await orderRepository
-        .createQueryBuilder('order')
-        .where('order.id = :orderId', { orderId })
-        .setLock('pessimistic_write')
-        .getOne();
-
-      if (!lockedOrder || lockedOrder.status !== 'confirmed') {
-        return null;
-      }
-
-      const existingShippingDetail = await shippingDetailRepository.findOne({
-        where: { order: { id: orderId } },
-      });
-
-      if (existingShippingDetail) {
-        return null;
-      }
-
-      return orderRepository.findOne({
-        where: { id: orderId },
-        relations: [
-          'restaurant',
-          'user',
-          'address',
-          'orderDetails',
-          'orderDetails.food',
-          'shippingDetail',
-        ],
-      });
-    });
-
-    if (order) {
-      const excludedShipperIds = await this.pendingAssignmentService.getExcludedShipperIds(orderId);
-
-      await pubSub.publish('orderReassignedToShippers', {
-        orderReassignedToShippers: {
-          order,
-          excludedShipperIds,
-        },
-      });
-
-      this.logger.log(`Order ${orderId} reassigned to remaining shippers`);
-    } else {
-      await this.pendingAssignmentService.removePendingAssignment(orderId);
-    }
-  }
-
   async getPendingAssignmentForOrder(orderId: string) {
     return this.pendingAssignmentService.getPendingAssignmentForOrder(orderId);
   }
 
   async reassignOrder(orderId: string) {
-    await this.reassignToOtherShippers(orderId);
+    const activeHold = await this.pendingAssignmentService.getPendingAssignmentForOrder(orderId);
+    if (activeHold) {
+      await this.pendingAssignmentService.markOfferRejected(orderId, activeHold.shipperId);
+    }
+    await this.pendingAssignmentService.addPendingAssignment(orderId);
     return { message: 'Order queued for reassignment' };
   }
 
@@ -235,63 +170,16 @@ export class ShipperDeliveryService {
       throw new ForbiddenException('This order is not currently offered to this shipper');
     }
 
-    const assignment = await this.orderRepository.manager.transaction(async (manager) => {
-      const orderRepository = manager.getRepository(Order);
-      const shippingDetailRepository = manager.getRepository(ShippingDetail);
-      const userRepository = manager.getRepository(User);
+    const shippingDetail = await this.deliveryAssignmentSagaService.assign(
+      orderId,
+      shipperId,
+      responseTimeSeconds,
+    );
 
-      const order = await orderRepository
-        .createQueryBuilder('order')
-        .where('order.id = :orderId', { orderId })
-        .setLock('pessimistic_write')
-        .getOne();
-
-      if (!order) {
-        throw new BadRequestException('Order not found');
-      }
-      if (order.status !== 'confirmed') {
-        throw new ConflictException('Order is no longer available for assignment');
-      }
-
-      const existingShippingDetail = await shippingDetailRepository.findOne({
-        where: { order: { id: orderId } },
-      });
-      if (existingShippingDetail) {
-        throw new ConflictException('Order already assigned to a shipper');
-      }
-
-      const shipper = await userRepository.findOne({
-        where: { id: shipperId },
-        relations: ['role', 'shipperCertificateInfo'],
-      });
-      if (!shipper) {
-        throw new BadRequestException('Invalid or unapproved shipper');
-      }
-      DeliveryAssignmentPolicy.assertEligible(
-        shipper?.role?.name,
-        shipper?.shipperCertificateInfo?.status,
-      );
-
-      const shippingDetail = shippingDetailRepository.create({
-        order,
-        shipper,
-        status: ShippingStatus.SHIPPING,
-        estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000),
-      });
-      await shippingDetailRepository.save(shippingDetail);
-
-      order.status = 'shipper_received';
-      await orderRepository.save(order);
-
-      shipper.activeDeliveries = (shipper.activeDeliveries || 0) + 1;
-      shipper.responseTimeMinutes = Math.max(
-        (shipper.responseTimeMinutes || 0) + Math.ceil(responseTimeSeconds / 60),
-        1,
-      );
-      await userRepository.save(shipper);
-
-      return { order, shippingDetail };
-    });
+    if (shippingDetail.status === ShippingStatus.CANCELLED) {
+      await this.pendingAssignmentService.removePendingAssignment(orderId);
+      throw new ConflictException('Order is no longer available for assignment');
+    }
 
     try {
       await this.pendingAssignmentService.removePendingAssignment(orderId);
@@ -304,13 +192,9 @@ export class ShipperDeliveryService {
       );
     }
 
-    await pubSub.publish('orderStatusUpdated', {
-      orderStatusUpdated: assignment.order,
-    });
-
     this.logger.log(`Order ${orderId} assigned to shipper ${shipperId}`);
 
-    return assignment.shippingDetail;
+    return shippingDetail;
   }
 
   async getOrder(orderId: string, shipperId: string) {
@@ -319,15 +203,6 @@ export class ShipperDeliveryService {
         order: { id: orderId },
         shipper: { id: shipperId },
       },
-      relations: [
-        'order',
-        'order.restaurant',
-        'order.user',
-        'order.address',
-        'order.orderDetails',
-        'order.orderDetails.food',
-        'shipper',
-      ],
     });
 
     this.logger.log(`Fetching order ${orderId} for shipper ${shipperId}`);
@@ -336,48 +211,20 @@ export class ShipperDeliveryService {
       throw new NotFoundException('Shipping detail not found for this order and shipper');
     }
 
-    const order = shippingDetail.order;
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
     this.logger.log(`Order ${orderId} found for shipper ${shipperId}`);
 
-    if (shippingDetail.shipper.id !== shipperId) {
-      throw new BadRequestException('You are not assigned to this order');
-    }
-
     this.logger.log(`Order ${orderId} successfully retrieved for shipper ${shipperId}`);
-    return order;
+    return this.orderShipperReader.getShipperOrder(orderId);
   }
 
   async startOrder(orderId: string, shipperId: string) {
     const shippingDetail = await this.shippingDetailRepository.findOne({
       where: { order: { id: orderId }, shipper: { id: shipperId } },
-      relations: ['order', 'shipper'],
     });
     if (!shippingDetail) {
       throw new NotFoundException('Shipping detail not found for this order and shipper');
     }
-    if (shippingDetail.shipper?.id !== shipperId) {
-      throw new ForbiddenException('You are not assigned to this order');
-    }
-
-    const order = shippingDetail.order;
-    if (order.status === 'delivering') {
-      return order;
-    }
-    if (order.status !== 'shipper_received') {
-      throw new BadRequestException('Order must be received by shipper before delivery starts');
-    }
-
-    order.status = 'delivering';
-    shippingDetail.status = ShippingStatus.SHIPPING;
-    await this.orderRepository.save(order);
-    await this.shippingDetailRepository.save(shippingDetail);
-    await pubSub.publish('orderStatusUpdated', { orderStatusUpdated: order });
-
-    return order;
+    return this.orderLifecycleCommand.startDelivery(orderId);
   }
 
   async getPendingAssignmentForShipper(shipperId: string) {
@@ -398,19 +245,20 @@ export class ShipperDeliveryService {
         shipper: { id: shipperId },
         status: ShippingStatus.COMPLETED,
       },
-      relations: [
-        'order',
-        'order.orderDetails',
-        'order.orderDetails.food',
-        'order.restaurant',
-        'order.user',
-        'order.address',
-      ],
+      loadRelationIds: { relations: ['order'] },
       order: { actualDeliveryTime: 'DESC' },
     });
 
-    return completedDetails.map((detail) => {
-      const order = detail.order;
+    const orderIds = completedDetails
+      .map((detail) => (detail as unknown as { order: string | { id: string } }).order)
+      .map((order) => (typeof order === 'string' ? order : order?.id))
+      .filter((orderId): orderId is string => Boolean(orderId));
+    const orders = await this.orderShipperReader.getShipperOrders(orderIds);
+
+    return completedDetails.flatMap((detail) => {
+      const relation = (detail as unknown as { order: string | { id: string } }).order;
+      const order = orders.get(typeof relation === 'string' ? relation : relation?.id);
+      if (!order) return [];
       return {
         id: order.id,
         code: `ĐH${order.id.slice(0, 4).toUpperCase()}`,
@@ -436,48 +284,34 @@ export class ShipperDeliveryService {
           .join(', '),
         orderDetails: order.orderDetails.map((d) => ({
           food: {
-            name: d.food.name,
+            name: d.food?.name ?? '',
           },
           quantity: d.quantity,
-          price: +d.price,
+          price: Number(d.price ?? 0),
         })),
       };
     });
   }
 
   async cancelOrder(orderId: string, userId: string) {
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['shippingDetail', 'shippingDetail.shipper'],
+    const shippingDetail = await this.shippingDetailRepository.findOne({
+      where: { order: { id: orderId }, shipper: { id: userId } },
     });
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-    if (order.status !== 'delivering') {
-      throw new BadRequestException('Order is not currently being delivered');
-    }
-    if (order.shippingDetail?.shipper?.id !== userId) {
+    if (!shippingDetail) {
       throw new ForbiddenException('You are not the shipper for this order');
     }
 
-    const shipper = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: ['shipperCertificateInfo'],
-    });
-    if (!shipper) {
-      throw new NotFoundException('Shipper not found');
+    const order = await this.orderLifecycleCommand.cancelDelivery(orderId);
+    shippingDetail.status = ShippingStatus.CANCELLED;
+    await this.shippingDetailRepository.save(shippingDetail);
+
+    const shipper = await this.shipperProfileRepository.findOne({ where: { userId } });
+    if (shipper) {
+      shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
+      shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1;
+      await this.shipperProfileRepository.save(shipper);
     }
-
-    order.status = 'canceled';
-    await this.orderRepository.save(order);
-
-    await pubSub.publish('orderStatusUpdated', {
-      orderStatusUpdated: order,
-    });
-
-    shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
-    shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1;
-    await this.userRepository.save(shipper);
+    return order;
   }
 
   async rejectOrder(
@@ -496,20 +330,7 @@ export class ShipperDeliveryService {
       throw new ForbiddenException('This order is not currently offered to this shipper');
     }
 
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['shippingDetail', 'shippingDetail.shipper'],
-    });
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    await this.orderRepository.save(order);
-
-    const shipper = await this.userRepository.findOne({
-      where: { id: shipperId },
-      relations: ['shipperCertificateInfo'],
-    });
+    const shipper = await this.shipperProfileRepository.findOne({ where: { userId: shipperId } });
     if (!shipper) {
       throw new NotFoundException('Shipper not found');
     }
@@ -536,24 +357,18 @@ export class ShipperDeliveryService {
     const rejectionCheckResult = this.checkRejectionRatio(shipper);
 
     if (rejectionCheckResult.shouldBan) {
-      if (shipper.shipperCertificateInfo) {
-        shipper.shipperCertificateInfo.status = CertificateStatus.REJECTED;
-        await this.certRepo.save(shipper.shipperCertificateInfo);
-      }
-      await this.userRepository.save(shipper);
+      shipper.certificateStatus = SHIPPER_PROFILE_STATUS.REJECTED;
+      await this.shipperProfileRepository.save(shipper);
       throw new ConflictException(`Shipper has been banned due to ${rejectionCheckResult.reason}`);
     }
 
     if (shipper.responseTimeMinutes > 60) {
-      if (shipper.shipperCertificateInfo) {
-        shipper.shipperCertificateInfo.status = CertificateStatus.REJECTED;
-        await this.certRepo.save(shipper.shipperCertificateInfo);
-      }
-      await this.userRepository.save(shipper);
+      shipper.certificateStatus = SHIPPER_PROFILE_STATUS.REJECTED;
+      await this.shipperProfileRepository.save(shipper);
       throw new ConflictException('Shipper has been rejected due to high response time');
     }
 
-    await this.userRepository.save(shipper);
+    await this.shipperProfileRepository.save(shipper);
 
     const response: {
       message: string;
@@ -575,7 +390,7 @@ export class ShipperDeliveryService {
     return response;
   }
 
-  protected checkRejectionRatio(shipper: User): {
+  protected checkRejectionRatio(shipper: ShipperProfile): {
     shouldBan: boolean;
     warning?: string;
     reason?: string;
@@ -643,5 +458,16 @@ export class ShipperDeliveryService {
     }
 
     return { shouldBan: false };
+  }
+
+  private assertShipperCanReceiveOffer(
+    profile: ShipperProfile | null,
+  ): asserts profile is ShipperProfile {
+    if (!profile || profile.certificateStatus !== SHIPPER_PROFILE_STATUS.APPROVED) {
+      throw new BadRequestException('Invalid or unapproved shipper');
+    }
+    if (!profile.isAvailable || profile.activeDeliveries >= profile.maxActiveDeliveries) {
+      throw new ConflictException('Shipper is not available for another delivery');
+    }
   }
 }

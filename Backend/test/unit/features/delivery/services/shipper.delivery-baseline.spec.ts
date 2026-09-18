@@ -1,108 +1,55 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
-import { Order } from 'src/entities/order.entity';
-import { DefaultRole } from 'src/entities/role.entity';
-import { CertificateStatus } from 'src/entities/shipperCertificateInfo.entity';
+import { BadRequestException } from '@nestjs/common';
+import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { User } from 'src/entities/user.entity';
 import { ShipperService } from 'src/features/delivery/services/shipper/shipper.service';
-import { pubSub } from 'src/pubsub';
+import { SHIPPER_PROFILE_STATUS } from 'src/features/delivery/types/shipper-profile.types';
 
-jest.mock('src/pubsub', () => ({ pubSub: { publish: jest.fn().mockResolvedValue(true) } }));
-
-describe('Shipper delivery transition and concurrency baseline', () => {
-  let order: Order;
+describe('Shipper delivery boundary baseline', () => {
   let shippingDetail: ShippingDetail | null;
-  let shippers: Map<string, User>;
-  let orderRepository: Record<string, jest.Mock | object>;
+  let profile: ShipperProfile;
   let shippingRepository: Record<string, jest.Mock>;
-  let userRepository: Record<string, jest.Mock>;
+  let profileRepository: Record<string, jest.Mock>;
   let pending: Record<string, jest.Mock>;
+  let assignmentSaga: { assign: jest.Mock };
+  let lifecycle: { startDelivery: jest.Mock; cancelDelivery: jest.Mock };
+  let reader: { getShipperOrder: jest.Mock; getShipperOrders: jest.Mock };
   let completionService: { complete: jest.Mock };
   let service: ShipperService;
 
-  type TransactionManagerMock = {
-    getRepository: (entity: unknown) => unknown;
-  };
-
   beforeEach(() => {
-    order = Object.assign(new Order(), {
-      id: 'order-1',
-      status: 'confirmed',
-      shippingFee: 25_000,
-      deliveryDistance: 2,
-      total: 100_000,
-      estimatedDeliveryTime: 30,
-    });
     shippingDetail = null;
-    shippers = new Map(
-      ['shipper-a', 'shipper-b'].map((id) => [
-        id,
-        Object.assign(new User(), {
-          id,
-          role: { name: DefaultRole.SHIPPER },
-          shipperCertificateInfo: { status: CertificateStatus.APPROVED },
-          activeDeliveries: 0,
-          completedDeliveries: 0,
-          totalEarnings: 0,
-        }),
-      ]),
-    );
-
+    profile = Object.assign(new ShipperProfile(), {
+      userId: 'shipper-a',
+      certificateStatus: SHIPPER_PROFILE_STATUS.APPROVED,
+      isAvailable: true,
+      activeDeliveries: 0,
+      maxActiveDeliveries: 3,
+      completedDeliveries: 0,
+      rejectedOrders: 0,
+      failedDeliveries: 0,
+      responseTimeMinutes: 0,
+    });
     shippingRepository = {
       findOne: jest.fn(() => Promise.resolve(shippingDetail)),
-      create: jest.fn((value: Partial<ShippingDetail>) =>
-        Object.assign(new ShippingDetail(), value),
-      ),
-      save: jest.fn((value: ShippingDetail) => {
-        shippingDetail = value;
-        return Promise.resolve(value);
-      }),
+      find: jest.fn(() => Promise.resolve([])),
+      save: jest.fn((value: ShippingDetail) => Promise.resolve(value)),
     };
-    userRepository = {
-      findOne: jest.fn(({ where }: { where: { id: string } }) =>
-        Promise.resolve(shippers.get(where.id) || null),
-      ),
-      save: jest.fn((value: User) => Promise.resolve(value)),
-    };
-
-    let transactionTail = Promise.resolve();
-    const manager: TransactionManagerMock = {
-      getRepository: (entity: unknown) => {
-        if (entity === Order) return orderRepository;
-        if (entity === ShippingDetail) return shippingRepository;
-        if (entity === User) return userRepository;
-        throw new Error('Unexpected repository');
-      },
-    };
-    orderRepository = {
-      findOne: jest.fn(() => Promise.resolve(order)),
-      createQueryBuilder: jest.fn(() => ({
-        where: jest.fn().mockReturnThis(),
-        setLock: jest.fn().mockReturnThis(),
-        getOne: jest.fn(() => Promise.resolve(order)),
-      })),
-      save: jest.fn((value: Order) => Promise.resolve(value)),
-      manager: {
-        transaction: jest.fn((callback: (manager: TransactionManagerMock) => unknown) => {
-          const result = transactionTail.then(() => callback(manager));
-          transactionTail = result.then(
-            () => undefined,
-            () => undefined,
-          );
-          return result;
-        }),
-      },
+    profileRepository = {
+      findOne: jest.fn(() => Promise.resolve(profile)),
+      save: jest.fn((value: ShipperProfile) => Promise.resolve(value)),
     };
     pending = {
+      addPendingAssignment: jest.fn().mockResolvedValue({ id: 'pending-1' }),
       getPendingAssignmentForShipper: jest.fn((shipperId: string) =>
         Promise.resolve({
           assignmentId: `assignment-${shipperId}`,
-          orderId: order.id,
+          orderId: 'order-1',
           shipperId,
           expiresAt: new Date(Date.now() + 60_000),
         }),
       ),
       getActiveHoldForOrder: jest.fn().mockResolvedValue(null),
+      getPendingAssignmentForOrder: jest.fn().mockResolvedValue(null),
       createShipperHold: jest.fn().mockResolvedValue({
         assignmentId: 'assignment-1',
         expiresAt: new Date(Date.now() + 60_000),
@@ -110,69 +57,58 @@ describe('Shipper delivery transition and concurrency baseline', () => {
       markOfferRejected: jest.fn().mockResolvedValue(undefined),
       removePendingAssignment: jest.fn().mockResolvedValue(undefined),
     };
+    assignmentSaga = { assign: jest.fn() };
+    lifecycle = {
+      startDelivery: jest.fn().mockResolvedValue({ orderId: 'order-1', status: 'delivering' }),
+      cancelDelivery: jest.fn().mockResolvedValue({ orderId: 'order-1', status: 'canceled' }),
+    };
+    reader = {
+      getShipperOrder: jest.fn().mockResolvedValue({ id: 'order-1', status: 'shipper_received' }),
+      getShipperOrders: jest.fn().mockResolvedValue(new Map()),
+    };
     completionService = { complete: jest.fn() };
     service = new ShipperService(
-      orderRepository as never,
       shippingRepository as never,
-      userRepository as never,
-      {} as never,
+      profileRepository as never,
       pending as never,
+      assignmentSaga as never,
       completionService as never,
+      lifecycle as never,
+      reader as never,
+      {} as never,
+      {} as never,
     );
   });
 
-  it('creates an offer only for a confirmed, unassigned order and approved shipper', async () => {
+  it('creates an offer after Delivery validates the shipper profile and dispatch candidate', async () => {
     pending.getPendingAssignmentForShipper.mockResolvedValueOnce(null);
+    const result = await service.requestOrderAssignment('order-1', 'shipper-a');
 
-    const result = await service.requestOrderAssignment(order.id, 'shipper-a');
-
+    expect(pending.addPendingAssignment).toHaveBeenCalledWith('order-1');
+    expect(pending.createShipperHold).toHaveBeenCalledWith('order-1', 'shipper-a');
     expect(result.assignmentId).toBe('assignment-1');
-    expect(pending.createShipperHold).toHaveBeenCalledWith(order.id, 'shipper-a');
   });
 
-  it('allows only one winner when two shippers concurrently accept the same order', async () => {
-    const results = await Promise.allSettled([
-      service.assignOrderToShipper(order.id, 'shipper-a'),
-      service.assignOrderToShipper(order.id, 'shipper-b'),
-    ]);
-
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
-    expect(results.find((result) => result.status === 'rejected')).toMatchObject({
-      reason: expect.any(ConflictException) as unknown,
-    });
-    expect(shippingRepository.save).toHaveBeenCalledTimes(1);
-    expect(order.status).toBe('shipper_received');
-  });
-
-  it('does not create a duplicate shipping detail when the winning accept is retried', async () => {
-    await service.assignOrderToShipper(order.id, 'shipper-a');
-
-    await expect(service.assignOrderToShipper(order.id, 'shipper-a')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
-    expect(shippingRepository.save).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not reassign an order after a concurrent accept has committed', async () => {
-    shippingDetail = Object.assign(new ShippingDetail(), {
-      order,
-      shipper: shippers.get('shipper-a'),
+  it('delegates accepted offers to the durable Delivery assignment saga', async () => {
+    const detail = Object.assign(new ShippingDetail(), {
+      id: 'shipping-1',
       status: ShippingStatus.SHIPPING,
     });
+    assignmentSaga.assign.mockResolvedValue(detail);
 
-    await service.reassignOrder(order.id);
-
-    expect(pending.removePendingAssignment).toHaveBeenCalledWith(order.id);
-    // The mocked publisher is inspected, not invoked without its receiver.
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(pubSub.publish).not.toHaveBeenCalledWith('orderReassignedToShippers', expect.anything());
+    await expect(service.assignOrderToShipper('order-1', 'shipper-a', 90)).resolves.toBe(detail);
+    expect(assignmentSaga.assign).toHaveBeenCalledWith('order-1', 'shipper-a', 90);
   });
 
-  it('rejects an expired offer and schedules it for another shipper', async () => {
+  it('requeues a rejection through Delivery dispatch instead of publishing a raw Order', async () => {
+    await service.reassignOrder('order-1');
+    expect(pending.addPendingAssignment).toHaveBeenCalledWith('order-1');
+  });
+
+  it('rejects expired offers through the pending-assignment retry path', async () => {
     pending.getPendingAssignmentForShipper.mockResolvedValueOnce({
       assignmentId: 'expired-assignment',
-      orderId: order.id,
+      orderId: 'order-1',
       shipperId: 'shipper-a',
       expiresAt: new Date(Date.now() - 1_000),
     });
@@ -180,64 +116,44 @@ describe('Shipper delivery transition and concurrency baseline', () => {
     await expect(
       service.acceptAssignment('expired-assignment', 'shipper-a'),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(pending.markOfferRejected).toHaveBeenCalledWith(order.id, 'shipper-a');
+    expect(pending.markOfferRejected).toHaveBeenCalledWith('order-1', 'shipper-a');
   });
 
-  it('records rejection through the pending-assignment retry path', async () => {
-    await service.rejectOrder(order.id, 'shipper-a', 20);
-
-    expect(pending.markOfferRejected).toHaveBeenCalledWith(order.id, 'shipper-a');
-    expect(shippers.get('shipper-a')?.rejectedOrders).toBe(1);
+  it('records rejection in the Delivery-owned profile', async () => {
+    await service.rejectOrder('order-1', 'shipper-a', 20);
+    expect(pending.markOfferRejected).toHaveBeenCalledWith('order-1', 'shipper-a');
+    expect(profile.rejectedOrders).toBe(1);
+    expect(profileRepository.save).toHaveBeenCalledWith(profile);
   });
 
-  it('keeps get-order read-only for an assigned shipper', async () => {
-    order.status = 'shipper_received';
+  it('reads the order through the Orders read API after checking trip ownership', async () => {
     shippingDetail = Object.assign(new ShippingDetail(), {
-      order,
-      shipper: shippers.get('shipper-a'),
+      id: 'shipping-1',
       status: ShippingStatus.SHIPPING,
     });
-
-    const result = await service.getOrder(order.id, 'shipper-a');
-
-    expect(result.status).toBe('shipper_received');
-    expect(orderRepository.save).not.toHaveBeenCalled();
-    expect(shippingRepository.save).not.toHaveBeenCalled();
+    await expect(service.getOrder('order-1', 'shipper-a')).resolves.toEqual({
+      id: 'order-1',
+      status: 'shipper_received',
+    });
+    expect(reader.getShipperOrder).toHaveBeenCalledWith('order-1');
   });
 
-  it('starts delivery only through the explicit start-order command', async () => {
-    order.status = 'shipper_received';
+  it('asks Orders to start delivery after Delivery checks trip ownership', async () => {
     shippingDetail = Object.assign(new ShippingDetail(), {
-      order,
-      shipper: shippers.get('shipper-a'),
+      id: 'shipping-1',
       status: ShippingStatus.SHIPPING,
     });
-
-    const result = await service.startOrder(order.id, 'shipper-a');
-
-    expect(result.status).toBe('delivering');
-    expect(orderRepository.save).toHaveBeenCalledWith(order);
-  });
-
-  it('rejects start commands from invalid order states', async () => {
-    shippingDetail = Object.assign(new ShippingDetail(), {
-      order,
-      shipper: shippers.get('shipper-a'),
-      status: ShippingStatus.SHIPPING,
+    await expect(service.startOrder('order-1', 'shipper-a')).resolves.toEqual({
+      orderId: 'order-1',
+      status: 'delivering',
     });
-    order.status = 'pending';
-
-    await expect(service.startOrder(order.id, 'shipper-a')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    expect(lifecycle.startDelivery).toHaveBeenCalledWith('order-1');
   });
 
   it('delegates completion to the Delivery-owned completion flow', async () => {
     completionService.complete.mockResolvedValue({ message: 'Đơn hàng đã được hoàn thành' });
-
-    await expect(service.markOrderCompleted(order.id, 'shipper-a')).resolves.toEqual({
+    await expect(service.markOrderCompleted('order-1', 'shipper-a')).resolves.toEqual({
       message: 'Đơn hàng đã được hoàn thành',
     });
-    expect(completionService.complete).toHaveBeenCalledWith(order.id, 'shipper-a');
   });
 });

@@ -138,6 +138,7 @@ module.exports = {
               `src/features/${targetFeature}/order-delivery-dispatch-reader.public-api` ||
             targetPath ===
               `src/features/${targetFeature}/order-delivery-completion-reader.public-api` ||
+            targetPath === `src/features/${targetFeature}/order-delivery-shipper.public-api` ||
             targetPath === `src/features/${targetFeature}/order-tracking-reader.public-api`;
           if (targetFeature && targetFeature !== sourceFeature && !isPublicApi) {
             context.report({ node: node.source, messageId: 'deepFeatureImport' });

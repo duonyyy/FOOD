@@ -1,5 +1,11 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
+  DELIVERY_ASSIGNMENT_CLAIMED_EVENT,
+  DELIVERY_ASSIGNMENT_REJECTED_EVENT,
+  DELIVERY_ASSIGNMENT_REQUESTED_EVENT,
+  type DeliveryAssignmentRequestedEvent,
+} from 'src/common/events/delivery-assignment.events';
+import {
   DELIVERY_COMPLETED_EVENT,
   DeliveryCompletedEvent,
 } from 'src/common/events/delivery-completed.event';
@@ -15,6 +21,7 @@ import {
 import { AdminOrdersService } from 'src/features/orders/services/admin-orders.service';
 import { pubSub } from 'src/pubsub';
 import { OrderCoreService } from './order-core.service';
+import { OrderDeliveryAssignmentCommandService } from './order-delivery-assignment-command.service';
 
 @Injectable()
 export class DeliveryCompletedOrderHandler implements OnModuleInit, OnModuleDestroy {
@@ -63,6 +70,41 @@ export class PaymentSucceededOrderHandler implements OnModuleInit, OnModuleDestr
 
   private async handle(event: PaymentSucceededEvent): Promise<void> {
     await this.adminOrdersService.markPaid(event.orderId);
+  }
+}
+
+/** Orders claims the lifecycle transition after Delivery has durably requested an assignment. */
+@Injectable()
+export class DeliveryAssignmentRequestedOrderHandler implements OnModuleInit, OnModuleDestroy {
+  private unsubscribe?: () => void;
+
+  constructor(
+    private readonly eventBus: InProcessEventBus,
+    private readonly assignmentCommands: OrderDeliveryAssignmentCommandService,
+  ) {}
+
+  onModuleInit(): void {
+    this.unsubscribe = this.eventBus.subscribe<DeliveryAssignmentRequestedEvent>(
+      DELIVERY_ASSIGNMENT_REQUESTED_EVENT,
+      (event) => this.handle(event),
+    );
+  }
+
+  onModuleDestroy(): void {
+    this.unsubscribe?.();
+  }
+
+  private async handle(event: DeliveryAssignmentRequestedEvent): Promise<void> {
+    const result = await this.assignmentCommands.claim(event.orderId);
+    if (result.accepted) {
+      await this.eventBus.publish(DELIVERY_ASSIGNMENT_CLAIMED_EVENT, event);
+      return;
+    }
+
+    await this.eventBus.publish(DELIVERY_ASSIGNMENT_REJECTED_EVENT, {
+      ...event,
+      orderStatus: result.orderStatus,
+    });
   }
 }
 

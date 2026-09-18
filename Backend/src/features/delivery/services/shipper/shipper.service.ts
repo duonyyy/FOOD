@@ -1,12 +1,15 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Order } from 'src/entities/order.entity';
-import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import { User } from 'src/entities/user.entity';
+import {
+  OrderDeliveryLifecycleCommandService,
+  OrderDeliveryShipperReaderService,
+} from 'src/features/orders/order-delivery-shipper.public-api';
 import { PendingAssignmentService } from 'src/infra/queue/pending-assignment.public-api';
 import { Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
+import { DeliveryAssignmentSagaService } from './delivery-assignment-saga.service';
 import { DeliveryCompletionService } from './delivery-completion.service';
 import { DeliveryReportService } from './delivery-report.service';
 import { ShipperDeliveryService } from './shipper-delivery.service';
@@ -23,35 +26,28 @@ import { ShipperProfileService } from './shipper-profile.service';
  */
 @Injectable()
 export class ShipperService extends ShipperDeliveryService {
-  private readonly reportService: DeliveryReportService;
-  private readonly profileService: ShipperProfileService;
-
   constructor(
-    @InjectRepository(Order)
-    orderRepository: Repository<Order>,
     @InjectRepository(ShippingDetail)
     shippingDetailRepository: Repository<ShippingDetail>,
-    @InjectRepository(User)
-    userRepository: Repository<User>,
-    @InjectRepository(ShipperCertificateInfo)
-    certRepo: Repository<ShipperCertificateInfo>,
+    @InjectRepository(ShipperProfile)
+    shipperProfileRepository: Repository<ShipperProfile>,
     pendingAssignmentService: PendingAssignmentService,
+    deliveryAssignmentSagaService: DeliveryAssignmentSagaService,
     deliveryCompletionService: DeliveryCompletionService,
-    @Optional() deliveryReportService?: DeliveryReportService,
-    @Optional() shipperProfileService?: ShipperProfileService,
+    orderLifecycleCommand: OrderDeliveryLifecycleCommandService,
+    orderShipperReader: OrderDeliveryShipperReaderService,
+    private readonly reportService: DeliveryReportService,
+    private readonly profileService: ShipperProfileService,
   ) {
     super(
-      orderRepository,
       shippingDetailRepository,
-      userRepository,
-      certRepo,
+      shipperProfileRepository,
       pendingAssignmentService,
+      deliveryAssignmentSagaService,
       deliveryCompletionService,
+      orderLifecycleCommand,
+      orderShipperReader,
     );
-    this.reportService =
-      deliveryReportService ?? new DeliveryReportService(shippingDetailRepository, userRepository);
-    this.profileService =
-      shipperProfileService ?? new ShipperProfileService({} as never, userRepository, certRepo);
   }
 
   async getIncomeReport(
