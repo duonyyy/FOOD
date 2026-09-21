@@ -6,22 +6,32 @@ Owner: Promotion, eligibility, reservation và redemption.
 
 ```text
 promotions/
-├── controllers/        # HTTP endpoints
-│   ├── promotion.controller.ts   # Admin CRUD + public query
-│   └── index.ts
-├── services/           # Business logic
-│   ├── promotion.service.ts             # CRUD, validation, discount calc, caching
-│   ├── promotion-redemption.service.ts  # Redemption trong transaction
-│   └── index.ts
-├── contracts/          # Policy nội bộ của Promotion
-│   └── promotion-cache.policy.ts
-├── dto/                # Request DTOs
+├── controllers/
+│   ├── public-promotions.controller.ts  # Public active-promotion query
+│   └── admin-promotions.controller.ts   # Admin CRUD
+├── services/
+│   ├── public-promotions.service.ts     # Public query, eligibility và discount
+│   ├── admin-promotions.service.ts      # Admin CRUD và cache invalidation
+│   └── promotion-redemption.service.ts  # Redemption idempotent trong transaction
+├── contracts/
+│   ├── promotion-cache.policy.ts
+│   └── promotion-eligibility.policy.ts
+├── dto/
 │   ├── create-promotion.dto.ts
-│   ├── update-promotion.dto.ts
-│   └── index.ts
+│   └── update-promotion.dto.ts
 ├── promotions.module.ts
-├── public-api.ts       # Re-export cho feature khác dùng
+├── public-api.ts
 └── README.md
 ```
 
-Promotion exports concrete promotion services through its public API. Orders and Payments must not write Promotion repositories directly.
+## Public API
+
+- `PromotionsModule`: module chính duy nhất.
+- `PublicPromotionsService`: Orders dùng để kiểm tra eligibility và tính discount.
+- `PromotionRedemptionService`: Orders ghi redemption trong transaction và xóa cache sau commit.
+
+`AdminPromotionsService`, controller, entity, repository và policy không được export. Orders và
+Payments không được ghi trực tiếp Promotion repository.
+
+Promotions không nhận business event ở thời điểm hiện tại. Feature dùng cache và storage thông qua
+public API của `src/infra`.

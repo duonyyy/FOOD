@@ -123,18 +123,25 @@ describe('feature ownership boundaries', () => {
     const customerOrders = source('src/features/orders/services/customer-orders.service.ts');
     const adminOrders = source('src/features/orders/services/admin-orders.service.ts');
     const merchantOrders = source('src/features/orders/services/merchant-orders.service.ts');
-    const promotionService = source('src/features/promotions/services/promotion.service.ts');
+    const publicPromotionsService = source(
+      'src/features/promotions/services/public-promotions.service.ts',
+    );
+    const adminPromotionsService = source(
+      'src/features/promotions/services/admin-promotions.service.ts',
+    );
 
     expect(customerOrders).toContain('MapboxService');
     expect(customerOrders).toContain('src/infra/mapbox/public-api');
     expect(customerOrders).not.toContain('src/infra/mapbox/mapbox.service');
     expect(adminOrders).not.toContain('src/infra/queue/queue.service');
     expect(merchantOrders).not.toContain('src/infra/queue/queue.service');
-    expect(promotionService).toContain('StorageService');
-    expect(promotionService).toContain('AppCacheService');
-    expect(promotionService).toContain('src/infra/minio/public-api');
-    expect(promotionService).not.toContain('src/infra/minio/storage.service');
-    expect(promotionService).toContain('src/infra/cache/public-api');
-    expect(promotionService).not.toContain('src/infra/cache/cache.service');
+    expect(adminPromotionsService).toContain('StorageService');
+    expect(adminPromotionsService).toContain('AppCacheService');
+    expect(adminPromotionsService).toContain('src/infra/minio/public-api');
+    expect(adminPromotionsService).not.toContain('src/infra/minio/storage.service');
+    expect(adminPromotionsService).toContain('src/infra/cache/public-api');
+    expect(adminPromotionsService).not.toContain('src/infra/cache/cache.service');
+    expect(publicPromotionsService).toContain('AppCacheService');
+    expect(publicPromotionsService).toContain('src/infra/cache/public-api');
   });
 });

@@ -11,13 +11,20 @@ describe('PromotionRedemptionService', () => {
       status: PromotionRedemptionStatus.COMMITTED,
       promotion: { id: 'promotion-1', code: 'WELCOME' },
     };
+    const promotion = {
+      id: 'promotion-1',
+      code: 'WELCOME',
+      numberOfUsed: 0,
+      discountPercent: 10,
+    };
     const redemptionRepository = {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((value: unknown) => value),
       save: jest.fn().mockResolvedValue(redemption),
     };
     const promotionRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: 'promotion-1', code: 'WELCOME' }),
+      findOne: jest.fn().mockResolvedValue(promotion),
+      save: jest.fn().mockImplementation((value: unknown) => Promise.resolve(value)),
     };
     const manager = {
       getRepository: jest.fn((entity: unknown) => {
@@ -30,19 +37,20 @@ describe('PromotionRedemptionService', () => {
         return entityName === 'PromotionRedemption' ? redemptionRepository : promotionRepository;
       }),
     };
-    const promotionService = { usePromotion: jest.fn().mockResolvedValue({}) };
+    const cacheService = { deleteByPattern: jest.fn() };
 
     return {
-      service: new PromotionRedemptionService(promotionService as never),
+      service: new PromotionRedemptionService(cacheService as never),
       manager,
       redemption,
       redemptionRepository,
-      promotionService,
+      promotionRepository,
+      cacheService,
     };
   };
 
   it('increments usage and writes redemption through the same manager', async () => {
-    const { service, manager, redemptionRepository, promotionService } = createService();
+    const { service, manager, redemptionRepository, promotionRepository } = createService();
 
     await expect(
       service.redeemInTransaction(
@@ -57,7 +65,9 @@ describe('PromotionRedemptionService', () => {
       ),
     ).resolves.toMatchObject({ id: 'redemption-1' });
 
-    expect(promotionService.usePromotion).toHaveBeenCalledWith('WELCOME', 100_000, manager);
+    expect(promotionRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'WELCOME', numberOfUsed: 1 }),
+    );
     expect(redemptionRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         orderId: 'order-1',
@@ -67,7 +77,7 @@ describe('PromotionRedemptionService', () => {
   });
 
   it('is idempotent for a retried order and does not increment twice', async () => {
-    const { service, manager, redemptionRepository, redemption, promotionService } =
+    const { service, manager, redemptionRepository, redemption, promotionRepository } =
       createService();
     redemptionRepository.findOne.mockResolvedValue(redemption);
 
@@ -84,7 +94,7 @@ describe('PromotionRedemptionService', () => {
       ),
     ).resolves.toBe(redemption);
 
-    expect(promotionService.usePromotion).not.toHaveBeenCalled();
+    expect(promotionRepository.save).not.toHaveBeenCalled();
     expect(redemptionRepository.save).not.toHaveBeenCalled();
   });
 

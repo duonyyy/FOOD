@@ -11,7 +11,10 @@ import {
   FoodIntegrationService,
   type OrderableMenuItem,
 } from 'src/features/menu/public-api';
-import { PromotionRedemptionService, PromotionService } from 'src/features/promotions/public-api';
+import {
+  PromotionRedemptionService,
+  PublicPromotionsService,
+} from 'src/features/promotions/public-api';
 import { RestaurantReaderService } from 'src/features/restaurants/public-api';
 import { SystemConstraintsService } from 'src/features/system-constraints/public-api';
 import { IdentityUserQueryService } from 'src/features/users/public-api';
@@ -45,7 +48,7 @@ export class CustomerOrdersService {
     @InjectRepository(OrderDetail)
     private readonly orderDetailRepository: Repository<OrderDetail>,
     private readonly dataSource: DataSource,
-    private readonly promotionService: PromotionService,
+    private readonly promotionService: PublicPromotionsService,
     private readonly promotionRedemptionService: PromotionRedemptionService,
     private readonly outboxService: OutboxService,
     private readonly systemConstraintsService: SystemConstraintsService,
@@ -231,7 +234,7 @@ export class CustomerOrdersService {
 
     let promotionDiscount = 0;
     let appliedPromotion: NonNullable<
-      Awaited<ReturnType<PromotionService['validatePromotion']>>['promotion']
+      Awaited<ReturnType<PublicPromotionsService['validatePromotion']>>['promotion']
     > | null = null;
     let promotionError: string | null = null;
 
@@ -332,7 +335,7 @@ export class CustomerOrdersService {
     );
 
     let appliedPromotion: NonNullable<
-      Awaited<ReturnType<PromotionService['validatePromotion']>>['promotion']
+      Awaited<ReturnType<PublicPromotionsService['validatePromotion']>>['promotion']
     > | null = null;
     let promotionDiscount = 0;
     let promotionError: string | null = null;
@@ -559,7 +562,7 @@ export class CustomerOrdersService {
       }
       if (data.promotionCode && orderCalculation.appliedPromotion) {
         try {
-          await this.promotionService.clearPromotionCache();
+          await this.promotionRedemptionService.clearPromotionCache();
         } catch (cacheError) {
           this.logger.warn(
             `Order committed but promotion cache invalidation failed: ${(cacheError as Error).message}`,

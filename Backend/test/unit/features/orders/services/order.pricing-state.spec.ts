@@ -54,13 +54,12 @@ describe('Order pricing and state characterization', () => {
       promotionService: {
         validatePromotion: jest.fn(),
         calculateDiscount: jest.fn(),
-        usePromotion: jest.fn(),
-        clearPromotionCache: jest.fn(),
       },
       promotionRedemptionService: {
         redeemInTransaction: jest.fn().mockResolvedValue({
           promotion: { id: 'promotion-1', code: 'PROMO' },
         }),
+        clearPromotionCache: jest.fn(),
       },
       outboxService: {
         enqueue: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
@@ -444,7 +443,6 @@ describe('Order pricing and state characterization', () => {
         },
         calculatedDiscount: 10_000,
       });
-      dependencies.promotionService.usePromotion.mockResolvedValue({ id: 'promotion-1' });
       dependencies.orderQueryService.getOrderById.mockImplementation(() => {
         const savedCall = queryRunner.manager.save.mock.calls.find(([entity]) => entity === Order);
         return Promise.resolve(savedCall?.[1] as Order);

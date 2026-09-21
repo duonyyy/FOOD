@@ -4,8 +4,9 @@ import {
   PromotionRedemptionStatus,
 } from 'src/entities/promotion-redemption.entity';
 import { Promotion } from 'src/entities/promotion.entity';
+import { AppCacheService } from 'src/infra/cache/public-api';
 import { EntityManager } from 'typeorm';
-import { PromotionService } from './promotion.service';
+import { validatePromotionEligibility } from '../contracts/promotion-eligibility.policy';
 
 export interface RedeemPromotionRequest {
   orderId: string;
@@ -17,7 +18,7 @@ export interface RedeemPromotionRequest {
 
 @Injectable()
 export class PromotionRedemptionService {
-  constructor(private readonly promotionService: PromotionService) {}
+  constructor(private readonly cacheService: AppCacheService) {}
 
   async redeemInTransaction(
     request: RedeemPromotionRequest,
@@ -37,15 +38,7 @@ export class PromotionRedemptionService {
       return existing;
     }
 
-    const promotionRepository = manager.getRepository(Promotion);
-    const promotion = await promotionRepository.findOne({
-      where: { code: request.promotionCode },
-      lock: { mode: 'pessimistic_write' },
-    });
-    if (!promotion) throw new BadRequestException('Promotion code not found');
-
-    // The increment and redemption insert share the caller's transaction.
-    await this.promotionService.usePromotion(request.promotionCode, request.subtotal, manager);
+    const promotion = await this.usePromotion(request.promotionCode, request.subtotal, manager);
 
     return redemptionRepository.save(
       redemptionRepository.create({
@@ -57,5 +50,33 @@ export class PromotionRedemptionService {
         status: PromotionRedemptionStatus.COMMITTED,
       }),
     );
+  }
+
+  async clearPromotionCache(): Promise<void> {
+    await this.cacheService.deleteByPattern('promotion:*');
+  }
+
+  private async usePromotion(
+    code: string,
+    orderValue: number | undefined,
+    manager: EntityManager,
+  ): Promise<Promotion> {
+    const promotionRepository = manager.getRepository(Promotion);
+    const promotion = await promotionRepository.findOne({
+      where: { code },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!promotion) {
+      throw new BadRequestException('Promotion code not found');
+    }
+
+    const eligibility = validatePromotionEligibility(promotion, orderValue);
+    if (!eligibility.valid) {
+      throw new BadRequestException(eligibility.reason || 'Invalid promotion');
+    }
+
+    promotion.numberOfUsed = Number(promotion.numberOfUsed || 0) + 1;
+    return promotionRepository.save(promotion);
   }
 }
