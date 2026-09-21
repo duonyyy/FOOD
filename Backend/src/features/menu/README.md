@@ -31,21 +31,15 @@ src/features/menu/
 │   ├── dto/                            # Create, Update Topping DTOs
 │   ├── topping-command.service.ts      # Quản lý tạo/sửa/xóa topping + kiểm tra quyền sở hữu
 │   └── topping.module.ts               # NestJS Module cho Topping
-├── contracts/                          # Ports & Interfaces dùng chung
-│   ├── catalog-chat-reader.port.ts     # Token CATALOG_CHAT_READER
-│   ├── category-reader.port.ts         # Token CATEGORY_READER
-│   ├── food-discovery-reader.port.ts   # Token FOOD_DISCOVERY_READER
-│   ├── food-review-target-reader.port.ts # Token FOOD_REVIEW_TARGET_READER
-│   ├── menu-cache.policy.ts            # Quy tắc Cache TTL & Key naming
-│   └── menu-reader.port.ts             # Token MENU_READER (Snapshot cho Ordering)
+├── contracts/                          # Policy nội bộ của Menu
+│   └── menu-cache.policy.ts            # Quy tắc Cache TTL & Key naming
+├── types/                              # Snapshot dữ liệu public của Menu
 ├── menu.module.ts                      # Đăng ký Controller, Provider và Binding Tokens
 └── public-api.ts                       # Public API export ra ngoài module
 ```
 
-## Public Reader Ports
+## Public Integration Services
 
-- `MENU_READER`: Cung cấp snapshot món và topping cho module Ordering khi đặt hàng.
-- `FOOD_DISCOVERY_READER`: Cung cấp snapshot món ăn cho Restaurant exploration.
-- `CATALOG_CHAT_READER`: Cung cấp snapshot thực đơn cho AI Chatbot.
-- `FOOD_REVIEW_TARGET_READER`: Cung cấp thông tin món ăn cho Reviews module.
-- `CATEGORY_READER`: Cung cấp snapshot danh mục món ăn.
+- `FoodIntegrationService`: Cung cấp snapshot món và topping cho Ordering, Restaurant discovery,
+  AI Chatbot và Reviews qua `public-api.ts`.
+- `CategoryService`: Cung cấp snapshot danh mục món ăn qua `public-api.ts`.

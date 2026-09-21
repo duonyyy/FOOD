@@ -13,9 +13,8 @@ promotions/
 │   ├── promotion.service.ts             # CRUD, validation, discount calc, caching
 │   ├── promotion-redemption.service.ts  # Redemption trong transaction
 │   └── index.ts
-├── contracts/          # Port/interface cho bounded context khác
-│   ├── promotion-redemption.port.ts
-│   └── index.ts
+├── contracts/          # Policy nội bộ của Promotion
+│   └── promotion-cache.policy.ts
 ├── dto/                # Request DTOs
 │   ├── create-promotion.dto.ts
 │   ├── update-promotion.dto.ts
@@ -25,4 +24,4 @@ promotions/
 └── README.md
 ```
 
-T2.3 exports `PromotionRedemptionPort`; T5.5 binds its transaction/idempotency implementation. Orders and Payments must not write Promotion repositories directly.
+Promotion exports concrete promotion services through its public API. Orders and Payments must not write Promotion repositories directly.
