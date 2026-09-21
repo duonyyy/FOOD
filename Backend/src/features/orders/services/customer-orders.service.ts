@@ -7,14 +7,8 @@ import { haversineDistance } from 'src/common/utils/geo.util';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { AddressService } from 'src/features/locations/public-api';
-import {
-  FoodIntegrationService,
-  type OrderableMenuItem,
-} from 'src/features/menu/public-api';
-import {
-  PromotionRedemptionService,
-  PublicPromotionsService,
-} from 'src/features/promotions/public-api';
+import { FoodIntegrationService, type OrderableMenuItem } from 'src/features/menu/public-api';
+import { PromotionUsageService, PublicPromotionsService } from 'src/features/promotions/public-api';
 import { RestaurantReaderService } from 'src/features/restaurants/public-api';
 import { SystemConstraintsService } from 'src/features/system-constraints/public-api';
 import { IdentityUserQueryService } from 'src/features/users/public-api';
@@ -49,7 +43,7 @@ export class CustomerOrdersService {
     private readonly orderDetailRepository: Repository<OrderDetail>,
     private readonly dataSource: DataSource,
     private readonly promotionService: PublicPromotionsService,
-    private readonly promotionRedemptionService: PromotionRedemptionService,
+    private readonly promotionUsageService: PromotionUsageService,
     private readonly outboxService: OutboxService,
     private readonly systemConstraintsService: SystemConstraintsService,
     private readonly routeService: MapboxService,
@@ -402,7 +396,7 @@ export class CustomerOrdersService {
   }
 
   /**
-   * Create an order with transactional boundary, outbox event and promotion redemption
+   * Create an order with transactional boundary, outbox event and promotion usage
    */
   async createOrder(data: CreateOrderDto) {
     this.logger.log(`Starting order creation for customer ${data.userId}`);
@@ -521,7 +515,7 @@ export class CustomerOrdersService {
       await this.createOrderDetails(savedOrder, foodDetails, queryRunner);
 
       if (data.promotionCode && orderCalculation.appliedPromotion) {
-        const redemption = await this.promotionRedemptionService.redeemInTransaction(
+        const usage = await this.promotionUsageService.useInTransaction(
           {
             orderId: savedOrder.id,
             promotionCode: data.promotionCode,
@@ -531,7 +525,7 @@ export class CustomerOrdersService {
           },
           queryRunner.manager,
         );
-        order.promotionCode = { id: redemption.promotion.id } as Order['promotionCode'];
+        order.promotionCode = { id: usage.promotion.id } as Order['promotionCode'];
         await queryRunner.manager.save(Order, order);
       }
 
@@ -562,7 +556,7 @@ export class CustomerOrdersService {
       }
       if (data.promotionCode && orderCalculation.appliedPromotion) {
         try {
-          await this.promotionRedemptionService.clearPromotionCache();
+          await this.promotionUsageService.clearPromotionCache();
         } catch (cacheError) {
           this.logger.warn(
             `Order committed but promotion cache invalidation failed: ${(cacheError as Error).message}`,

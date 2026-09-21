@@ -1,3 +1,3 @@
 export { PromotionsModule } from './promotions.module';
-export { PromotionRedemptionService } from './services/promotion-redemption.service';
+export { PromotionUsageService } from './services/promotion-usage.service';
 export { PublicPromotionsService } from './services/public-promotions.service';

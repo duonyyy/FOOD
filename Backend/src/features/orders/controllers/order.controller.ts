@@ -22,7 +22,6 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Order } from 'src/entities/order.entity';
 import { AuthGuard, Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { DeliveryDispatchService } from 'src/features/delivery/public-api';
@@ -31,6 +30,7 @@ import { RestaurantProfileService } from 'src/features/restaurants/public-api';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { pubSub } from 'src/pubsub';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { CalculateOrderDto, CalculateOrderWithCustomAddressDto } from '../dto/calculate-order.dto';
 import { CreateOrderRequestDto } from '../dto/create-order-request.dto';
 import { CreateOrderDto } from '../dto/create-order.dto';
@@ -477,7 +477,7 @@ export class OrderController {
   }
 
   @Post('validate-promotion')
-  @ApiOperation({ summary: 'Validate promotion eligibility for an order' })
+  @ApiOperation({ summary: 'Validate promotion rules for an order' })
   @ApiResponse({ status: 200, description: 'Promotion validation result' })
   @ApiResponse({ status: 400, description: 'Missing required fields or validation failure' })
   async validatePromotion(@Body() body: ValidatePromotionDto) {

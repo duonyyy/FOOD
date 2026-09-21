@@ -96,7 +96,7 @@ export class CustomerOrdersService {
 Quy tắc chia service:
 
 - chia theo vai trò trước: `customer`, `merchant`, `shipper`, `admin`;
-- chỉ tách service nghiệp vụ dùng chung khi có trách nhiệm rõ, ví dụ `order-pricing.service.ts` hoặc `promotion-redemption.service.ts`;
+- chỉ tách service nghiệp vụ dùng chung khi có trách nhiệm rõ, ví dụ `order-pricing.service.ts` hoặc `promotion-usage.service.ts`;
 - không tạo một service cho từng method;
 - không tạo facade chỉ chuyển tiếp nguyên xi sang service khác;
 - một luật nghiệp vụ chỉ có một nơi quyết định;
@@ -189,10 +189,10 @@ Mỗi feature chỉ có một module chính. Module này đăng ký:
   providers: [
     PublicPromotionsService,
     AdminPromotionsService,
-    PromotionRedemptionService,
+    PromotionUsageService,
   ],
   exports: [
-    PromotionRedemptionService,
+    PromotionUsageService,
   ],
 })
 export class PromotionsModule {}
@@ -356,7 +356,7 @@ promotions/
 ├── services/
 │   ├── public-promotions.service.ts
 │   ├── admin-promotions.service.ts
-│   └── promotion-redemption.service.ts
+│   └── promotion-usage.service.ts
 ├── dto/
 ├── types/
 ├── contracts/
@@ -366,7 +366,7 @@ promotions/
 └── README.md
 ```
 
-`promotion-redemption.service.ts` là service nghiệp vụ dùng chung vì cả customer flow và Orders có thể cần kiểm tra hoặc ghi nhận redemption. Nó không cần được đổi thành một application port nếu chỉ có một implementation.
+`promotion-usage.service.ts` là service nghiệp vụ dùng chung vì Orders cần ghi nhận lượt dùng mã khuyến mãi. Nó không cần được đổi thành một application port nếu chỉ có một implementation.
 
 ## 9. Ví dụ cho feature lớn như `orders`
 
@@ -404,7 +404,7 @@ Không tạo riêng `orders-delivery.module.ts`, `orders-analytics.module.ts`, `
 | `users` | customer/self, admin, role-management |
 | `restaurants` | public, merchant, admin |
 | `menu` | public, customer nếu có use case riêng, merchant, admin |
-| `promotions` | public, admin, redemption |
+| `promotions` | public, admin, usage |
 | `orders` | customer, merchant, admin, system |
 | `delivery` | customer tracking, shipper, admin, dispatch/system |
 | `payments` | customer, webhook/system, reconciliation/admin |

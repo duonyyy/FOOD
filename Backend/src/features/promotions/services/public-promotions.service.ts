@@ -9,8 +9,8 @@ import {
 } from '../contracts/promotion-cache.policy';
 import {
   calculatePromotionDiscount,
-  validatePromotionEligibility,
-} from '../contracts/promotion-eligibility.policy';
+  checkPromotionRules,
+} from '../contracts/promotion-rules.policy';
 
 @Injectable()
 export class PublicPromotionsService {
@@ -78,9 +78,9 @@ export class PublicPromotionsService {
       return { valid: false, reason: 'Promotion code not found' };
     }
 
-    const eligibility = validatePromotionEligibility(promotion, orderValue);
-    if (!eligibility.valid) {
-      return eligibility;
+    const ruleCheck = checkPromotionRules(promotion, orderValue);
+    if (!ruleCheck.valid) {
+      return ruleCheck;
     }
 
     return {

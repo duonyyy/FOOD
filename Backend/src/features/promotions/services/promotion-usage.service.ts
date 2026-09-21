@@ -6,9 +6,9 @@ import {
 import { Promotion } from 'src/entities/promotion.entity';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { EntityManager } from 'typeorm';
-import { validatePromotionEligibility } from '../contracts/promotion-eligibility.policy';
+import { checkPromotionRules } from '../contracts/promotion-rules.policy';
 
-export interface RedeemPromotionRequest {
+export interface UsePromotionRequest {
   orderId: string;
   promotionCode: string;
   customerId: string;
@@ -17,31 +17,35 @@ export interface RedeemPromotionRequest {
 }
 
 @Injectable()
-export class PromotionRedemptionService {
+export class PromotionUsageService {
   constructor(private readonly cacheService: AppCacheService) {}
 
-  async redeemInTransaction(
-    request: RedeemPromotionRequest,
+  async useInTransaction(
+    request: UsePromotionRequest,
     manager: EntityManager,
   ): Promise<PromotionRedemption> {
-    const redemptionRepository = manager.getRepository(PromotionRedemption);
-    const existing = await redemptionRepository.findOne({
+    const usageRepository = manager.getRepository(PromotionRedemption);
+    const existingUsage = await usageRepository.findOne({
       where: { orderId: request.orderId },
       relations: ['promotion'],
       lock: { mode: 'pessimistic_write' },
     });
 
-    if (existing) {
-      if (existing.promotionCode !== request.promotionCode) {
-        throw new BadRequestException('Order already has a different promotion redemption');
+    if (existingUsage) {
+      if (existingUsage.promotionCode !== request.promotionCode) {
+        throw new BadRequestException('Order already has a different promotion usage');
       }
-      return existing;
+      return existingUsage;
     }
 
-    const promotion = await this.usePromotion(request.promotionCode, request.subtotal, manager);
+    const promotion = await this.incrementPromotionUsage(
+      request.promotionCode,
+      request.subtotal,
+      manager,
+    );
 
-    return redemptionRepository.save(
-      redemptionRepository.create({
+    return usageRepository.save(
+      usageRepository.create({
         orderId: request.orderId,
         customerId: request.customerId,
         promotion,
@@ -56,7 +60,7 @@ export class PromotionRedemptionService {
     await this.cacheService.deleteByPattern('promotion:*');
   }
 
-  private async usePromotion(
+  private async incrementPromotionUsage(
     code: string,
     orderValue: number | undefined,
     manager: EntityManager,
@@ -71,9 +75,9 @@ export class PromotionRedemptionService {
       throw new BadRequestException('Promotion code not found');
     }
 
-    const eligibility = validatePromotionEligibility(promotion, orderValue);
-    if (!eligibility.valid) {
-      throw new BadRequestException(eligibility.reason || 'Invalid promotion');
+    const ruleCheck = checkPromotionRules(promotion, orderValue);
+    if (!ruleCheck.valid) {
+      throw new BadRequestException(ruleCheck.reason || 'Invalid promotion');
     }
 
     promotion.numberOfUsed = Number(promotion.numberOfUsed || 0) + 1;

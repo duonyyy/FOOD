@@ -1,14 +1,14 @@
 import { Promotion } from 'src/entities/promotion.entity';
 
-export interface PromotionEligibilityResult {
+export interface PromotionRuleCheckResult {
   valid: boolean;
   reason?: string;
 }
 
-export function validatePromotionEligibility(
+export function checkPromotionRules(
   promotion: Promotion,
   orderValue?: number,
-): PromotionEligibilityResult {
+): PromotionRuleCheckResult {
   const now = new Date();
 
   if (promotion.startDate && promotion.startDate > now) {

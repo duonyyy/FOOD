@@ -1,11 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import { PromotionRedemptionStatus } from 'src/entities/promotion-redemption.entity';
-import { PromotionRedemptionService } from 'src/features/promotions/services/promotion-redemption.service';
+import { PromotionUsageService } from 'src/features/promotions/services/promotion-usage.service';
 
-describe('PromotionRedemptionService', () => {
+describe('PromotionUsageService', () => {
   const createService = () => {
-    const redemption = {
-      id: 'redemption-1',
+    const usage = {
+      id: 'usage-1',
       orderId: 'order-1',
       promotionCode: 'WELCOME',
       status: PromotionRedemptionStatus.COMMITTED,
@@ -17,10 +17,10 @@ describe('PromotionRedemptionService', () => {
       numberOfUsed: 0,
       discountPercent: 10,
     };
-    const redemptionRepository = {
+    const usageRepository = {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((value: unknown) => value),
-      save: jest.fn().mockResolvedValue(redemption),
+      save: jest.fn().mockResolvedValue(usage),
     };
     const promotionRepository = {
       findOne: jest.fn().mockResolvedValue(promotion),
@@ -34,26 +34,26 @@ describe('PromotionRedemptionService', () => {
           typeof entity.name === 'string'
             ? entity.name
             : undefined;
-        return entityName === 'PromotionRedemption' ? redemptionRepository : promotionRepository;
+        return entityName === 'PromotionRedemption' ? usageRepository : promotionRepository;
       }),
     };
     const cacheService = { deleteByPattern: jest.fn() };
 
     return {
-      service: new PromotionRedemptionService(cacheService as never),
+      service: new PromotionUsageService(cacheService as never),
       manager,
-      redemption,
-      redemptionRepository,
+      usage,
+      usageRepository,
       promotionRepository,
       cacheService,
     };
   };
 
-  it('increments usage and writes redemption through the same manager', async () => {
-    const { service, manager, redemptionRepository, promotionRepository } = createService();
+  it('increments and records usage through the same manager', async () => {
+    const { service, manager, usageRepository, promotionRepository } = createService();
 
     await expect(
-      service.redeemInTransaction(
+      service.useInTransaction(
         {
           orderId: 'order-1',
           promotionCode: 'WELCOME',
@@ -63,12 +63,12 @@ describe('PromotionRedemptionService', () => {
         },
         manager as never,
       ),
-    ).resolves.toMatchObject({ id: 'redemption-1' });
+    ).resolves.toMatchObject({ id: 'usage-1' });
 
     expect(promotionRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'WELCOME', numberOfUsed: 1 }),
     );
-    expect(redemptionRepository.save).toHaveBeenCalledWith(
+    expect(usageRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         orderId: 'order-1',
         status: PromotionRedemptionStatus.COMMITTED,
@@ -77,12 +77,11 @@ describe('PromotionRedemptionService', () => {
   });
 
   it('is idempotent for a retried order and does not increment twice', async () => {
-    const { service, manager, redemptionRepository, redemption, promotionRepository } =
-      createService();
-    redemptionRepository.findOne.mockResolvedValue(redemption);
+    const { service, manager, usageRepository, usage, promotionRepository } = createService();
+    usageRepository.findOne.mockResolvedValue(usage);
 
     await expect(
-      service.redeemInTransaction(
+      service.useInTransaction(
         {
           orderId: 'order-1',
           promotionCode: 'WELCOME',
@@ -92,19 +91,19 @@ describe('PromotionRedemptionService', () => {
         },
         manager as never,
       ),
-    ).resolves.toBe(redemption);
+    ).resolves.toBe(usage);
 
     expect(promotionRepository.save).not.toHaveBeenCalled();
-    expect(redemptionRepository.save).not.toHaveBeenCalled();
+    expect(usageRepository.save).not.toHaveBeenCalled();
   });
 
   it('rejects reusing an order id with a different promotion code', async () => {
-    const { service, manager, redemption } = createService();
-    const redemptionRepository = manager.getRepository({ name: 'PromotionRedemption' } as never);
-    redemptionRepository.findOne.mockResolvedValue(redemption);
+    const { service, manager, usage } = createService();
+    const usageRepository = manager.getRepository({ name: 'PromotionRedemption' } as never);
+    usageRepository.findOne.mockResolvedValue(usage);
 
     await expect(
-      service.redeemInTransaction(
+      service.useInTransaction(
         {
           orderId: 'order-1',
           promotionCode: 'OTHER',

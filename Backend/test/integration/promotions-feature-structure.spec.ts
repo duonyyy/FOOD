@@ -30,7 +30,7 @@ describe('Promotions feature structure', () => {
 
     expect(publicApi).toContain('PromotionsModule');
     expect(publicApi).toContain('PublicPromotionsService');
-    expect(publicApi).toContain('PromotionRedemptionService');
+    expect(publicApi).toContain('PromotionUsageService');
     expect(publicApi).not.toMatch(/Controller|AdminPromotionsService|entities|Repository/);
   });
 
@@ -44,6 +44,10 @@ describe('Promotions feature structure', () => {
     expect(relativeFiles).toContain('controllers/admin-promotions.controller.ts');
     expect(relativeFiles).toContain('services/public-promotions.service.ts');
     expect(relativeFiles).toContain('services/admin-promotions.service.ts');
+    expect(relativeFiles).toContain('services/promotion-usage.service.ts');
+    expect(relativeFiles).toContain('contracts/promotion-rules.policy.ts');
+    expect(relativeFiles).not.toContain('contracts/promotion-eligibility.policy.ts');
+    expect(relativeFiles).not.toContain('services/promotion-redemption.service.ts');
     expect(relativeFiles).not.toContain('controllers/promotion.controller.ts');
     expect(relativeFiles).not.toContain('services/promotion.service.ts');
     expect(moduleSource).not.toContain('forwardRef');

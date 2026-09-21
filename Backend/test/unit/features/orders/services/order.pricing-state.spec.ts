@@ -55,8 +55,8 @@ describe('Order pricing and state characterization', () => {
         validatePromotion: jest.fn(),
         calculateDiscount: jest.fn(),
       },
-      promotionRedemptionService: {
-        redeemInTransaction: jest.fn().mockResolvedValue({
+      promotionUsageService: {
+        useInTransaction: jest.fn().mockResolvedValue({
           promotion: { id: 'promotion-1', code: 'PROMO' },
         }),
         clearPromotionCache: jest.fn(),
@@ -206,7 +206,7 @@ describe('Order pricing and state characterization', () => {
       dependencies.orderDetailRepository as never,
       dependencies.dataSource as never,
       dependencies.promotionService as never,
-      dependencies.promotionRedemptionService as never,
+      dependencies.promotionUsageService as never,
       dependencies.outboxService as never,
       dependencies.systemConstraintsService as never,
       dependencies.routePort as never,
@@ -469,10 +469,8 @@ describe('Order pricing and state characterization', () => {
       expect(result.total).toBe(expectedTotal);
       expect(queryRunner.commitTransaction).toHaveBeenCalled();
       if (promotionCode) {
-        expect(dependencies.promotionRedemptionService.redeemInTransaction).toHaveBeenCalledTimes(
-          1,
-        );
-        expect(dependencies.promotionRedemptionService.redeemInTransaction).toHaveBeenCalledWith(
+        expect(dependencies.promotionUsageService.useInTransaction).toHaveBeenCalledTimes(1);
+        expect(dependencies.promotionUsageService.useInTransaction).toHaveBeenCalledWith(
           expect.objectContaining({
             orderId: 'order-1',
             promotionCode: 'PROMO',
@@ -560,6 +558,6 @@ describe('Order pricing and state characterization', () => {
 
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
-    expect(dependencies.promotionRedemptionService.redeemInTransaction).not.toHaveBeenCalled();
+    expect(dependencies.promotionUsageService.useInTransaction).not.toHaveBeenCalled();
   });
 });

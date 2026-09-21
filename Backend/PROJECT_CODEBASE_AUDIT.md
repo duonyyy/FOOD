@@ -448,7 +448,7 @@ Vì vậy báo cáo không kết luận production-ready.
 ### Bước 1 — Promotions feature mẫu — Đã hoàn thành
 
 - đã tách `public-promotions.controller.ts` và `admin-promotions.controller.ts`;
-- đã tách public/admin service và giữ redemption service riêng;
+- đã tách public/admin service và giữ `PromotionUsageService` riêng để ghi nhận lượt dùng;
 - đã giữ một `promotions.module.ts` và một `public-api.ts`;
 - đã sửa permission đọc promotion;
 - đã giữ nguyên route, DTO và response contract;
