@@ -61,7 +61,12 @@ export class OrderController {
   @ApiUnauthorizedResponse({ description: 'JWT is missing or invalid' })
   async createOrder(@Body() body: CreateOrderRequestDto, @CurrentActor() actor: CurrentActorData) {
     const userId = actor.userId;
-    this.logger.log(`Received order creation request: ${JSON.stringify(body)}`);
+    this.logger.log({
+      event: 'order_create_requested',
+      actorId: userId,
+      restaurantId: body.restaurantId,
+      itemCount: Array.isArray(body.orderDetails) ? body.orderDetails.length : 0,
+    });
 
     // Map orderDetails if present
     const orderDetails = Array.isArray(body.orderDetails)
@@ -84,8 +89,10 @@ export class OrderController {
     let isTemporaryAddress = false;
 
     if (body.address && !body.addressId) {
-      this.logger.log(`🏠 Creating temporary address for custom delivery location`);
-      this.logger.log(`📍 Custom address: ${JSON.stringify(body.address)}`);
+      this.logger.log({
+        event: 'temporary_delivery_address_requested',
+        actorId: userId,
+      });
 
       // Create a temporary address record for this order
       addressId = await this.orderService.createTemporaryAddress(body.address, userId);
@@ -111,7 +118,12 @@ export class OrderController {
       orderDetails,
     };
 
-    this.logger.log(`Creating order with DTO: ${JSON.stringify(createOrderDto)}`);
+    this.logger.log({
+      event: 'order_create_command_prepared',
+      actorId: userId,
+      restaurantId: createOrderDto.restaurantId,
+      itemCount: createOrderDto.orderDetails.length,
+    });
 
     try {
       // 1. Create the order
@@ -135,9 +147,11 @@ export class OrderController {
         paymentUrl = checkout.paymentUrl;
         checkoutId = checkout.id;
 
-        this.logger.log(
-          `Checkout created for order ${order.id}: paymentUrl=${paymentUrl}, checkoutId=${checkoutId}`,
-        );
+        this.logger.log({
+          event: 'checkout_created',
+          orderId: order.id,
+          checkoutId,
+        });
       }
 
       if (body.paymentMethod === 'cod') {
@@ -214,7 +228,11 @@ export class OrderController {
   @ApiResponse({ status: 200, description: 'Order pricing calculation successful' })
   @ApiResponse({ status: 400, description: 'Validation failed or missing required fields' })
   async calculateOrder(@Body() body: CalculateOrderDto) {
-    this.logger.log(`Calculating order: ${JSON.stringify(body)}`);
+    this.logger.log({
+      event: 'order_calculation_requested',
+      restaurantId: body.restaurantId,
+      itemCount: Array.isArray(body.items) ? body.items.length : 0,
+    });
 
     if (
       !body.addressId ||
@@ -238,7 +256,11 @@ export class OrderController {
   @ApiResponse({ status: 200, description: 'Order pricing calculation successful' })
   @ApiResponse({ status: 400, description: 'Validation failed or missing required fields' })
   async calculateOrderWithCustomAddress(@Body() body: CalculateOrderWithCustomAddressDto) {
-    this.logger.log(`Calculating order with custom address: ${JSON.stringify(body)}`);
+    this.logger.log({
+      event: 'custom_address_order_calculation_requested',
+      restaurantId: body.restaurantId,
+      itemCount: Array.isArray(body.items) ? body.items.length : 0,
+    });
 
     if (
       !body.address ||
@@ -459,7 +481,7 @@ export class OrderController {
   @ApiResponse({ status: 200, description: 'Promotion validation result' })
   @ApiResponse({ status: 400, description: 'Missing required fields or validation failure' })
   async validatePromotion(@Body() body: ValidatePromotionDto) {
-    this.logger.log(`Validating promotion: ${body.promotionCode}`);
+    this.logger.log({ event: 'promotion_validation_requested' });
 
     if (
       !body.promotionCode ||

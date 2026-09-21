@@ -51,7 +51,7 @@ export class PromotionController {
   @Get(':id')
   @UseGuards(RolesGuard)
   @ApiBearerAuth('bearer')
-  @Permissions(Permission.PROMOTION.CREATE)
+  @Permissions(Permission.PROMOTION.READ)
   getPromotionById(@Param('id') id: string) {
     return this.promotionService.getPromotionById(id);
   }
