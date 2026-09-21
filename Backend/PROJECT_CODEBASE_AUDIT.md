@@ -2,7 +2,7 @@
 
 > Repository kiểm tra: `foodee-be/Backend`
 >
-> Ngày cập nhật: 2026-09-18
+> Ngày cập nhật: 2026-09-21
 >
 > Loại kiểm tra: đọc code, kiểm tra Git, chạy build/test/lint
 >
@@ -38,7 +38,7 @@ Không có bằng chứng cho thấy cần chuyển sang microservice, monorepo 
 Báo cáo này ưu tiên theo thứ tự:
 
 1. Code hiện tại.
-2. Kết quả lệnh chạy thực tế ngày 2026-09-18.
+2. Kết quả lệnh chạy thực tế gần nhất, gồm lần chạy lại sau refactor Promotions ngày 2026-09-21.
 3. Git status và git log hiện tại.
 4. Tài liệu kiến trúc.
 5. Báo cáo lịch sử.
@@ -52,12 +52,16 @@ Báo cáo không coi số liệu hoặc kết luận cũ là sự thật nếu c
 HEAD hiện tại:
 
 ```text
-c35e2ee refactor(backend): complete phase 5 boundary cleanup
+20b0543 refactor(promotions): organize feature by actor role
 ```
 
 Các commit liên quan trực tiếp đến boundary gần nhất:
 
 ```text
+20b0543 refactor(promotions): organize feature by actor role
+3456708 fix(backend): correct promotion access and redact order logs
+191d21b refactor(infra): colocate provider type declarations
+d07f574 docs(backend): align feature architecture guidance
 c35e2ee refactor(backend): complete phase 5 boundary cleanup
 08794b4 refactor(backend): complete infrastructure boundary cleanup
 bf5402a refactor(backend): narrow analytics order reader
@@ -76,27 +80,18 @@ Những commit này đã đưa code đến trạng thái hiện tại:
 - Analytics đọc Orders qua reader hẹp;
 - queue/cache/map/storage nằm trong `src/infra`;
 - không còn runtime `forwardRef()`;
-- boundary test đã được bổ sung.
+- boundary test đã được bổ sung;
+- Promotions đã trở thành feature mẫu với controller/service theo role, một module và một public API.
 
 ### 3.2. Working tree chưa commit
 
-Tại thời điểm kiểm tra, working tree không sạch. Các thay đổi trong Backend gồm:
+Sau các commit trên, thay đổi chưa commit duy nhất trong Backend là:
 
 ```text
 M  docker/docker-compose.yml
-M  src/features/README.md
-M  src/features/locations/README.md
-M  src/features/menu/README.md
-M  src/features/promotions/README.md
-M  src/features/restaurants/README.md
-D  src/types/mapbox-directions.d.ts
-D  src/types/nodemailer.d.ts
-?? PROJECT_CODEBASE_AUDIT.md
-?? src/infra/mail/nodemailer.d.ts
-?? src/infra/mapbox/mapbox-directions.d.ts
 ```
 
-Hai ambient declaration đang được chuyển về đúng hạ tầng sở hữu:
+Hai ambient declaration đã được commit về đúng hạ tầng sở hữu:
 
 - Mapbox: `src/types/mapbox-directions.d.ts` → `src/infra/mapbox/mapbox-directions.d.ts`;
 - Nodemailer: `src/types/nodemailer.d.ts` → `src/infra/mail/nodemailer.d.ts`.
@@ -109,16 +104,16 @@ Số liệu lấy trực tiếp từ checkout hiện tại:
 
 | Thành phần | Số lượng |
 | --- | ---: |
-| File tracked toàn repository | 598 |
-| File tracked trong `src` | 433 |
-| File tracked trong `test` | 136 |
+| File tracked toàn repository | 605 |
+| File tracked trong `src` | 436 |
+| File tracked trong `test` | 139 |
 | Business feature trong `src/features` | 14 |
 | File entity trong `src/entities` | 27 |
 | Migration TypeScript | 37 |
-| REST controller | 29 |
+| REST controller | 30 |
 | GraphQL resolver | 5 |
-| Unit test suite | 99 |
-| Integration test suite | 25 |
+| Unit test suite | 101 |
+| Integration test suite | 26 |
 | E2E suite | 10 |
 
 14 feature hiện tại:
@@ -192,7 +187,7 @@ Số liệu dưới đây tính các file `*.module.ts` và `*public-api.ts` n�
 | notifications | 10 | 1 | 1 | 1 | 2 | Gần đạt |
 | orders | 45 | 8 | 7 | 1 | 12 | Chưa đạt, ưu tiên cao |
 | payments | 11 | 1 | 1 | 2 | 2 | Gần đạt |
-| promotions | 8 | 1 | 1 | 1 | 2 | Phù hợp làm feature mẫu |
+| promotions | 11 | 1 | 1 | 2 | 3 | Đạt, feature mẫu đã hoàn thành |
 | restaurants | 21 | 2 | 2 | 3 | 5 | Cần gộp module/public API |
 | reviews | 12 | 2 | 2 | 2 | 2 | Cần gộp module/public API |
 | system-constraints | 3 | 1 | 1 | 0 | 1 | Đạt về cấu trúc |
@@ -325,31 +320,25 @@ Không nên di chuyển hàng loạt. Mỗi type cần owner rõ:
 
 Boundary test hiện tại đang bảo vệ các shared type này, vì vậy mọi thay đổi phải sửa code và test cùng một commit.
 
-## 10. Vấn đề bảo mật và chất lượng code còn thấy được
+## 10. Bảo mật và chất lượng code
 
-### P1 — Sai permission khi đọc promotion
+### Đã xử lý — Permission đọc promotion
 
-File: `src/features/promotions/controllers/promotion.controller.ts:54`
+Commit: `3456708 fix(backend): correct promotion access and redact order logs`
 
-Endpoint `GET /promotions/:id` đang yêu cầu:
+Endpoint `GET /promotions/:id` hiện yêu cầu đúng:
 
 ```ts
-@Permissions(Permission.PROMOTION.CREATE)
+@Permissions(Permission.PROMOTION.READ)
 ```
 
-Trong khi endpoint đọc danh sách dùng `PROMOTION.READ`. Đây là lỗi phân quyền có bằng chứng trực tiếp. Cần đổi sang quyền đọc sau khi xác nhận contract API.
+Sau refactor, guard nằm tại `admin-promotions.controller.ts` và route không thay đổi.
 
-### P1 — Log toàn bộ request body của Orders
+### Đã xử lý — Log request body của Orders
 
-File và dòng hiện tại:
-
-```text
-src/features/orders/controllers/order.controller.ts:64
-src/features/orders/controllers/order.controller.ts:217
-src/features/orders/controllers/order.controller.ts:241
-```
-
-Các dòng này dùng `JSON.stringify(body)`. Body có thể chứa địa chỉ, tọa độ, món ăn, ghi chú hoặc dữ liệu do người dùng nhập. Nên thay bằng structured log chỉ gồm request ID, actor ID, order ID và số lượng item.
+Commit `3456708` đã bỏ log toàn bộ request body, địa chỉ tùy chỉnh, DTO tạo đơn,
+payment URL và promotion code. Log mới chỉ giữ metadata tối thiểu như event, actor ID,
+restaurant ID, order ID, checkout ID và số lượng item.
 
 ### P2 — Phản hồi 403/404 cần chốt theo threat model
 
@@ -363,7 +352,7 @@ Không nên tự động đổi toàn bộ 403 thành 404. Cần quyết định
 
 ### P2 — Lint chưa xanh
 
-Kết quả `npm run lint`:
+Lần chạy full lint ngày 2026-09-18 cho kết quả:
 
 ```text
 23220 problems
@@ -371,7 +360,8 @@ Kết quả `npm run lint`:
 100 warnings
 ```
 
-Phần lớn lỗi là Prettier yêu cầu xóa CRLF. Khi chạy lại ESLint với rule Prettier tắt:
+Phần lớn lỗi là Prettier yêu cầu xóa CRLF. Khi chạy ESLint với rule Prettier tắt trên
+toàn repository tại cùng baseline:
 
 ```text
 104 problems
@@ -398,9 +388,9 @@ Exit code: 0
 ```text
 Lệnh: npm run test:unit
 Kết quả: PASS
-Test Suites: 99 passed, 99 total
-Tests: 339 passed, 339 total
-Thời gian Jest: 273.673 s
+Test Suites: 101 passed, 101 total
+Tests: 345 passed, 345 total
+Thời gian Jest: 125.362 s
 ```
 
 ### Integration và boundary test
@@ -408,9 +398,9 @@ Thời gian Jest: 273.673 s
 ```text
 Lệnh: npm run test:integration
 Kết quả: PASS có skip
-Test Suites: 24 passed, 1 skipped, 25 total
-Tests: 61 passed, 2 skipped, 63 total
-Thời gian Jest: 39.92 s
+Test Suites: 25 passed, 1 skipped, 26 total
+Tests: 64 passed, 2 skipped, 66 total
+Thời gian Jest: 65.393 s
 ```
 
 Các log mức `ERROR` trong test queue, payment gateway và notification là tình huống lỗi được test chủ động; Jest vẫn kết luận pass.
@@ -446,29 +436,27 @@ Vì vậy báo cáo không kết luận production-ready.
 | Tạo `src/common/contracts` làm nguồn chuẩn cho mọi contract | Đã bỏ. Contract nghiệp vụ ở feature owner; shared chỉ dành cho type trung lập |
 | Feature phải dùng port/Symbol để giao tiếp | Đã cũ. Application port đã bỏ, dùng concrete service qua public API |
 | Có hơn 25 port application | Đã cũ. Không còn port file trong feature |
-| Unit test còn fail | Đã cũ. 99/99 suite pass trong lần chạy này |
-| Integration test còn fail | Đã cũ. 24 pass, 1 skip, không có suite fail |
+| Unit test còn fail | Đã cũ. 101/101 suite pass trong lần chạy này |
+| Integration test còn fail | Đã cũ. 25 pass, 1 skip, không có suite fail |
 | Có 28 entity | Số file hiện tại là 27 |
-| Có 85 unit suite và 22 integration suite | Hiện tại là 99 và 25 |
+| Có 85 unit suite và 22 integration suite | Hiện tại là 101 và 26 |
 | Di chuyển entity là Phase tiếp theo | Không còn trong kiến trúc mục tiêu |
 | Gộp Orders/Delivery bằng direct import hai chiều | Không được phép vì sẽ tạo cycle; phải sửa hướng dependency trước |
 
 ## 13. Kế hoạch nhỏ nhất và an toàn nhất
 
-### Bước 1 — Chốt Promotions làm feature mẫu
+### Bước 1 — Promotions feature mẫu — Đã hoàn thành
 
-Mục tiêu:
+- đã tách `public-promotions.controller.ts` và `admin-promotions.controller.ts`;
+- đã tách public/admin service và giữ redemption service riêng;
+- đã giữ một `promotions.module.ts` và một `public-api.ts`;
+- đã sửa permission đọc promotion;
+- đã giữ nguyên route, DTO và response contract;
+- build, full unit và full integration đều pass.
 
-- tách controller thành `public-promotions.controller.ts` và `admin-promotions.controller.ts` nếu route/guard thực tế phù hợp;
-- tách service theo public/admin, giữ `promotion-redemption.service.ts` là service nghiệp vụ;
-- giữ một `promotions.module.ts` và một `public-api.ts`;
-- sửa permission đọc promotion;
-- giữ nguyên route, DTO và response contract;
-- chạy build, unit, integration và test API liên quan.
+### Bước 2 — Boundary test cho feature mẫu — Đã hoàn thành
 
-### Bước 2 — Cập nhật boundary test theo cấu trúc mới
-
-Thêm hoặc sửa test để bảo vệ:
+`promotions-feature-structure.spec.ts` hiện bảo vệ:
 
 - đúng một module chính và một `public-api.ts` cho feature đã migrate;
 - không `forwardRef()`;
@@ -477,9 +465,7 @@ Thêm hoặc sửa test để bảo vệ:
 - infra không import feature;
 - application port không quay lại.
 
-Không sửa test trước khi feature mẫu có code thật.
-
-### Bước 3 — Refactor Orders theo hai nhịp
+### Bước 3 — Refactor Orders theo hai nhịp — Bước tiếp theo
 
 Nhịp 1:
 
@@ -530,4 +516,4 @@ Một feature chỉ được xem là hoàn thành migration khi:
 
 Codebase không cần viết lại. Boundary runtime hiện tại tốt hơn báo cáo cũ mô tả: build và test xanh, không có `forwardRef`, không có deep import chéo feature và infra không phụ thuộc business feature.
 
-Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Cần hoàn thiện một feature mẫu, sau đó refactor từng feature theo đúng một cấu trúc. Orders không nên là feature đầu tiên vì nó có dependency graph phức tạp nhất; Promotions là điểm bắt đầu an toàn hơn.
+Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Bước tiếp theo là lập dependency graph cho Orders rồi refactor theo hai nhịp; không xóa các reader module trước khi sửa được hướng phụ thuộc Orders–Delivery.
