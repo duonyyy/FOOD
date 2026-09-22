@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Order } from 'src/entities/order.entity';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentDto } from '../dto/payment.dto';
+import type {
+  ChatReorderOrder,
+  CreateChatOrderRequest,
+  CreatedChatOrder,
+} from '../types/chat-ordering.types';
 import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
 import type {
   AssertCustomerCanChatWithShipperRequest,
@@ -114,6 +119,45 @@ export class OrderService {
 
   getMinimalOrderHistoryForQuickReorder(userId: string, limit = 3) {
     return this.customerOrdersService.getMinimalOrderHistoryForQuickReorder(userId, limit);
+  }
+
+  async getRecentOrdersForReorder(customerId: string, limit: number): Promise<ChatReorderOrder[]> {
+    const orders = await this.customerOrdersService.getMinimalOrderHistoryForQuickReorder(
+      customerId,
+      limit,
+    );
+    return orders.map((order) => ({
+      orderId: order.orderId,
+      restaurantId: order.restaurantId ?? undefined,
+      totalAmount: Number(order.totalAmount ?? 0),
+      orderDetails: order.orderDetails.map((detail) => ({
+        foodId: detail.foodId ?? undefined,
+        foodName: String(detail.foodName ?? ''),
+        quantity: Number(detail.quantity),
+        price: Number(detail.price ?? 0),
+      })),
+    }));
+  }
+
+  async createChatOrder(request: CreateChatOrderRequest): Promise<CreatedChatOrder> {
+    const order = await this.customerOrdersService.createOrder({
+      userId: request.customerId,
+      restaurantId: request.restaurantId,
+      addressId: request.addressId,
+      paymentMethod: request.paymentMethod,
+      orderDetails: request.items.map((item) => ({
+        foodId: item.foodId,
+        quantity: String(item.quantity),
+        price: '0',
+        selectedToppings: [],
+      })),
+    });
+
+    return {
+      orderId: order.id,
+      total: Number(order.total),
+      status: String(order.status),
+    };
   }
 
   getOrderHistory(userId: string, page: number = 1, pageSize: number = 10) {

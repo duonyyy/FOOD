@@ -137,6 +137,27 @@ describe('feature ownership boundaries', () => {
     expect(notificationHandler).toContain('event.customerId');
   });
 
+  it('keeps Chat on the main Orders public service without a dedicated adapter', () => {
+    const ordersModule = source('src/features/orders/orders.module.ts');
+    const ordersPublicApi = source('src/features/orders/public-api.ts');
+
+    for (const chatConsumer of [
+      'src/features/communications/chat/services/chat-context.service.ts',
+      'src/features/communications/chat/flows/quick-reorder-flow.service.ts',
+      'src/features/communications/chat/flows/order-conversation-flow.service.ts',
+    ]) {
+      const consumer = source(chatConsumer);
+      expect(consumer).toContain("from 'src/features/orders/public-api'");
+      expect(consumer).toContain('OrderService');
+      expect(consumer).not.toContain('ChatOrderingService');
+      expect(consumer).not.toContain('entities/order.entity');
+      expect(consumer).not.toContain('InjectRepository');
+    }
+
+    expect(ordersModule).not.toContain('ChatOrderingService');
+    expect(ordersPublicApi).not.toContain('ChatOrderingService');
+  });
+
   it('keeps Delivery assignment state changes out of the legacy Order transaction', () => {
     const shipperDelivery = source(
       'src/features/delivery/services/shipper/shipper-delivery.service.ts',

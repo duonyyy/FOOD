@@ -22,10 +22,7 @@ import { AdminOrdersService } from './services/admin-orders.service';
 import { CustomerOrdersService } from './services/customer-orders.service';
 import { MerchantOrdersService } from './services/merchant-orders.service';
 import { OrderCoreService } from './services/order-core.service';
-import {
-  ChatOrderingService,
-  OrderAnalyticsReaderAdapter,
-} from './services/order-cross-feature.adapters';
+import { OrderAnalyticsReaderAdapter } from './services/order-cross-feature.adapters';
 import { OrderDeliveryAssignmentCommandService } from './services/order-delivery-assignment-command.service';
 import {
   DeliveryAssignmentRequestedOrderHandler,
@@ -69,7 +66,6 @@ import { OrderService } from './services/order.service';
     DeliveryAssignmentRequestedOrderHandler,
     OrderDeliveryAssignmentCommandService,
     ShipperOfferRequestedOrderHandler,
-    ChatOrderingService,
     OrderAnalyticsReaderAdapter,
   ],
   exports: [
@@ -78,7 +74,6 @@ import { OrderService } from './services/order.service';
     MerchantOrdersService,
     AdminOrdersService,
     OrderCoreService,
-    ChatOrderingService,
     OrderAnalyticsReaderAdapter,
   ],
 })

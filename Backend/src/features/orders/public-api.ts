@@ -36,10 +36,7 @@ export {
   type OrderPricingResult,
   type OrderPricingTopping,
 } from './services/order-core.service';
-export {
-  ChatOrderingService,
-  OrderAnalyticsReaderAdapter,
-} from './services/order-cross-feature.adapters';
+export { OrderAnalyticsReaderAdapter } from './services/order-cross-feature.adapters';
 export { OrderService } from './services/order.service';
 export type {
   ChatReorderOrder,

@@ -497,6 +497,8 @@ Nhịp 2:
 - [x] chuyển notification một chiều sang event có `customerId` snapshot và xóa
   `NotificationsModule -> OrdersModule`;
 - [x] xóa `OrderMessagingReaderService`; Messenger dùng `OrderService` mà không tạo module/API phụ;
+- [x] xóa `ChatOrderingService`; Chat dùng `OrderService` qua public API chính, vẫn xác nhận trước
+  khi tạo đơn và để Orders tính lại giá;
 - làm query dependency một chiều;
 - chỉ sau đó mới gộp các reader module/public API phụ.
 
@@ -535,4 +537,4 @@ Một feature chỉ được xem là hoàn thành migration khi:
 
 Codebase không cần viết lại. Boundary runtime hiện tại tốt hơn báo cáo cũ mô tả: build và test xanh, không có `forwardRef`, không có deep import chéo feature và infra không phụ thuộc business feature.
 
-Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Orders đã hoàn thành tách controller, gỡ dependency ngược sang Delivery, harden status event bằng Outbox, phục hồi assignment bị thiếu, tách Notifications và xóa messaging service trung gian. Bước tiếp theo là chuyển Chat sang `OrderService`; chưa xóa reader module khi vòng Orders–Reviews vẫn còn.
+Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Orders đã hoàn thành tách controller, gỡ dependency ngược sang Delivery, harden status event bằng Outbox, phục hồi assignment bị thiếu, tách Notifications và xóa các service trung gian riêng cho Messenger/Chat. Bước tiếp theo là đánh giá contract review summary để xử lý vòng Orders–Reviews; chưa xóa reader module khi quyết định contract này chưa rõ.

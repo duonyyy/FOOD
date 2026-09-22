@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AddressService } from 'src/features/locations/public-api';
-import { ChatOrderingService } from 'src/features/orders/public-api';
+import { OrderService } from 'src/features/orders/public-api';
 import { ChatLlmService } from '../services/chat-llm.service';
 import { ChatOrderValidationService } from '../services/chat-order-validation.service';
 import { ChatAddress, ChatContext, ChatMetadata, ChatReply } from '../types/chat.types';
@@ -9,7 +9,7 @@ import { ChatAddress, ChatContext, ChatMetadata, ChatReply } from '../types/chat
 export class OrderConversationFlowService {
   constructor(
     private readonly locationReader: AddressService,
-    private readonly ordering: ChatOrderingService,
+    private readonly ordering: OrderService,
     private readonly orderValidationService: ChatOrderValidationService,
     private readonly llmService: ChatLlmService,
   ) {}
@@ -235,7 +235,7 @@ export class OrderConversationFlowService {
       };
     }
 
-    const orderResponse = await this.ordering.createOrder({
+    const orderResponse = await this.ordering.createChatOrder({
       customerId: userId,
       restaurantId: validation.order.restaurantId,
       addressId: validation.order.addressId,

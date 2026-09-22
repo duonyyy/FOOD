@@ -19,6 +19,10 @@ và trạng thái Order hiện tại trước khi tạo theo cách idempotent.
 Messenger dùng `OrderService` cho authorization và danh sách shipper có thể chat. Không còn
 `OrderMessagingReaderService`; ownership customer/shipper/status vẫn nằm trong Orders.
 
+Chat dùng cùng `OrderService` qua `orders/public-api.ts` để xem đơn gần đây và tạo đơn sau xác
+nhận. Không còn `ChatOrderingService`; Chat không gửi giá tin cậy vào Orders và Orders vẫn tính
+lại giá phía server.
+
 ## Controllers
 
 - `PublicOrdersController`: tính giá và kiểm tra quy tắc khuyến mãi không yêu cầu đăng nhập.

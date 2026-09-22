@@ -8,7 +8,7 @@ const context: ChatContext = { menuFlat: [], orderedFoods: [] };
 describe('Chat flow policy', () => {
   it('requires explicit final confirmation before CreateOrder', async () => {
     const ordering = {
-      createOrder: jest
+      createChatOrder: jest
         .fn()
         .mockResolvedValue({ orderId: 'order-1', total: 240_000, status: 'pending' }),
     };
@@ -53,7 +53,7 @@ describe('Chat flow policy', () => {
 
     const paymentReply = await service.continue('cod', 'customer-1', metadata, context);
     expect(paymentReply.action).toBe('confirmCreateOrder');
-    expect(ordering.createOrder).not.toHaveBeenCalled();
+    expect(ordering.createChatOrder).not.toHaveBeenCalled();
 
     const refused = await service.continue(
       'không có',
@@ -62,10 +62,10 @@ describe('Chat flow policy', () => {
       context,
     );
     expect(refused.action).toBe('confirmCreateOrder');
-    expect(ordering.createOrder).not.toHaveBeenCalled();
+    expect(ordering.createChatOrder).not.toHaveBeenCalled();
 
     await service.continue('có', 'customer-1', paymentReply.metadata as ChatMetadata, context);
-    expect(ordering.createOrder).toHaveBeenCalledWith({
+    expect(ordering.createChatOrder).toHaveBeenCalledWith({
       customerId: 'customer-1',
       restaurantId: 'restaurant-1',
       addressId: 'address-1',
@@ -84,7 +84,7 @@ describe('Chat flow policy', () => {
           orderDetails: [{ foodId: 'food-1', foodName: 'Phở bò', quantity: 2, price: 1 }],
         },
       ]),
-      createOrder: jest
+      createChatOrder: jest
         .fn()
         .mockResolvedValue({ orderId: 'new-order', total: 240_000, status: 'pending' }),
     };
@@ -108,12 +108,12 @@ describe('Chat flow policy', () => {
     const pending = await service.continue('1', 'customer-1', createInitialChatMetadata());
 
     expect(pending.action).toBe('confirmCreateOrder');
-    expect(ordering.createOrder).not.toHaveBeenCalled();
+    expect(ordering.createChatOrder).not.toHaveBeenCalled();
 
     await service.continue('có', 'customer-1', pending.metadata as ChatMetadata);
 
     expect(catalogReader.findAvailableFood).toHaveBeenCalledWith('food-1', 'restaurant-1');
-    expect(ordering.createOrder).toHaveBeenCalledWith({
+    expect(ordering.createChatOrder).toHaveBeenCalledWith({
       customerId: 'customer-1',
       restaurantId: 'restaurant-1',
       addressId: 'address-1',

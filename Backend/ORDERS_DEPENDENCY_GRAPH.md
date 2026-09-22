@@ -124,7 +124,7 @@ dữ liệu.
 | Reviews                  | `OrderReviewEligibilityModule`                     | Kiểm tra khách đã mua và Order completed                            | Read/policy    | Đúng ownership nhưng tạo chiều ngược với Orders -> Reviews |
 | Notifications            | Event mang `customerId`                              | Tạo notification từ snapshot của producer                            | Event          | Đã tách khỏi `OrdersModule`                                      |
 | Communications/Messenger | `OrdersModule` và `OrderService`                   | Kiểm tra quyền chat theo Order                                      | Read           | Đã xóa messaging service trung gian; dùng public service chính |
-| Communications/Chat      | `OrdersModule` và `ChatOrderingService`            | Xem đơn gần đây và tạo đơn từ chat                                  | Read + command | Hành vi hợp lệ nhưng import cả module chính                |
+| Communications/Chat      | `OrdersModule` và `OrderService`                    | Xem đơn gần đây và tạo đơn từ chat                                  | Read + command | Đã xóa adapter riêng; dùng public service chính            |
 | App composition          | `OrdersModule`                                     | Gắn HTTP/GraphQL API                                                | Composition    | Hợp lệ                                                     |
 
 Không tìm thấy consumer nào inject trực tiếp Order repository từ feature khác trong các đường dẫn
@@ -241,7 +241,7 @@ Thứ tự:
 4. Phục hồi Order `confirmed` bị thiếu pending assignment. **Đã hoàn thành.**
 5. Tách Notifications khỏi broad `OrdersModule`. **Đã hoàn thành.**
 6. Xóa `OrderMessagingReaderService`; Messenger dùng `OrderService`. **Đã hoàn thành.**
-7. Thu hẹp Chat và xóa `ChatOrderingService` trung gian.
+7. Thu hẹp Chat và xóa `ChatOrderingService` trung gian. **Đã hoàn thành.**
 8. Đánh giá riêng vòng Orders–Reviews trước khi gộp module.
 9. Chỉ xóa module/public API hẹp khi `rg` xác nhận không còn consumer.
 
@@ -273,12 +273,13 @@ Delivery đã có cron phục hồi Order `confirmed` bị thiếu pending assig
 Notifications đã dùng `customerId` snapshot trong Payment/Delivery event và không còn import
 `OrdersModule` hay `OrderNotificationReaderAdapter`.
 
-Messenger đã dùng `OrderService`; `OrderMessagingReaderService` đã được xóa mà không tạo module
-hoặc public API mới. Authorization customer/shipper/status vẫn do Orders sở hữu.
+Messenger và Chat đã dùng `OrderService`; các service trung gian riêng cho hai consumer này đã
+được xóa mà không tạo module/public API mới. Chat vẫn bắt buộc xác nhận trước khi tạo đơn, truyền
+customer từ phiên đăng nhập và để Orders tính lại giá phía server.
 
-Bước nhỏ nhất tiếp theo là chuyển Chat sang `OrderService` và xóa `ChatOrderingService`.
-Không gộp Orders–Reviews trước khi quyết định review summary có bắt buộc nằm trong
-Order response hay không.
+Bước nhỏ nhất tiếp theo là đánh giá riêng vòng Orders–Reviews và xác nhận review summary có bắt
+buộc nằm trong Order response hay không. Chưa gộp hoặc xóa reader module trước quyết định contract
+này.
 
 Không thực hiện đồng thời việc gộp module, đổi event, đổi schema hoặc format toàn repository trong
 commit này.

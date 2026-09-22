@@ -1,16 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { AddressService } from 'src/features/locations/public-api';
 import { FoodIntegrationService } from 'src/features/menu/public-api';
-import {
-  ChatOrderingService,
-  type ChatReorderOrder,
-} from 'src/features/orders/public-api';
+import { OrderService, type ChatReorderOrder } from 'src/features/orders/public-api';
 import { ChatMetadata, ChatReply } from '../types/chat.types';
 
 @Injectable()
 export class QuickReorderFlowService {
   constructor(
-    private readonly ordering: ChatOrderingService,
+    private readonly ordering: OrderService,
     private readonly locationReader: AddressService,
     private readonly catalogReader: FoodIntegrationService,
   ) {}
@@ -156,7 +153,7 @@ export class QuickReorderFlowService {
       };
     }
 
-    const newOrder = await this.ordering.createOrder({
+    const newOrder = await this.ordering.createChatOrder({
       customerId: userId,
       restaurantId: selectedOrder.restaurantId,
       addressId: fallbackAddressId,
