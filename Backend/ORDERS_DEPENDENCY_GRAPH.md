@@ -123,7 +123,7 @@ dữ liệu.
 | Analytics                | `OrderAnalyticsReaderModule`                       | Project/reconcile snapshot                                          | Read           | Đúng hướng; không dùng Order repository                    |
 | Reviews                  | `OrderReviewEligibilityModule`                     | Kiểm tra khách đã mua và Order completed                            | Read/policy    | Đúng ownership nhưng tạo chiều ngược với Orders -> Reviews |
 | Notifications            | Event mang `customerId`                              | Tạo notification từ snapshot của producer                            | Event          | Đã tách khỏi `OrdersModule`                                      |
-| Communications/Messenger | `OrdersModule` và `OrderMessagingReaderService`    | Kiểm tra quyền chat theo Order                                      | Read           | Quá rộng; chỉ cần messaging reader                         |
+| Communications/Messenger | `OrdersModule` và `OrderService`                   | Kiểm tra quyền chat theo Order                                      | Read           | Đã xóa messaging service trung gian; dùng public service chính |
 | Communications/Chat      | `OrdersModule` và `ChatOrderingService`            | Xem đơn gần đây và tạo đơn từ chat                                  | Read + command | Hành vi hợp lệ nhưng import cả module chính                |
 | App composition          | `OrdersModule`                                     | Gắn HTTP/GraphQL API                                                | Composition    | Hợp lệ                                                     |
 
@@ -240,9 +240,10 @@ Thứ tự:
 3. Xóa `OrdersModule -> DeliveryModule`. **Đã hoàn thành.**
 4. Phục hồi Order `confirmed` bị thiếu pending assignment. **Đã hoàn thành.**
 5. Tách Notifications khỏi broad `OrdersModule`. **Đã hoàn thành.**
-6. Thu hẹp Messenger và Chat khỏi broad `OrdersModule`.
-7. Đánh giá riêng vòng Orders–Reviews trước khi gộp module.
-8. Chỉ xóa module/public API hẹp khi `rg` xác nhận không còn consumer.
+6. Xóa `OrderMessagingReaderService`; Messenger dùng `OrderService`. **Đã hoàn thành.**
+7. Thu hẹp Chat và xóa `ChatOrderingService` trung gian.
+8. Đánh giá riêng vòng Orders–Reviews trước khi gộp module.
+9. Chỉ xóa module/public API hẹp khi `rg` xác nhận không còn consumer.
 
 Exit gate:
 
@@ -272,7 +273,10 @@ Delivery đã có cron phục hồi Order `confirmed` bị thiếu pending assig
 Notifications đã dùng `customerId` snapshot trong Payment/Delivery event và không còn import
 `OrdersModule` hay `OrderNotificationReaderAdapter`.
 
-Bước nhỏ nhất tiếp theo là thu hẹp Messenger, sau đó Chat, khỏi broad `OrdersModule`.
+Messenger đã dùng `OrderService`; `OrderMessagingReaderService` đã được xóa mà không tạo module
+hoặc public API mới. Authorization customer/shipper/status vẫn do Orders sở hữu.
+
+Bước nhỏ nhất tiếp theo là chuyển Chat sang `OrderService` và xóa `ChatOrderingService`.
 Không gộp Orders–Reviews trước khi quyết định review summary có bắt buộc nằm trong
 Order response hay không.
 

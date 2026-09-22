@@ -6,6 +6,10 @@ import { OrderReviewReaderService } from 'src/features/reviews/review-reader.pub
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { Repository } from 'typeorm';
 import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
+import type {
+  AssertCustomerCanChatWithShipperRequest,
+  CustomerShipperChatPartner,
+} from '../types/order-messaging.types';
 
 // ==========================================
 // 1. ORDER STATE MACHINE
@@ -353,6 +357,46 @@ export class OrderCoreService {
     };
   }
 
+  async assertCustomerCanChatWithShipper(
+    request: AssertCustomerCanChatWithShipperRequest,
+  ): Promise<void> {
+    const order = await this.orderRepository.findOne({
+      where: { id: request.orderId, user: { id: request.customerId } },
+      relations: ['shippingDetail', 'shippingDetail.shipper'],
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found or does not belong to you');
+    }
+    if (order.shippingDetail?.shipper?.id !== request.shipperId) {
+      throw new ForbiddenException('You can only chat with the shipper assigned to your order');
+    }
+    if (!this.isShipperMessagingAllowedStatus(order.status)) {
+      throw new ForbiddenException(
+        'You can only chat with shipper when order is confirmed or being delivered',
+      );
+    }
+  }
+
+  async listCustomerShipperChatPartners(customerId: string): Promise<CustomerShipperChatPartner[]> {
+    const orders = await this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.shippingDetail', 'shippingDetail')
+      .leftJoinAndSelect('shippingDetail.shipper', 'shipper')
+      .where('order.user_id = :customerId', { customerId })
+      .andWhere('shippingDetail.shipper IS NOT NULL')
+      .andWhere('order.status IN (:...statuses)', {
+        statuses: ['confirmed', 'delivering', 'completed'],
+      })
+      .getMany();
+
+    return orders.flatMap((order) => this.toCustomerShipperChatPartner(order));
+  }
+
+  async isOrderOpenForShipperMessaging(orderId: string): Promise<boolean> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    return Boolean(order && this.isShipperMessagingAllowedStatus(order.status));
+  }
+
   cleanSensitiveData(order: Order): Order {
     if (order.user) {
       this.removeFields(order.user, [
@@ -425,6 +469,23 @@ export class OrderCoreService {
       createdAt: order.createdAt,
       deliveryCompletedAt: order.shippingDetail?.actualDeliveryTime ?? null,
     };
+  }
+
+  private toCustomerShipperChatPartner(order: Order): CustomerShipperChatPartner[] {
+    const shipperId = order.shippingDetail?.shipper?.id;
+    return shipperId
+      ? [
+          {
+            orderId: order.id,
+            status: order.status,
+            shipperId,
+          },
+        ]
+      : [];
+  }
+
+  private isShipperMessagingAllowedStatus(status: string): boolean {
+    return ['confirmed', 'delivering', 'completed'].includes(status);
   }
 
   private removeFields(target: object, fields: readonly string[]): void {

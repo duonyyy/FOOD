@@ -13,7 +13,8 @@ describe('feature ownership boundaries', () => {
     expect(module).toContain('TypeOrmModule.forFeature([Conversation, Message])');
     expect(module).not.toMatch(/\b(User|Order|Restaurant|ShippingDetail)\b.*forFeature/);
     expect(service).not.toMatch(/@InjectRepository\((User|Order|Restaurant|ShippingDetail)\)/);
-    expect(service).toContain('OrderMessagingReaderService');
+    expect(service).toContain('OrderService');
+    expect(service).not.toContain('OrderMessagingReaderService');
     expect(service).toContain('RestaurantReaderService');
     expect(service).toContain('IdentityUserQueryService');
   });

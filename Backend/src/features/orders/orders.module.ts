@@ -33,7 +33,6 @@ import {
   PaymentSucceededOrderHandler,
   ShipperOfferRequestedOrderHandler,
 } from './services/order-events.handler';
-import { OrderMessagingReaderService } from './services/order-messaging-reader.service';
 import { OrderService } from './services/order.service';
 
 /** Owns order HTTP/GraphQL APIs, role services, commands, queries and order persistence wiring. */
@@ -64,7 +63,6 @@ import { OrderService } from './services/order.service';
     MerchantOrdersService,
     AdminOrdersService,
     OrderCoreService,
-    OrderMessagingReaderService,
     OrderResolver,
     PaymentSucceededOrderHandler,
     DeliveryCompletedOrderHandler,
@@ -82,7 +80,6 @@ import { OrderService } from './services/order.service';
     OrderCoreService,
     ChatOrderingService,
     OrderAnalyticsReaderAdapter,
-    OrderMessagingReaderService,
   ],
 })
 export class OrdersModule {}

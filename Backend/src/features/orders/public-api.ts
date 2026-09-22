@@ -40,7 +40,6 @@ export {
   ChatOrderingService,
   OrderAnalyticsReaderAdapter,
 } from './services/order-cross-feature.adapters';
-export { OrderMessagingReaderService } from './services/order-messaging-reader.service';
 export { OrderService } from './services/order.service';
 export type {
   ChatReorderOrder,

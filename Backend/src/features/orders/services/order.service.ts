@@ -3,6 +3,10 @@ import { Order } from 'src/entities/order.entity';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentDto } from '../dto/payment.dto';
 import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
+import type {
+  AssertCustomerCanChatWithShipperRequest,
+  CustomerShipperChatPartner,
+} from '../types/order-messaging.types';
 import { AdminOrdersService } from './admin-orders.service';
 import { CustomerOrdersService } from './customer-orders.service';
 import { MerchantOrdersService } from './merchant-orders.service';
@@ -187,5 +191,19 @@ export class OrderService {
 
   getAnalyticsSnapshots(page: number, pageSize: number): Promise<OrderAnalyticsPage> {
     return this.orderCoreService.getAnalyticsSnapshots(page, pageSize);
+  }
+
+  assertCustomerCanChatWithShipper(
+    request: AssertCustomerCanChatWithShipperRequest,
+  ): Promise<void> {
+    return this.orderCoreService.assertCustomerCanChatWithShipper(request);
+  }
+
+  listCustomerShipperChatPartners(customerId: string): Promise<CustomerShipperChatPartner[]> {
+    return this.orderCoreService.listCustomerShipperChatPartners(customerId);
+  }
+
+  isOrderOpenForShipperMessaging(orderId: string): Promise<boolean> {
+    return this.orderCoreService.isOrderOpenForShipperMessaging(orderId);
   }
 }

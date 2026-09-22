@@ -26,7 +26,7 @@ import {
 import {
   ChatOrderingService,
   OrderAnalyticsReaderAdapter,
-  OrderMessagingReaderService,
+  OrderService,
   OrdersModule,
 } from 'src/features/orders/public-api';
 import { PaymentModule, PaymentService } from 'src/features/payments/public-api';
@@ -172,11 +172,7 @@ describe('feature public contracts', () => {
     const paymentExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, PaymentModule) as unknown[];
 
     expect(ordersExports).toEqual(
-      expect.arrayContaining([
-        ChatOrderingService,
-        OrderAnalyticsReaderAdapter,
-        OrderMessagingReaderService,
-      ]),
+      expect.arrayContaining([ChatOrderingService, OrderAnalyticsReaderAdapter, OrderService]),
     );
     expect(reviewReaderExports).toContain(OrderReviewReaderService);
     expect(deliveryExports).toContain(DeliveryIntegrationService);

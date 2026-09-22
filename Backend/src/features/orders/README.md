@@ -16,6 +16,9 @@ Delivery định kỳ đọc tối đa 100 ID Order `confirmed` và phục hồi
 bị thiếu. Reader chỉ trả ID; Delivery tự kiểm tra `ShippingDetail`, assignment hiện có
 và trạng thái Order hiện tại trước khi tạo theo cách idempotent.
 
+Messenger dùng `OrderService` cho authorization và danh sách shipper có thể chat. Không còn
+`OrderMessagingReaderService`; ownership customer/shipper/status vẫn nằm trong Orders.
+
 ## Controllers
 
 - `PublicOrdersController`: tính giá và kiểm tra quy tắc khuyến mãi không yêu cầu đăng nhập.

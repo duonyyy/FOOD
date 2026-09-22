@@ -13,7 +13,7 @@ describe('MessengerService boundary tests', () => {
     findRestaurantForMessaging: jest.Mock;
     listActiveRestaurantsForMessaging: jest.Mock;
   };
-  let orderMessagingReader: {
+  let orderService: {
     assertCustomerCanChatWithShipper: jest.Mock;
     isOrderOpenForShipperMessaging: jest.Mock;
     listCustomerShipperChatPartners: jest.Mock;
@@ -43,7 +43,7 @@ describe('MessengerService boundary tests', () => {
       findRestaurantForMessaging: jest.fn(),
       listActiveRestaurantsForMessaging: jest.fn(),
     };
-    orderMessagingReader = {
+    orderService = {
       assertCustomerCanChatWithShipper: jest.fn(),
       isOrderOpenForShipperMessaging: jest.fn(),
       listCustomerShipperChatPartners: jest.fn(),
@@ -53,7 +53,7 @@ describe('MessengerService boundary tests', () => {
       messageRepository as never,
       identityReader as never,
       restaurantReader as never,
-      orderMessagingReader as never,
+      orderService as never,
       { publish: jest.fn() } as never,
     );
   });
@@ -80,7 +80,7 @@ describe('MessengerService boundary tests', () => {
 
     expect(conversation.participant1).toEqual({ id: 'customer-1' });
     expect(conversation.participant2).toEqual({ id: 'owner-1' });
-    expect(orderMessagingReader.assertCustomerCanChatWithShipper).not.toHaveBeenCalled();
+    expect(orderService.assertCustomerCanChatWithShipper).not.toHaveBeenCalled();
     expect(conversationRepository.save).toHaveBeenCalledWith(expect.any(Conversation));
   });
 
@@ -98,7 +98,7 @@ describe('MessengerService boundary tests', () => {
       roleName: 'user',
       isActive: true,
     });
-    orderMessagingReader.assertCustomerCanChatWithShipper.mockRejectedValue(
+    orderService.assertCustomerCanChatWithShipper.mockRejectedValue(
       new Error('Order not found or does not belong to you'),
     );
 
@@ -110,7 +110,7 @@ describe('MessengerService boundary tests', () => {
         conversationType: ConversationType.CUSTOMER_SHIPPER,
       }),
     ).rejects.toThrow('Order not found or does not belong to you');
-    expect(orderMessagingReader.assertCustomerCanChatWithShipper).toHaveBeenCalledWith({
+    expect(orderService.assertCustomerCanChatWithShipper).toHaveBeenCalledWith({
       orderId: 'order-1',
       customerId: 'customer-1',
       shipperId: 'shipper-1',
@@ -128,7 +128,7 @@ describe('MessengerService boundary tests', () => {
     restaurantReader.listActiveRestaurantsForMessaging.mockResolvedValue([
       { restaurantId: 'restaurant-1', ownerId: 'owner-1', name: 'Shop', isActive: true },
     ]);
-    orderMessagingReader.listCustomerShipperChatPartners.mockResolvedValue([
+    orderService.listCustomerShipperChatPartners.mockResolvedValue([
       {
         orderId: 'order-1',
         shipperId: 'shipper-1',
