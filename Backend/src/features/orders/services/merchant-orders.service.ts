@@ -5,8 +5,12 @@ import {
   NOTIFICATION_REQUESTED_EVENT,
   NotificationRequestedEvent,
 } from 'src/common/events/notification-requested.event';
+import {
+  ORDER_STATUS_CHANGED_EVENT,
+  type OrderStatusChangedEvent,
+} from 'src/common/events/order-events';
+import { OutboxService } from 'src/common/events/outbox.service';
 import { Order } from 'src/entities/order.entity';
-import { DeliveryDispatchService } from 'src/features/delivery/public-api';
 import { pubSub } from 'src/pubsub';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { Repository } from 'typeorm';
@@ -18,10 +22,6 @@ import {
   parseOrderStatus,
 } from './order-core.service';
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 @Injectable()
 export class MerchantOrdersService {
   private readonly logger = new Logger(MerchantOrdersService.name);
@@ -31,8 +31,8 @@ export class MerchantOrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly orderCoreService: OrderCoreService,
-    private readonly pendingAssignmentService: DeliveryDispatchService,
     private readonly eventBus: InProcessEventBus,
+    private readonly outboxService: OutboxService,
   ) {}
 
   /**
@@ -79,6 +79,7 @@ export class MerchantOrdersService {
   async confirmOrder(orderId: string, restaurantOwnerId: string): Promise<Order> {
     this.logger.log(`Confirming order ${orderId} by restaurant owner ${restaurantOwnerId}`);
     const order = await this.orderCoreService.getOrderById(orderId);
+    const previousStatus = parseOrderStatus(order.status);
 
     try {
       order.status = this.stateMachine.confirm(order.status);
@@ -92,20 +93,7 @@ export class MerchantOrdersService {
       throw error;
     }
 
-    const confirmedOrder = await this.orderRepository.save(order);
-
-    try {
-      const pendingAssignment = await this.pendingAssignmentService.addPendingAssignment(
-        confirmedOrder.id,
-        1,
-      );
-      this.logger.log(
-        `Created pending shipper assignment ${pendingAssignment.id} for order ${orderId}`,
-      );
-    } catch (error) {
-      this.logger.error(`Failed to create pending shipper assignment for order ${orderId}:`, error);
-      this.logger.warn(`Order ${orderId} confirmed but shipper assignment failed`);
-    }
+    const confirmedOrder = await this.saveWithStatusEvent(order, previousStatus);
 
     return confirmedOrder;
   }
@@ -131,35 +119,10 @@ export class MerchantOrdersService {
     }
 
     order.status = nextStatus;
-    const updatedOrder = await this.orderRepository.save(order);
+    const updatedOrder = await this.saveWithStatusEvent(order, previousStatus);
 
     await pubSub.publish('orderStatusUpdated', { orderStatusUpdated: updatedOrder });
     this.logger.log(`Order ${id} status updated to ${nextStatus}`);
-
-    // Manage pending assignments for shipper dispatching
-    if (nextStatus === OrderStatus.CONFIRMED && previousStatus !== OrderStatus.CONFIRMED) {
-      if (!updatedOrder.shippingDetail) {
-        try {
-          await this.pendingAssignmentService.addPendingAssignment(id, 1);
-          this.logger.log(`Added order ${id} to pending shipper assignments`);
-        } catch (error: unknown) {
-          this.logger.error(
-            `Failed to add order ${id} to pending assignments: ${errorMessage(error)}`,
-          );
-        }
-      }
-    }
-
-    if (previousStatus === OrderStatus.CONFIRMED && nextStatus !== OrderStatus.CONFIRMED) {
-      try {
-        await this.pendingAssignmentService.removePendingAssignment(id);
-        this.logger.log(`Removed order ${id} from pending assignments due to status change`);
-      } catch (error: unknown) {
-        this.logger.error(
-          `Failed to remove order ${id} from pending assignments: ${errorMessage(error)}`,
-        );
-      }
-    }
 
     if (order.user?.id) {
       await this.eventBus.publish<NotificationRequestedEvent>(NOTIFICATION_REQUESTED_EVENT, {
@@ -180,5 +143,42 @@ export class MerchantOrdersService {
 
   cancelOrder(orderId: string): Promise<Order> {
     return this.updateOrderStatus(orderId, OrderStatus.CANCELED);
+  }
+
+  private async saveWithStatusEvent(order: Order, previousStatus: OrderStatus): Promise<Order> {
+    const result = await this.orderRepository.manager.transaction(async (manager) => {
+      const savedOrder = await manager.getRepository(Order).save(order);
+      const event = await this.outboxService.enqueue(manager, {
+        eventType: ORDER_STATUS_CHANGED_EVENT,
+        aggregateType: 'Order',
+        aggregateId: savedOrder.id,
+        idempotencyKey: `Order:${savedOrder.id}:status:${previousStatus}->${savedOrder.status}`,
+        payload: this.statusChangedPayload(savedOrder, previousStatus),
+      });
+      return { savedOrder, eventId: event.id };
+    });
+
+    try {
+      await this.outboxService.dispatchAfterCommit(result.eventId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Order ${order.id} committed; status event queued for retry: ${message}`);
+    }
+
+    return result.savedOrder;
+  }
+
+  private statusChangedPayload(
+    order: Order,
+    previousStatus: OrderStatus,
+  ): OrderStatusChangedEvent & Record<string, unknown> {
+    return {
+      orderId: order.id,
+      customerId: order.user?.id,
+      previousStatus,
+      status: order.status,
+      hasShippingDetail: Boolean(order.shippingDetail),
+      occurredAt: new Date().toISOString(),
+    };
   }
 }

@@ -34,4 +34,15 @@ export class InProcessEventBus {
       await handler(event);
     }
   }
+
+  async publishRequired<TEvent>(eventName: string, event: TEvent): Promise<void> {
+    const eventHandlers = this.handlers.get(eventName);
+    if (!eventHandlers?.size) {
+      throw new Error(`No subscriber registered for outbox event ${eventName}`);
+    }
+
+    for (const handler of eventHandlers) {
+      await handler(event);
+    }
+  }
 }

@@ -12,6 +12,7 @@ import {
   OrderDeliveryDispatchReaderService,
   type DeliveryDispatchCandidate,
 } from 'src/features/orders/order-delivery-dispatch-reader.public-api';
+import { OrderDeliveryLifecycleCommandService } from 'src/features/orders/order-delivery-shipper.public-api';
 import { QueueService } from 'src/infra/queue/public-api';
 import type {
   DeliveryAssignmentJobData,
@@ -41,11 +42,6 @@ interface ActiveShipper {
   lastSeen: Date;
 }
 
-export type ExpiredPendingAssignment = Omit<PendingAssignmentState, 'createdAt'> & {
-  order: DeliveryDispatchCandidate;
-  createdAt: Date;
-};
-
 /**
  * DeliveryDispatchService: Dịch vụ điều phối trung tâm của phân hệ Giao vận.
  * Chịu trách nhiệm:
@@ -66,6 +62,7 @@ export class DeliveryDispatchService {
     private readonly shipperService: ShipperService,
     private readonly activeShipperTracker: ActiveShipperTrackerService,
     private readonly eventBus: InProcessEventBus,
+    private readonly orderLifecycleCommand: OrderDeliveryLifecycleCommandService,
   ) {}
 
   // ==========================================
@@ -131,6 +128,10 @@ export class DeliveryDispatchService {
           continue;
         }
 
+        if (this.isSearchExhausted(assignment)) {
+          continue;
+        }
+
         const isValid = await this.validatePendingAssignment(assignment);
         if (!isValid) {
           await this.store.remove(assignment);
@@ -145,24 +146,6 @@ export class DeliveryDispatchService {
     } catch (error) {
       this.logger.error('Error during pending assignment check:', error);
     }
-  }
-
-  async getExpiredAssignments(cutoffDate: Date): Promise<ExpiredPendingAssignment[]> {
-    const assignments = await this.store.getExpiredAssignments(cutoffDate);
-    const result: ExpiredPendingAssignment[] = [];
-
-    for (const assignment of assignments) {
-      const order = await this.findDispatchCandidate(assignment.orderId);
-      if (order) {
-        result.push({
-          ...assignment,
-          order,
-          createdAt: new Date(assignment.createdAt),
-        });
-      }
-    }
-
-    return result;
   }
 
   async removePendingAssignmentById(assignmentId: string): Promise<boolean> {
@@ -325,13 +308,27 @@ export class DeliveryDispatchService {
     await this.removePendingAssignment(orderId);
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_10_MINUTES)
   async cleanupExpiredAssignments(): Promise<void> {
-    const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    if (process.env.QUEUE_PROCESSOR_ENABLED === 'true') {
+      return;
+    }
+
+    const cutoffTime = new Date(
+      Date.now() - DELIVERY_DISPATCH_POLICY.pendingAssignmentMaxAgeMinutes * 60 * 1000,
+    );
     const expiredAssignments = await this.store.getExpiredAssignments(cutoffTime);
 
     for (const assignment of expiredAssignments) {
-      await this.store.remove(assignment);
+      try {
+        await this.orderLifecycleCommand.cancelUnassigned(assignment.orderId);
+        await this.store.remove(assignment);
+      } catch (error) {
+        this.logger.error(
+          `Failed to close expired assignment ${assignment.id} for order ${assignment.orderId}`,
+          error,
+        );
+      }
     }
   }
 
@@ -358,12 +355,17 @@ export class DeliveryDispatchService {
       return false;
     }
 
-    const maxAttempts = DELIVERY_DISPATCH_POLICY.pendingAssignmentMaxAttempts;
-    const maxAgeMinutes = DELIVERY_DISPATCH_POLICY.pendingAssignmentMaxAgeMinutes;
-    const assignmentAge = Date.now() - new Date(assignment.createdAt).getTime();
-    const isExpired = assignmentAge > maxAgeMinutes * 60 * 1000;
+    return true;
+  }
 
-    return assignment.attemptCount < maxAttempts && !isExpired;
+  private isSearchExhausted(assignment: PendingAssignmentState): boolean {
+    const assignmentAge = Date.now() - new Date(assignment.createdAt).getTime();
+    const maxAge = DELIVERY_DISPATCH_POLICY.pendingAssignmentMaxAgeMinutes * 60 * 1000;
+
+    return (
+      assignment.attemptCount >= DELIVERY_DISPATCH_POLICY.pendingAssignmentMaxAttempts ||
+      assignmentAge > maxAge
+    );
   }
 
   private async shouldSkipSentAssignment(assignment: PendingAssignmentState): Promise<boolean> {

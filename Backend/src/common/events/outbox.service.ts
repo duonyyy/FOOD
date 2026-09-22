@@ -45,9 +45,10 @@ export class OutboxService {
     const event = await this.outboxRepository.findOne({ where: { id: eventId } });
     if (!event) throw new Error(`Outbox event ${eventId} not found`);
     if (event.status === OutboxEventStatus.PUBLISHED) return event;
+    if (!this.isDispatcherEnabled()) return event;
 
     try {
-      await this.eventBus.publish(event.eventType, event.payload);
+      await this.eventBus.publishRequired(event.eventType, event.payload);
       event.status = OutboxEventStatus.PUBLISHED;
       event.attempts += 1;
       event.publishedAt = new Date();
@@ -66,6 +67,8 @@ export class OutboxService {
   }
 
   async dispatchPending(limit = 50): Promise<number> {
+    if (!this.isDispatcherEnabled()) return 0;
+
     const events = await this.outboxRepository.find({
       where: [
         { status: OutboxEventStatus.PENDING, availableAt: LessThanOrEqual(new Date()) },
@@ -90,5 +93,11 @@ export class OutboxService {
   @Cron(CronExpression.EVERY_10_SECONDS)
   async retryPendingEvents(): Promise<void> {
     await this.dispatchPending();
+  }
+
+  private isDispatcherEnabled(): boolean {
+    const configured = process.env.OUTBOX_DISPATCHER_ENABLED;
+    if (configured != null) return configured === 'true';
+    return process.env.QUEUE_PROCESSOR_ENABLED !== 'true';
   }
 }

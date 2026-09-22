@@ -1,11 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Order } from 'src/entities/order.entity';
-import type {
-  OrderAnalyticsPage,
-  OrderAnalyticsSnapshot,
-} from '../types/order-analytics.types';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentDto } from '../dto/payment.dto';
+import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
 import { AdminOrdersService } from './admin-orders.service';
 import { CustomerOrdersService } from './customer-orders.service';
 import { MerchantOrdersService } from './merchant-orders.service';
@@ -166,10 +163,6 @@ export class OrderService {
 
   autoCancelStuckOrders() {
     return this.adminOrdersService.autoCancelStuckOrders();
-  }
-
-  autoCancelUnassignedOrders() {
-    return this.adminOrdersService.autoCancelUnassignedOrders();
   }
 
   // ==========================================

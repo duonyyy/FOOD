@@ -375,6 +375,7 @@ Feature lớn vẫn giữ một module và một public API:
 ```text
 orders/
 ├── controllers/
+│   ├── public-orders.controller.ts
 │   ├── customer-orders.controller.ts
 │   ├── merchant-orders.controller.ts
 │   └── admin-orders.controller.ts

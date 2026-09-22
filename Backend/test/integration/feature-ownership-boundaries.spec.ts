@@ -62,6 +62,41 @@ describe('feature ownership boundaries', () => {
     expect(integration).not.toContain('findOrderForDeliveryAssignment');
   });
 
+  it('keeps active shipper subscription behavior inside Delivery', () => {
+    const orderResolver = source('src/features/orders/controllers/order.resolver.ts');
+    const shipperResolver = source('src/features/delivery/controllers/shipper.resolver.ts');
+
+    expect(orderResolver).not.toContain('ActiveShipperTrackerService');
+    expect(orderResolver).not.toContain('orderConfirmedForShippers(');
+    expect(shipperResolver).toContain('ActiveShipperTrackerService');
+    expect(shipperResolver).toContain('orderConfirmedForShippers(');
+    expect(shipperResolver).toContain('order-delivery-shipper.public-api');
+    expect(shipperResolver).not.toContain('entities/order.entity');
+  });
+
+  it('keeps pending assignment orchestration out of Orders', () => {
+    const ordersModule = source('src/features/orders/orders.module.ts');
+
+    expect(ordersModule).not.toContain('DeliveryModule');
+    expect(ordersModule).not.toContain('src/features/delivery');
+
+    for (const ordersFile of [
+      'src/features/orders/controllers/merchant-orders.controller.ts',
+      'src/features/orders/services/merchant-orders.service.ts',
+      'src/features/orders/services/admin-orders.service.ts',
+    ]) {
+      expect(source(ordersFile)).not.toContain('src/features/delivery');
+      expect(source(ordersFile)).not.toContain('DeliveryDispatchService');
+    }
+
+    const deliveryHandler = source(
+      'src/features/delivery/services/dispatch/order-status-delivery.handler.ts',
+    );
+    expect(deliveryHandler).toContain('ORDER_STATUS_CHANGED_EVENT');
+    expect(deliveryHandler).toContain('addPendingAssignment');
+    expect(deliveryHandler).toContain('removePendingAssignment');
+  });
+
   it('keeps Delivery completion on a narrow Orders reader contract', () => {
     const completion = source(
       'src/features/delivery/services/shipper/delivery-completion.service.ts',

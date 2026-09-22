@@ -32,6 +32,7 @@ import { FindShipperProcessor } from './queue/find-shipper.processor';
 import { AdminDeliveryService } from './services/admin/admin-delivery.service';
 import { ActiveShipperTrackerService } from './services/dispatch/active-shipper-tracker.service';
 import { DeliveryDispatchService } from './services/dispatch/delivery-dispatch.service';
+import { OrderStatusDeliveryHandler } from './services/dispatch/order-status-delivery.handler';
 import { DeliveryIntegrationService } from './services/integration/delivery-integration.service';
 import { DeliveryAssignmentSagaService } from './services/shipper/delivery-assignment-saga.service';
 import { DeliveryCompletionService } from './services/shipper/delivery-completion.service';
@@ -89,6 +90,7 @@ const deliveryQueueModule = QueueModule.register({
     ...queueProcessorProviders,
     ActiveShipperTrackerService,
     DeliveryDispatchService,
+    OrderStatusDeliveryHandler,
     DeliveryEarningsService,
     DeliveryIntegrationService,
     DeliveryAssignmentSagaService,

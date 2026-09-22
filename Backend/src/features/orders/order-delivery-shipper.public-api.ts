@@ -1,3 +1,7 @@
+export {
+  orderSubscriptionGraphqlType,
+  type ShipperOrderSubscriptionPayload,
+} from './contracts/order-subscription.contract';
 export { OrderDeliveryLifecycleCommandModule } from './order-delivery-lifecycle-command.module';
 export { OrderDeliveryShipperReaderModule } from './order-delivery-shipper-reader.module';
 export { OrderDeliveryLifecycleCommandService } from './services/order-delivery-lifecycle-command.service';

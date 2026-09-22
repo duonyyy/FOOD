@@ -37,12 +37,11 @@ describe('MerchantOrdersService and AdminOrdersService commands', () => {
         getOrderById: jest.fn(() => Promise.resolve(order)),
         cleanSensitiveData: jest.fn((val: unknown) => val),
       },
-      pendingAssignmentService: {
-        addPendingAssignment: jest.fn(() => Promise.resolve({ id: 'assignment-1' })),
-        removePendingAssignment: jest.fn(() => Promise.resolve()),
-        getExpiredAssignments: jest.fn(() => Promise.resolve([])),
-      },
       eventBus: { publish: jest.fn(() => Promise.resolve()) },
+      outboxService: {
+        enqueue: jest.fn(() => Promise.resolve({ id: 'status-event-1' })),
+        dispatchAfterCommit: jest.fn(() => Promise.resolve()),
+      },
       paymentCheckoutCommands: {
         cancelPendingCheckoutForOrder: jest.fn(() => Promise.resolve()),
       },
@@ -51,15 +50,15 @@ describe('MerchantOrdersService and AdminOrdersService commands', () => {
     const merchantService = new MerchantOrdersService(
       dependencies.orderRepository as never,
       dependencies.orderCoreService as never,
-      dependencies.pendingAssignmentService as never,
       dependencies.eventBus as unknown as InProcessEventBus,
+      dependencies.outboxService as never,
     );
 
     const adminService = new AdminOrdersService(
       dependencies.orderRepository as never,
       dependencies.orderCoreService as never,
-      dependencies.pendingAssignmentService as never,
       dependencies.eventBus as unknown as InProcessEventBus,
+      dependencies.outboxService as never,
       dependencies.paymentCheckoutCommands as never,
     );
 
@@ -69,13 +68,14 @@ describe('MerchantOrdersService and AdminOrdersService commands', () => {
       dependencies,
       order,
       transactionalRepository,
+      transactionManager,
     };
   };
 
   afterEach(() => jest.restoreAllMocks());
 
   it('handles a valid status command and publishes notification after save', async () => {
-    const { merchantService, dependencies } = createServices();
+    const { merchantService, dependencies, transactionalRepository } = createServices();
     const publishSpy = jest.spyOn(pubSub, 'publish').mockResolvedValue(undefined);
 
     await expect(
@@ -84,7 +84,7 @@ describe('MerchantOrdersService and AdminOrdersService commands', () => {
       status: OrderStatus.CONFIRMED,
     });
 
-    expect(dependencies.orderRepository.save).toHaveBeenCalled();
+    expect(transactionalRepository.save).toHaveBeenCalled();
     expect(publishSpy).toHaveBeenCalledWith('orderStatusUpdated', {
       orderStatusUpdated: expect.objectContaining({ status: OrderStatus.CONFIRMED }) as unknown,
     });
@@ -106,8 +106,8 @@ describe('MerchantOrdersService and AdminOrdersService commands', () => {
     expect(dependencies.orderRepository.save).not.toHaveBeenCalled();
   });
 
-  it('confirms an order and creates a pending assignment', async () => {
-    const { merchantService, dependencies } = createServices();
+  it('confirms an order and publishes the status change for Delivery', async () => {
+    const { merchantService, dependencies, transactionManager } = createServices();
 
     await expect(
       merchantService.confirmOrder('order-1', 'restaurant-owner-1'),
@@ -115,10 +115,43 @@ describe('MerchantOrdersService and AdminOrdersService commands', () => {
       status: OrderStatus.CONFIRMED,
     });
 
-    expect(dependencies.pendingAssignmentService.addPendingAssignment).toHaveBeenCalledWith(
-      'order-1',
-      1,
+    expect(dependencies.outboxService.enqueue).toHaveBeenCalledWith(
+      transactionManager,
+      expect.objectContaining({
+        eventType: 'ordering.order.status-changed',
+        aggregateId: 'order-1',
+        payload: expect.objectContaining({
+          orderId: 'order-1',
+          previousStatus: OrderStatus.PENDING,
+          status: OrderStatus.CONFIRMED,
+        }) as unknown,
+      }),
     );
+    expect(dependencies.outboxService.dispatchAfterCommit).toHaveBeenCalledWith('status-event-1');
+  });
+
+  it('does not commit a status transition when the Outbox row cannot be stored', async () => {
+    const { merchantService, dependencies } = createServices();
+    dependencies.outboxService.enqueue.mockRejectedValueOnce(new Error('Outbox unavailable'));
+
+    await expect(
+      merchantService.updateOrderStatus('order-1', OrderStatus.CONFIRMED),
+    ).rejects.toThrow('Outbox unavailable');
+
+    expect(dependencies.outboxService.dispatchAfterCommit).not.toHaveBeenCalled();
+  });
+
+  it('returns the committed order when immediate dispatch fails and leaves retry to Outbox', async () => {
+    const { merchantService, dependencies } = createServices();
+    dependencies.outboxService.dispatchAfterCommit.mockRejectedValueOnce(
+      new Error('Delivery unavailable'),
+    );
+
+    await expect(
+      merchantService.updateOrderStatus('order-1', OrderStatus.CONFIRMED),
+    ).resolves.toMatchObject({ status: OrderStatus.CONFIRMED });
+
+    expect(dependencies.outboxService.enqueue).toHaveBeenCalled();
   });
 
   it('marks a pending payment as completed and paid', async () => {

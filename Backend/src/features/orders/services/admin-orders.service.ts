@@ -6,8 +6,12 @@ import {
   NOTIFICATION_REQUESTED_EVENT,
   NotificationRequestedEvent,
 } from 'src/common/events/notification-requested.event';
+import {
+  ORDER_STATUS_CHANGED_EVENT,
+  type OrderStatusChangedEvent,
+} from 'src/common/events/order-events';
+import { OutboxService } from 'src/common/events/outbox.service';
 import { Order } from 'src/entities/order.entity';
-import { DeliveryDispatchService } from 'src/features/delivery/public-api';
 import { PaymentService } from 'src/features/payments/public-api';
 import { pubSub } from 'src/pubsub';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
@@ -29,8 +33,8 @@ export class AdminOrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly orderCoreService: OrderCoreService,
-    private readonly pendingAssignmentService: DeliveryDispatchService,
     private readonly eventBus: InProcessEventBus,
+    private readonly outboxService: OutboxService,
     private readonly paymentCheckoutCommands: PaymentService,
   ) {}
 
@@ -60,6 +64,7 @@ export class AdminOrdersService {
    */
   async adminUpdateOrderStatus(id: string, status: string): Promise<Order> {
     const order = await this.orderCoreService.getOrderById(id);
+    const previousStatus = parseOrderStatus(order.status);
     let nextStatus: OrderStatus;
 
     try {
@@ -75,7 +80,7 @@ export class AdminOrdersService {
     }
 
     order.status = nextStatus;
-    const updatedOrder = await this.orderRepository.save(order);
+    const updatedOrder = await this.saveWithStatusEvent(order, previousStatus);
 
     await pubSub.publish('orderStatusUpdated', { orderStatusUpdated: updatedOrder });
     this.logger.log(`Admin updated order ${id} status to ${nextStatus}`);
@@ -212,64 +217,40 @@ export class AdminOrdersService {
     }
   }
 
-  /**
-   * Auto-cancel confirmed orders that failed shipper assignment after timeout
-   */
-  @Cron(CronExpression.EVERY_10_MINUTES)
-  async autoCancelUnassignedOrders() {
-    const timeoutMinutes = 30;
-    const timeoutDate = new Date(Date.now() - timeoutMinutes * 60 * 1000);
+  private async saveWithStatusEvent(order: Order, previousStatus: OrderStatus): Promise<Order> {
+    const result = await this.orderRepository.manager.transaction(async (manager) => {
+      const savedOrder = await manager.getRepository(Order).save(order);
+      const event = await this.outboxService.enqueue(manager, {
+        eventType: ORDER_STATUS_CHANGED_EVENT,
+        aggregateType: 'Order',
+        aggregateId: savedOrder.id,
+        idempotencyKey: `Order:${savedOrder.id}:status:${previousStatus}->${savedOrder.status}`,
+        payload: this.statusChangedPayload(savedOrder, previousStatus),
+      });
+      return { savedOrder, eventId: event.id };
+    });
 
-    this.logger.log(`🔍 Checking for pending assignments older than ${timeoutMinutes} minutes...`);
-
-    const expiredAssignments =
-      await this.pendingAssignmentService.getExpiredAssignments(timeoutDate);
-
-    if (expiredAssignments.length > 0) {
-      this.logger.log(`🚫 Found ${expiredAssignments.length} expired assignments to cancel`);
+    try {
+      await this.outboxService.dispatchAfterCommit(result.eventId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Order ${order.id} committed; status event queued for retry: ${message}`);
     }
 
-    for (const assignment of expiredAssignments) {
-      try {
-        const order = await this.orderRepository.findOne({
-          where: { id: assignment.order.orderId },
-          relations: ['shippingDetail', 'restaurant', 'user'],
-        });
+    return result.savedOrder;
+  }
 
-        if (!order) {
-          await this.pendingAssignmentService.removePendingAssignmentById(assignment.id);
-          continue;
-        }
-
-        if (order.status !== 'confirmed') {
-          continue;
-        }
-
-        if (order.shippingDetail) {
-          await this.pendingAssignmentService.removePendingAssignment(order.id);
-          continue;
-        }
-
-        order.status = this.stateMachine.cancel(order.status);
-        await this.orderRepository.save(order);
-        await this.pendingAssignmentService.removePendingAssignmentById(assignment.id);
-
-        await pubSub.publish('orderStatusUpdated', {
-          orderStatusUpdated: order,
-        });
-
-        if (order.user?.id) {
-          await this.eventBus.publish<NotificationRequestedEvent>(NOTIFICATION_REQUESTED_EVENT, {
-            idempotencyKey: `Order:${order.id}:canceled`,
-            recipientUserId: order.user.id,
-            description: 'Đơn hàng đã bị hủy',
-            content: `Đơn hàng #${order.id} đã bị hủy do không tìm thấy tài xế trong khu vực`,
-            type: 'order',
-          });
-        }
-      } catch (error) {
-        this.logger.error(`❌ Failed to auto-cancel order ${assignment.order.orderId}:`, error);
-      }
-    }
+  private statusChangedPayload(
+    order: Order,
+    previousStatus: OrderStatus,
+  ): OrderStatusChangedEvent & Record<string, unknown> {
+    return {
+      orderId: order.id,
+      customerId: order.user?.id,
+      previousStatus,
+      status: order.status,
+      hasShippingDetail: Boolean(order.shippingDetail),
+      occurredAt: new Date().toISOString(),
+    };
   }
 }

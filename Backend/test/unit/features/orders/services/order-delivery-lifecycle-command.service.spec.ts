@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { ORDER_STATUS_CHANGED_EVENT } from 'src/common/events/order-events';
 import { Order } from 'src/entities/order.entity';
 import { OrderDeliveryLifecycleCommandService } from 'src/features/orders/services/order-delivery-lifecycle-command.service';
 import { pubSub } from 'src/pubsub';
@@ -9,8 +10,14 @@ describe('OrderDeliveryLifecycleCommandService', () => {
   let order: Order;
   let repository: { manager: { transaction: jest.Mock }; save: jest.Mock; findOne: jest.Mock };
   let service: OrderDeliveryLifecycleCommandService;
+  const eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
+  const outboxService = {
+    enqueue: jest.fn().mockResolvedValue({ id: 'status-event-1' }),
+    dispatchAfterCommit: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(() => {
+    jest.clearAllMocks();
     order = Object.assign(new Order(), { id: 'order-1', status: 'shipper_received' });
     repository = {
       findOne: jest.fn().mockResolvedValue(order),
@@ -21,7 +28,11 @@ describe('OrderDeliveryLifecycleCommandService', () => {
         ),
       },
     };
-    service = new OrderDeliveryLifecycleCommandService(repository as never);
+    service = new OrderDeliveryLifecycleCommandService(
+      repository as never,
+      eventBus as never,
+      outboxService as never,
+    );
   });
 
   it('is the only writer for the shipper_received -> delivering transition', async () => {
@@ -54,5 +65,30 @@ describe('OrderDeliveryLifecycleCommandService', () => {
       status: 'canceled',
     });
     expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('cancels an unassigned confirmed order on Delivery timeout', async () => {
+    order.status = 'confirmed';
+    order.shippingDetail = null as never;
+    order.user = { id: 'customer-1' } as never;
+
+    await expect(service.cancelUnassigned('order-1')).resolves.toEqual({
+      orderId: 'order-1',
+      status: 'canceled',
+    });
+
+    expect(repository.save).toHaveBeenCalledWith(order);
+    expect(outboxService.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: ORDER_STATUS_CHANGED_EVENT,
+        payload: expect.objectContaining({
+          orderId: 'order-1',
+          previousStatus: 'confirmed',
+          status: 'canceled',
+        }) as unknown,
+      }),
+    );
+    expect(outboxService.dispatchAfterCommit).toHaveBeenCalledWith('status-event-1');
   });
 });

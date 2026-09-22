@@ -254,15 +254,21 @@ Bằng chứng hiện tại:
 
 | File | Số dòng |
 | --- | ---: |
-| `services/customer-orders.service.ts` | 949 |
-| `controllers/order.controller.ts` | 498 |
+| `services/customer-orders.service.ts` | 946 |
 | `services/order-core.service.ts` | 435 |
-| `services/admin-orders.service.ts` | 275 |
-| `services/order.service.ts` | 198 |
-| `services/merchant-orders.service.ts` | 184 |
-| `controllers/order.resolver.ts` | 161 |
+| `services/admin-orders.service.ts` | 229 |
+| `services/order.service.ts` | 191 |
+| `services/merchant-orders.service.ts` | 160 |
+| `controllers/order.resolver.ts` | 82 |
 | `services/order-events.handler.ts` | 153 |
+| `controllers/merchant-orders.controller.ts` | 109 |
 | `services/order-cross-feature.adapters.ts` | 148 |
+| `controllers/public-orders.controller.ts` | 96 |
+| `controllers/admin-orders.controller.ts` | 57 |
+
+`order.controller.ts` đã được tách thành `public-orders.controller.ts`,
+`customer-orders.controller.ts` (275 dòng), `merchant-orders.controller.ts` và
+`admin-orders.controller.ts` mà không đổi route.
 
 Ngoài module chính, Orders còn bảy module reader/command hẹp và sáu public API phụ. Điều này từng giúp phá vòng phụ thuộc, nhưng làm người đọc khó biết API nào là chuẩn.
 
@@ -272,7 +278,10 @@ Trạng thái: **Chưa đạt**. Ưu tiên P1 về maintainability.
 
 ### 9.2. Không thể gộp module Orders một cách máy móc
 
-Hiện tại Orders import `DeliveryModule`, trong khi Delivery dùng các module reader hẹp của Orders. Nếu xóa reader module và cho Delivery import trực tiếp `OrdersModule`, vòng phụ thuộc `OrdersModule ↔ DeliveryModule` sẽ quay lại.
+Orders không còn import `DeliveryModule` hoặc inject `DeliveryDispatchService`. Orders phát event thay
+đổi trạng thái; Delivery sở hữu việc tạo/xóa pending assignment. Delivery vẫn dùng reader/lifecycle
+command hẹp của Orders. Nếu xóa các module hẹp và cho Delivery import trực tiếp `OrdersModule`, vòng
+phụ thuộc có thể quay lại.
 
 Muốn đạt một module mà vẫn không dùng `forwardRef()`, cần sửa hướng giao tiếp trước:
 
@@ -465,18 +474,25 @@ Vì vậy báo cáo không kết luận production-ready.
 - infra không import feature;
 - application port không quay lại.
 
-### Bước 3 — Refactor Orders theo hai nhịp — Bước tiếp theo
+### Bước 3 — Refactor Orders theo hai nhịp — Đang thực hiện
+
+Dependency graph chi tiết và thứ tự gỡ cycle được ghi tại
+[`ORDERS_DEPENDENCY_GRAPH.md`](./ORDERS_DEPENDENCY_GRAPH.md).
 
 Nhịp 1:
 
-- chia `order.controller.ts` theo customer/merchant/admin;
+- [x] chia `order.controller.ts` theo customer/merchant/admin;
 - giảm `customer-orders.service.ts` bằng service nghiệp vụ có tên rõ;
 - thu hẹp export của `orders/public-api.ts`;
 - bỏ facade chuyển tiếp nếu không có logic.
 
 Nhịp 2:
 
-- vẽ dependency graph Orders ↔ Delivery/Reviews/Analytics/Notifications;
+- [x] vẽ dependency graph Orders ↔ Delivery/Reviews/Analytics/Notifications;
+- [x] chuyển subscription đăng ký active shipper sang Delivery, giữ nguyên GraphQL field và guard;
+- [x] chuyển pending assignment orchestration và cleanup sang Delivery;
+- [x] ghi `ORDER_STATUS_CHANGED_EVENT` bằng Outbox cùng transaction với Order và retry ở API;
+- [x] xóa `OrdersModule -> DeliveryModule`;
 - chuyển notification một chiều sang event;
 - làm query dependency một chiều;
 - chỉ sau đó mới gộp các reader module/public API phụ.
@@ -516,4 +532,4 @@ Một feature chỉ được xem là hoàn thành migration khi:
 
 Codebase không cần viết lại. Boundary runtime hiện tại tốt hơn báo cáo cũ mô tả: build và test xanh, không có `forwardRef`, không có deep import chéo feature và infra không phụ thuộc business feature.
 
-Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Bước tiếp theo là lập dependency graph cho Orders rồi refactor theo hai nhịp; không xóa các reader module trước khi sửa được hướng phụ thuộc Orders–Delivery.
+Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Orders đã hoàn thành tách controller, gỡ dependency ngược sang Delivery và harden status event bằng Outbox. Bước tiếp theo là thu hẹp các consumer còn import `OrdersModule` quá rộng; chưa xóa reader module khi vòng Orders–Reviews vẫn còn.

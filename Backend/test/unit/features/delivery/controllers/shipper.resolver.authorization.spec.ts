@@ -32,7 +32,11 @@ describe('ShipperResolver authorization', () => {
   const deliverySubscriptionAccessService = {
     canAccessShipperLocation: jest.fn(),
   };
-  const resolver = new ShipperResolver(deliverySubscriptionAccessService as never);
+  const activeShipperTracker = { addShipper: jest.fn() };
+  const resolver = new ShipperResolver(
+    deliverySubscriptionAccessService as never,
+    activeShipperTracker as never,
+  );
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -53,9 +57,51 @@ describe('ShipperResolver authorization', () => {
   });
 
   it('applies WebSocket authentication before resolving the subscription', () => {
-    const resolverMethod = getResolverMethod(ShipperResolver.prototype, 'shipperLocationUpdated');
-    const guards = Reflect.getMetadata(GUARDS_METADATA, resolverMethod) as unknown[];
+    for (const methodName of ['shipperLocationUpdated', 'orderConfirmedForShippers']) {
+      const resolverMethod = getResolverMethod(ShipperResolver.prototype, methodName);
+      const guards = Reflect.getMetadata(GUARDS_METADATA, resolverMethod) as unknown[];
 
-    expect(guards).toContain(WebSocketAuthGuard);
+      expect(guards).toContain(WebSocketAuthGuard);
+    }
+  });
+
+  it('rejects a forged shipper ID before mutating the active shipper tracker', async () => {
+    await expect(
+      resolver.orderConfirmedForShippers('shipper-a', '10.7', '106.6', 20, {
+        connection: { context: { user: { id: 'shipper-b' } } },
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(activeShipperTracker.addShipper).not.toHaveBeenCalled();
+  });
+
+  it('registers the authenticated shipper before creating the order iterator', async () => {
+    const iterator = { next: jest.fn() };
+    activeShipperTracker.addShipper.mockResolvedValue({ success: true });
+    mockAsyncIterableIterator.mockReturnValue(iterator);
+
+    await expect(
+      resolver.orderConfirmedForShippers('shipper-a', '10.7', '106.6', 15, {
+        connection: { context: { user: { id: 'shipper-a' } } },
+      }),
+    ).resolves.toBe(iterator);
+
+    expect(activeShipperTracker.addShipper).toHaveBeenCalledWith('shipper-a', 10.7, 106.6, 15);
+    expect(mockAsyncIterableIterator).toHaveBeenCalledWith('orderConfirmedForShippers');
+  });
+
+  it('does not create an iterator when Delivery rejects the shipper', async () => {
+    activeShipperTracker.addShipper.mockResolvedValue({
+      success: false,
+      message: 'Shipper is not available',
+    });
+
+    await expect(
+      resolver.orderConfirmedForShippers('shipper-a', '10.7', '106.6', 20, {
+        connection: { context: { user: { id: 'shipper-a' } } },
+      }),
+    ).rejects.toThrow('Subscription rejected: Shipper is not available');
+
+    expect(mockAsyncIterableIterator).not.toHaveBeenCalled();
   });
 });

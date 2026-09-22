@@ -21,7 +21,7 @@ describe('OutboxService', () => {
       find: jest.fn().mockResolvedValue([]),
       save: jest.fn((value: typeof event) => Promise.resolve(value)),
     };
-    const eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
+    const eventBus = { publishRequired: jest.fn().mockResolvedValue(undefined) };
     const service = new OutboxService(outboxRepository as never, eventBus as never);
     return { service, event, outboxRepository, eventBus };
   };
@@ -32,14 +32,14 @@ describe('OutboxService', () => {
     await service.dispatchAfterCommit(event.id);
     await service.dispatchAfterCommit(event.id);
 
-    expect(eventBus.publish).toHaveBeenCalledTimes(1);
+    expect(eventBus.publishRequired).toHaveBeenCalledTimes(1);
     expect(event.status).toBe(OutboxEventStatus.PUBLISHED);
     expect(outboxRepository.save).toHaveBeenCalled();
   });
 
   it('marks failed dispatch for retry and preserves the error', async () => {
     const { service, event, eventBus, outboxRepository } = createService();
-    eventBus.publish.mockRejectedValueOnce(new Error('temporary bus failure'));
+    eventBus.publishRequired.mockRejectedValueOnce(new Error('temporary bus failure'));
 
     await expect(service.dispatchAfterCommit(event.id)).rejects.toThrow('temporary bus failure');
 
@@ -47,5 +47,32 @@ describe('OutboxService', () => {
     expect(event.attempts).toBe(1);
     expect(event.lastError).toBe('temporary bus failure');
     expect(outboxRepository.save).toHaveBeenCalledWith(event);
+  });
+
+  it('does not publish an event when no subscriber is registered', async () => {
+    const { service, event, eventBus } = createService();
+    eventBus.publishRequired.mockRejectedValueOnce(
+      new Error('No subscriber registered for outbox event ordering.order.created'),
+    );
+
+    await expect(service.dispatchAfterCommit(event.id)).rejects.toThrow('No subscriber registered');
+
+    expect(event.status).toBe(OutboxEventStatus.FAILED);
+  });
+
+  it('leaves events pending in the queue worker process', async () => {
+    const previous = process.env.QUEUE_PROCESSOR_ENABLED;
+    process.env.QUEUE_PROCESSOR_ENABLED = 'true';
+    const { service, event, eventBus, outboxRepository } = createService();
+
+    try {
+      await expect(service.dispatchAfterCommit(event.id)).resolves.toBe(event);
+      expect(eventBus.publishRequired).not.toHaveBeenCalled();
+      expect(outboxRepository.save).not.toHaveBeenCalled();
+      expect(event.status).toBe(OutboxEventStatus.PENDING);
+    } finally {
+      if (previous === undefined) delete process.env.QUEUE_PROCESSOR_ENABLED;
+      else process.env.QUEUE_PROCESSOR_ENABLED = previous;
+    }
   });
 });

@@ -29,9 +29,8 @@ function getResolverMethod(prototype: object, methodName: string): () => unknown
 }
 
 describe('OrderResolver authorization', () => {
-  const activeShipperTracker = { addShipper: jest.fn() };
   const restaurantReader = { findActiveRestaurant: jest.fn() };
-  const resolver = new OrderResolver(activeShipperTracker as never, restaurantReader as never);
+  const resolver = new OrderResolver(restaurantReader as never);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -61,18 +60,8 @@ describe('OrderResolver authorization', () => {
     expect(mockAsyncIterableIterator).not.toHaveBeenCalled();
   });
 
-  it('rejects a forged shipper ID before mutating the active shipper tracker', async () => {
-    await expect(
-      resolver.orderConfirmedForShippers('shipper-a', '10.7', '106.6', 20, {
-        connection: { context: { user: { id: 'shipper-b' } } },
-      }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-
-    expect(activeShipperTracker.addShipper).not.toHaveBeenCalled();
-  });
-
   it('uses WebSocket authentication on every subscription and removes debug operations', () => {
-    for (const methodName of ['orderCreated', 'orderStatusUpdated', 'orderConfirmedForShippers']) {
+    for (const methodName of ['orderCreated', 'orderStatusUpdated']) {
       const resolverMethod = getResolverMethod(OrderResolver.prototype, methodName);
       const guards = Reflect.getMetadata(GUARDS_METADATA, resolverMethod) as unknown[];
       expect(guards).toContain(WebSocketAuthGuard);

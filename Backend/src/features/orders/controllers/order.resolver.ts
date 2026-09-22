@@ -1,4 +1,4 @@
-import { ForbiddenException, Logger, UseGuards } from '@nestjs/common';
+import { ForbiddenException, UseGuards } from '@nestjs/common';
 import { Args, Context, Resolver, Subscription } from '@nestjs/graphql';
 import { Order } from 'src/entities/order.entity';
 import {
@@ -6,7 +6,6 @@ import {
   WebSocketAuthGuard,
   type GraphqlSubscriptionContext,
 } from 'src/features/auth/public-api';
-import { ActiveShipperTrackerService } from 'src/features/delivery/public-api';
 import { RestaurantReaderService } from 'src/features/restaurants/public-api';
 import { pubSub } from 'src/pubsub';
 
@@ -16,22 +15,10 @@ interface OrderCreatedPayload {
 interface OrderStatusUpdatedPayload {
   orderStatusUpdated: Order;
 }
-interface ShipperOrderPayload {
-  orderConfirmedForShippers: Order;
-  targetShipperId: string;
-  distanceKm?: number;
-  priorityScore?: number;
-}
-
-/** GraphQL transport for Order events; shipper runtime policy is Delivery-owned. */
+/** GraphQL transport for customer and merchant Order events. */
 @Resolver(() => Order)
 export class OrderResolver {
-  private readonly logger = new Logger(OrderResolver.name);
-
-  constructor(
-    private readonly activeShipperTracker: ActiveShipperTrackerService,
-    private readonly restaurantReader: RestaurantReaderService,
-  ) {}
+  constructor(private readonly restaurantReader: RestaurantReaderService) {}
 
   @Subscription(() => Order, {
     filter: (
@@ -91,71 +78,5 @@ export class OrderResolver {
     }
 
     return pubSub.asyncIterableIterator('orderStatusUpdated');
-  }
-
-  @Subscription(() => Order, {
-    filter: (
-      payload: ShipperOrderPayload,
-      variables: { shipperId: string },
-      context: GraphqlSubscriptionContext,
-    ) => {
-      const actorId = requireGraphqlSubscriptionActorId(context);
-      return (
-        variables.shipperId === actorId &&
-        payload.orderConfirmedForShippers.status === 'confirmed' &&
-        !payload.orderConfirmedForShippers.shippingDetail &&
-        payload.targetShipperId === actorId
-      );
-    },
-    resolve: (payload: ShipperOrderPayload) => {
-      const order = payload.orderConfirmedForShippers;
-      const shippingFee = order.shippingFee || 0;
-      const shipperEarnings =
-        order.shipperEarnings || Math.round(shippingFee * (order.shipperCommissionRate || 0.8));
-      return {
-        ...order,
-        shipperEarnings,
-        deliveryMetadata: {
-          distanceKm: order.deliveryDistance || payload.distanceKm || 0,
-          priorityScore: payload.priorityScore,
-          assignedAt: new Date(),
-          shippingInfo: {
-            totalDistance: order.deliveryDistance || payload.distanceKm || 0,
-            shippingFee,
-            shipperEarnings,
-            platformFee: shippingFee - shipperEarnings,
-            shipperCommissionRate: order.shipperCommissionRate || 0.8,
-            estimatedDeliveryTime: order.estimatedDeliveryTime || 30,
-          },
-        },
-      };
-    },
-  })
-  @UseGuards(WebSocketAuthGuard)
-  async orderConfirmedForShippers(
-    @Args('shipperId') shipperId: string,
-    @Args('latitude') latitude: string,
-    @Args('longitude') longitude: string,
-    @Args('maxDistance', { nullable: true, defaultValue: 20 }) maxDistance: number,
-    @Context() context: GraphqlSubscriptionContext,
-  ) {
-    if (!shipperId || !latitude || !longitude) {
-      throw new Error('Shipper ID, latitude and longitude are required');
-    }
-    if (shipperId !== requireGraphqlSubscriptionActorId(context)) {
-      throw new ForbiddenException('Shipper order subscription access denied');
-    }
-
-    const result = await this.activeShipperTracker.addShipper(
-      shipperId,
-      Number(latitude),
-      Number(longitude),
-      maxDistance,
-    );
-    if (!result.success) {
-      this.logger.warn(`Shipper ${shipperId} subscription rejected: ${result.message}`);
-      throw new Error(`Subscription rejected: ${result.message}`);
-    }
-    return pubSub.asyncIterableIterator('orderConfirmedForShippers');
   }
 }

@@ -1,10 +1,11 @@
 import { ForbiddenException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard, RolesGuard } from 'src/features/auth/public-api';
+import { AdminOrdersController } from 'src/features/orders/controllers/admin-orders.controller';
+import { CustomerOrdersController } from 'src/features/orders/controllers/customer-orders.controller';
 import { Permission } from 'src/shared/types/enums/permission.enum';
-import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
-import { AuthGuard } from 'src/features/auth/guards/auth.guard';
-import { RolesGuard } from 'src/features/auth/guards/roles.guard';
-import { OrderController } from 'src/features/orders/controllers/order.controller';
+
+const PERMISSIONS_KEY = 'permissions';
 
 describe('Order authorization characterization', () => {
   let orderService: {
@@ -13,7 +14,7 @@ describe('Order authorization characterization', () => {
     createOrder: jest.Mock;
   };
   let paymentService: { createCheckout: jest.Mock };
-  let controller: OrderController;
+  let customerController: CustomerOrdersController;
 
   beforeEach(() => {
     orderService = {
@@ -30,11 +31,9 @@ describe('Order authorization characterization', () => {
     paymentService = {
       createCheckout: jest.fn().mockResolvedValue({ id: 'checkout-1', paymentUrl: 'https://pay' }),
     };
-    controller = new OrderController(
+    customerController = new CustomerOrdersController(
       orderService as never,
       paymentService as never,
-      { findByOwnerId: jest.fn() } as never,
-      { addPendingAssignment: jest.fn(), removePendingAssignment: jest.fn() } as never,
     );
   });
 
@@ -43,14 +42,14 @@ describe('Order authorization characterization', () => {
       GUARDS_METADATA,
       // Decorator metadata must be read from the method reference; it is not invoked here.
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      OrderController.prototype.getOrderById,
+      CustomerOrdersController.prototype.getOrderById,
     ) as unknown[];
     expect(guards).toContain(AuthGuard);
   });
 
   it('protects the admin status route with the order write capability', () => {
     const method = Object.getOwnPropertyDescriptor(
-      OrderController.prototype,
+      AdminOrdersController.prototype,
       'adminUpdateOrderStatus',
     )?.value as object;
     const guards = Reflect.getMetadata(GUARDS_METADATA, method) as unknown[];
@@ -68,7 +67,7 @@ describe('Order authorization characterization', () => {
     });
 
     await expect(
-      controller.getOrderById('order-b', { userId: 'customer-a' }),
+      customerController.getOrderById('order-b', { userId: 'customer-a' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -80,7 +79,9 @@ describe('Order authorization characterization', () => {
     };
     orderService.getOrderById.mockResolvedValue(order);
 
-    await expect(controller.getOrderById('order-1', { userId: 'owner-a' })).resolves.toBe(order);
+    await expect(customerController.getOrderById('order-1', { userId: 'owner-a' })).resolves.toBe(
+      order,
+    );
   });
 
   it('does not trust body.userId when creating an order', async () => {
@@ -93,7 +94,7 @@ describe('Order authorization characterization', () => {
       orderDetails: [],
     };
 
-    await controller.createOrder(body, { userId: 'customer-a' });
+    await customerController.createOrder(body, { userId: 'customer-a' });
 
     expect(orderService.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'customer-a' }),
@@ -109,21 +110,21 @@ describe('Order authorization characterization', () => {
     orderService.getOrderById.mockResolvedValue(order);
 
     await expect(
-      controller.getOrderById('order-b', { userId: 'admin-user', role: 'admin' }),
+      customerController.getOrderById('order-b', { userId: 'admin-user', role: 'admin' }),
     ).resolves.toBe(order);
   });
 
   it("forbids a customer from reading another user's orders via getOrdersByUser", () => {
-    expect(() => controller.getOrdersByUser('customer-b', { userId: 'customer-a' })).toThrow(
-      ForbiddenException,
-    );
+    expect(() =>
+      customerController.getOrdersByUser('customer-b', { userId: 'customer-a' }),
+    ).toThrow(ForbiddenException);
   });
 
   it("allows an admin to read another user's orders via getOrdersByUser", () => {
     orderService.getOrdersByUser.mockReturnValue({ items: [] });
 
     expect(() =>
-      controller.getOrdersByUser('customer-b', { userId: 'admin-user', role: 'admin' }),
+      customerController.getOrdersByUser('customer-b', { userId: 'admin-user', role: 'admin' }),
     ).not.toThrow();
     expect(orderService.getOrdersByUser).toHaveBeenCalledWith('customer-b');
   });
@@ -131,7 +132,9 @@ describe('Order authorization characterization', () => {
   it('allows user to read their own orders via getOrdersByUser', () => {
     orderService.getOrdersByUser.mockReturnValue({ items: [] });
 
-    expect(() => controller.getOrdersByUser('customer-a', { userId: 'customer-a' })).not.toThrow();
+    expect(() =>
+      customerController.getOrdersByUser('customer-a', { userId: 'customer-a' }),
+    ).not.toThrow();
     expect(orderService.getOrdersByUser).toHaveBeenCalledWith('customer-a');
   });
 });

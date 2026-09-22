@@ -6,11 +6,23 @@ describe('InProcessEventBus', () => {
     const handler = jest.fn<Promise<void>, [{ orderId: string }]>().mockResolvedValue(undefined);
     const unsubscribe = eventBus.subscribe('payment.succeeded', handler);
 
-    await eventBus.publish('payment.succeeded', { orderId: 'order-1' });
+    await expect(
+      eventBus.publish('payment.succeeded', { orderId: 'order-1' }),
+    ).resolves.toBeUndefined();
     unsubscribe();
-    await eventBus.publish('payment.succeeded', { orderId: 'order-2' });
+    await expect(
+      eventBus.publish('payment.succeeded', { orderId: 'order-2' }),
+    ).resolves.toBeUndefined();
 
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith({ orderId: 'order-1' });
+  });
+
+  it('rejects required publication when no subscriber is registered', async () => {
+    const eventBus = new InProcessEventBus();
+
+    await expect(eventBus.publishRequired('missing.event', {})).rejects.toThrow(
+      'No subscriber registered',
+    );
   });
 });

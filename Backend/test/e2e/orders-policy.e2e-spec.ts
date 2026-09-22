@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument */
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { DeliveryDispatchService } from 'src/features/delivery/public-api';
-import { OrderController } from 'src/features/orders/controllers/order.controller';
+import { AuthGuard, RolesGuard } from 'src/features/auth/public-api';
+import { AdminOrdersController } from 'src/features/orders/controllers/admin-orders.controller';
+import { CustomerOrdersController } from 'src/features/orders/controllers/customer-orders.controller';
+import { MerchantOrdersController } from 'src/features/orders/controllers/merchant-orders.controller';
+import { PublicOrdersController } from 'src/features/orders/controllers/public-orders.controller';
 import { OrderService } from 'src/features/orders/services/order.service';
-import { PaymentService } from 'src/features/payments/payment.service';
-import { RestaurantProfileService } from 'src/features/restaurants/services/restaurant-profile.service';
-import { AuthGuard, RolesGuard } from 'src/features/users/public-api';
+import { PaymentService } from 'src/features/payments/public-api';
+import { RestaurantProfileService } from 'src/features/restaurants/public-api';
 import request = require('supertest');
 
 describe('Order actor policy (e2e)', () => {
@@ -37,15 +39,16 @@ describe('Order actor policy (e2e)', () => {
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
-      controllers: [OrderController],
+      controllers: [
+        PublicOrdersController,
+        CustomerOrdersController,
+        MerchantOrdersController,
+        AdminOrdersController,
+      ],
       providers: [
         { provide: OrderService, useValue: orderService },
         { provide: PaymentService, useValue: { createCheckout: jest.fn() } },
         { provide: RestaurantProfileService, useValue: { findByOwnerId: jest.fn() } },
-        {
-          provide: DeliveryDispatchService,
-          useValue: { addPendingAssignment: jest.fn(), removePendingAssignment: jest.fn() },
-        },
       ],
     })
       .overrideProvider(OrderService)
@@ -94,6 +97,14 @@ describe('Order actor policy (e2e)', () => {
     expect(orderService.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'customer-a' }),
     );
+  });
+
+  it('keeps public order calculation on the existing route', async () => {
+    await request(app.getHttpServer())
+      .post('/orders/calculate')
+      .send({})
+      .expect(201)
+      .expect({ error: 'Missing addressId, restaurantId, or items' });
   });
 
   it('allows only the JWT merchant owner to update restaurant order status', async () => {

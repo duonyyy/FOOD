@@ -45,5 +45,7 @@ src/features/delivery/
 2. **Thuật ngữ chuẩn ngành giao vận (Dispatch thay vì Assignment)**:
    - Thay thế thuật ngữ máy móc `assignment` thành `dispatch` (Điều phối cuốc xe) qua `DeliveryDispatchService`.
    - `DeliveryDispatchPolicy` quản lý các quy tắc giữ cuốc 2 phút (Hold TTL), timeout và retry.
+   - `OrderStatusDeliveryHandler` nhận event trạng thái Order để Delivery tự tạo/xóa pending assignment.
+   - Cleanup assignment hết hạn nằm trong Delivery; việc hủy Order vẫn gọi lifecycle command do Orders sở hữu.
 3. **Quản lý thu nhập tập trung**:
    - `DeliveryEarningsService` hợp nhất việc tính toán thu nhập (`DeliveryEarningsEvent` immutable ledger) và tự động bắt sự kiện `delivery.completed` để cập nhật `ShipperProfile`.
