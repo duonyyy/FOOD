@@ -20,6 +20,18 @@ export class OrderDeliveryDispatchReaderService {
     return order ? this.toDispatchCandidate(order) : null;
   }
 
+  async listConfirmedOrderIds(limit = 100): Promise<string[]> {
+    const safeLimit = Math.min(Math.max(limit, 1), 500);
+    const orders = await this.orderRepository.find({
+      select: { id: true },
+      where: { status: 'confirmed' },
+      order: { createdAt: 'ASC' },
+      take: safeLimit,
+    });
+
+    return orders.map((order) => order.id);
+  }
+
   private toDispatchCandidate(order: Order): DeliveryDispatchCandidate {
     const latitude = order.restaurant?.latitude;
     const longitude = order.restaurant?.longitude;

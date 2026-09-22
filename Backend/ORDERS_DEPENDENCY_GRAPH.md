@@ -238,9 +238,10 @@ Thứ tự:
 1. Chuyển active shipper subscription sang Delivery. **Đã hoàn thành.**
 2. Chuyển pending-assignment orchestration sang Delivery. **Đã hoàn thành.**
 3. Xóa `OrdersModule -> DeliveryModule`. **Đã hoàn thành.**
-4. Thu hẹp Notifications và Messenger khỏi broad `OrdersModule` nếu có thể.
-5. Đánh giá riêng vòng Orders–Reviews trước khi gộp module.
-6. Chỉ xóa module/public API hẹp khi `rg` xác nhận không còn consumer.
+4. Phục hồi Order `confirmed` bị thiếu pending assignment. **Đã hoàn thành.**
+5. Thu hẹp Notifications và Messenger khỏi broad `OrdersModule` nếu có thể.
+6. Đánh giá riêng vòng Orders–Reviews trước khi gộp module.
+7. Chỉ xóa module/public API hẹp khi `rg` xác nhận không còn consumer.
 
 Exit gate:
 
@@ -264,9 +265,12 @@ khi hướng phụ thuộc được sửa.
 Nhịp 1 đã tách `order.controller.ts` thành public/customer/merchant/admin controller, giữ nguyên
 toàn bộ route và service call.
 
-Bước nhỏ nhất tiếp theo là thu hẹp Notifications/Messenger khỏi broad `OrdersModule` hoặc bổ sung
-reconciliation cho Order confirmed bị thiếu assignment do dữ liệu lịch sử. Không gộp Orders–Reviews
-trước khi quyết định review summary có bắt buộc nằm trong Order response hay không.
+Delivery đã có cron phục hồi Order `confirmed` bị thiếu pending assignment. Cron chỉ chạy ở API,
+đọc ID qua reader hẹp của Orders và dùng thao tác tạo idempotent của Delivery.
+
+Bước nhỏ nhất tiếp theo là thu hẹp Notifications, Messenger và Chat khỏi broad
+`OrdersModule`. Không gộp Orders–Reviews trước khi quyết định review summary có bắt buộc
+nằm trong Order response hay không.
 
 Không thực hiện đồng thời việc gộp module, đổi event, đổi schema hoặc format toàn repository trong
 commit này.

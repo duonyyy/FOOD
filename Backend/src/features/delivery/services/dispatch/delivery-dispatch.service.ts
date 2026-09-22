@@ -42,6 +42,13 @@ interface ActiveShipper {
   lastSeen: Date;
 }
 
+interface MissingAssignmentRestoreResult {
+  checked: number;
+  restored: number;
+  skipped: number;
+  failed: number;
+}
+
 /**
  * DeliveryDispatchService: Dịch vụ điều phối trung tâm của phân hệ Giao vận.
  * Chịu trách nhiệm:
@@ -330,6 +337,56 @@ export class DeliveryDispatchService {
         );
       }
     }
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async restoreMissingAssignments(): Promise<MissingAssignmentRestoreResult> {
+    const result: MissingAssignmentRestoreResult = {
+      checked: 0,
+      restored: 0,
+      skipped: 0,
+      failed: 0,
+    };
+
+    if (process.env.QUEUE_PROCESSOR_ENABLED === 'true') {
+      return result;
+    }
+
+    let orderIds: string[];
+    try {
+      orderIds = await this.orderDispatchReader.listConfirmedOrderIds(100);
+    } catch (error) {
+      result.failed = 1;
+      this.logger.error('Failed to find confirmed orders missing assignments', error);
+      return result;
+    }
+
+    result.checked = orderIds.length;
+    for (const orderId of orderIds) {
+      try {
+        if (await this.hasShippingDetail(orderId)) {
+          result.skipped += 1;
+          continue;
+        }
+
+        const existing = await this.store.getByOrderId(orderId);
+        if (existing) {
+          result.skipped += 1;
+          continue;
+        }
+
+        await this.addPendingAssignment(orderId, 1);
+        result.restored += 1;
+      } catch (error) {
+        result.failed += 1;
+        this.logger.error(`Failed to restore pending assignment for order ${orderId}`, error);
+      }
+    }
+
+    if (result.restored > 0) {
+      this.logger.log(`Restored ${result.restored} missing pending assignments`);
+    }
+    return result;
   }
 
   @Cron(CronExpression.EVERY_5_MINUTES)

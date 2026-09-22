@@ -492,6 +492,7 @@ Nhịp 2:
 - [x] chuyển subscription đăng ký active shipper sang Delivery, giữ nguyên GraphQL field và guard;
 - [x] chuyển pending assignment orchestration và cleanup sang Delivery;
 - [x] ghi `ORDER_STATUS_CHANGED_EVENT` bằng Outbox cùng transaction với Order và retry ở API;
+- [x] phục hồi Order `confirmed` cũ bị thiếu pending assignment bằng cron idempotent của Delivery;
 - [x] xóa `OrdersModule -> DeliveryModule`;
 - chuyển notification một chiều sang event;
 - làm query dependency một chiều;
@@ -532,4 +533,4 @@ Một feature chỉ được xem là hoàn thành migration khi:
 
 Codebase không cần viết lại. Boundary runtime hiện tại tốt hơn báo cáo cũ mô tả: build và test xanh, không có `forwardRef`, không có deep import chéo feature và infra không phụ thuộc business feature.
 
-Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Orders đã hoàn thành tách controller, gỡ dependency ngược sang Delivery và harden status event bằng Outbox. Bước tiếp theo là thu hẹp các consumer còn import `OrdersModule` quá rộng; chưa xóa reader module khi vòng Orders–Reviews vẫn còn.
+Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Orders đã hoàn thành tách controller, gỡ dependency ngược sang Delivery, harden status event bằng Outbox và phục hồi assignment bị thiếu. Bước tiếp theo là thu hẹp các consumer còn import `OrdersModule` quá rộng; chưa xóa reader module khi vòng Orders–Reviews vẫn còn.

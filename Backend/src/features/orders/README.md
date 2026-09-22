@@ -12,6 +12,10 @@ Delivery gọi lifecycle command hẹp và Orders tự quyết định có hủy
 Status event được lưu bằng Outbox trong cùng transaction với Order. API process dispatch/retry;
 queue worker chỉ tạo event và không tự đánh dấu event là `published` khi thiếu consumer.
 
+Delivery định kỳ đọc tối đa 100 ID Order `confirmed` và phục hồi pending assignment
+bị thiếu. Reader chỉ trả ID; Delivery tự kiểm tra `ShippingDetail`, assignment hiện có
+và trạng thái Order hiện tại trước khi tạo theo cách idempotent.
+
 ## Controllers
 
 - `PublicOrdersController`: tính giá và kiểm tra quy tắc khuyến mãi không yêu cầu đăng nhập.

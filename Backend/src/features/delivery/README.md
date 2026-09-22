@@ -47,5 +47,7 @@ src/features/delivery/
    - `DeliveryDispatchPolicy` quản lý các quy tắc giữ cuốc 2 phút (Hold TTL), timeout và retry.
    - `OrderStatusDeliveryHandler` nhận event trạng thái Order để Delivery tự tạo/xóa pending assignment.
    - Cleanup assignment hết hạn nằm trong Delivery; việc hủy Order vẫn gọi lifecycle command do Orders sở hữu.
+   - Cron `restoreMissingAssignments` phục hồi assignment bị thiếu cho Order `confirmed` cũ; worker
+     queue không chạy cron này và thao tác tạo vẫn idempotent.
 3. **Quản lý thu nhập tập trung**:
    - `DeliveryEarningsService` hợp nhất việc tính toán thu nhập (`DeliveryEarningsEvent` immutable ledger) và tự động bắt sự kiện `delivery.completed` để cập nhật `ShipperProfile`.

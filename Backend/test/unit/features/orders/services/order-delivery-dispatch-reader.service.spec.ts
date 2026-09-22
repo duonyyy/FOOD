@@ -29,4 +29,20 @@ describe('OrderDeliveryDispatchReaderService', () => {
       relations: ['restaurant'],
     });
   });
+
+  it('lists only confirmed order IDs for Delivery to reconcile', async () => {
+    const repository = {
+      find: jest.fn().mockResolvedValue([{ id: 'order-1' }, { id: 'order-2' }]),
+    };
+    const service = new OrderDeliveryDispatchReaderService(repository as never);
+
+    await expect(service.listConfirmedOrderIds(1_000)).resolves.toEqual(['order-1', 'order-2']);
+
+    expect(repository.find).toHaveBeenCalledWith({
+      select: { id: true },
+      where: { status: 'confirmed' },
+      order: { createdAt: 'ASC' },
+      take: 500,
+    });
+  });
 });
