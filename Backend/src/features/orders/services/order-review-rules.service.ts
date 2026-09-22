@@ -6,36 +6,17 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from 'src/entities/order.entity';
-import { OrderCoreService } from 'src/features/orders/services/order-core.service';
 import { Repository } from 'typeorm';
-import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
 import type {
   AssertCustomerCanReviewFoodRequest,
   AssertCustomerCanReviewShipperRequest,
-} from '../types/order-review-eligibility.types';
+  GetOrderReviewContextRequest,
+  OrderReviewContext,
+} from '../types/order-review-rules.types';
 
-/** Compatibility adapter: Analytics receives an Ordering snapshot, never persistence. */
+/** Orders owns the rules that decide whether an Order can be reviewed. */
 @Injectable()
-export class OrderAnalyticsReaderAdapter {
-  constructor(private readonly orderCoreService: OrderCoreService) {}
-
-  async findAnalyticsSnapshot(orderId: string): Promise<OrderAnalyticsSnapshot | null> {
-    try {
-      return await this.orderCoreService.getAnalyticsSnapshot(orderId);
-    } catch (error) {
-      if (error instanceof NotFoundException) return null;
-      throw error;
-    }
-  }
-
-  async listAnalyticsSnapshots(page: number, pageSize: number): Promise<OrderAnalyticsPage> {
-    return this.orderCoreService.getAnalyticsSnapshots(page, pageSize);
-  }
-}
-
-/** Orders owns review permission; Reviews receives no Order data. */
-@Injectable()
-export class OrderReviewEligibilityService {
+export class OrderReviewRulesService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
@@ -58,6 +39,43 @@ export class OrderReviewEligibilityService {
     if (order.shippingDetail?.shipper?.id !== request.shipperId) {
       throw new ForbiddenException('The reviewed shipper did not deliver this order');
     }
+  }
+
+  async getOrderReviewContext(request: GetOrderReviewContextRequest): Promise<OrderReviewContext> {
+    const order = await this.orderRepository.findOne({
+      where: { id: request.orderId },
+      relations: [
+        'user',
+        'restaurant',
+        'restaurant.owner',
+        'orderDetails',
+        'orderDetails.food',
+        'shippingDetail',
+        'shippingDetail.shipper',
+      ],
+    });
+
+    if (!order?.user?.id) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const isAdmin = ['admin', 'administrator', 'super_admin'].includes(request.actorRole ?? '');
+    const isParticipant =
+      order.user.id === request.actorId ||
+      order.restaurant?.owner?.id === request.actorId ||
+      order.shippingDetail?.shipper?.id === request.actorId;
+    if (!isAdmin && !isParticipant) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return {
+      customerId: order.user.id,
+      foodIds: (order.orderDetails ?? [])
+        .map((detail) => detail.food?.id)
+        .filter((foodId): foodId is string => Boolean(foodId)),
+      shipperId: order.shippingDetail?.shipper?.id ?? null,
+      status: order.status,
+    };
   }
 
   private async findCompletedCustomerOrder(orderId: string, customerId: string): Promise<Order> {

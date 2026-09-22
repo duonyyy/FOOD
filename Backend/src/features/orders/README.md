@@ -23,6 +23,12 @@ Chat dùng cùng `OrderService` qua `orders/public-api.ts` để xem đơn gần
 nhận. Không còn `ChatOrderingService`; Chat không gửi giá tin cậy vào Orders và Orders vẫn tính
 lại giá phía server.
 
+Orders không còn đọc Review hoặc gắn `reviewInfo` vào response. Reviews gọi
+`OrderReviewRulesService` để lấy review context tối thiểu; frontend gọi review summary riêng.
+
+Analytics dùng `OrderAnalyticsService` qua `orders/public-api.ts`. Service chỉ trả dữ liệu Order
+tối thiểu cần cho projection/reconciliation; không còn reader module, adapter hoặc public API riêng.
+
 ## Controllers
 
 - `PublicOrdersController`: tính giá và kiểm tra quy tắc khuyến mãi không yêu cầu đăng nhập.

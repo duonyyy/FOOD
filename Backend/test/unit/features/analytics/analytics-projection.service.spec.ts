@@ -1,8 +1,8 @@
 import { AnalyticsProjectionService } from 'src/features/analytics/services/analytics-projection.service';
-import { OrderAnalyticsReaderAdapter } from 'src/features/orders/public-api';
+import { OrderAnalyticsService } from 'src/features/orders/public-api';
 
 describe('AnalyticsProjectionService', () => {
-  const snapshot = {
+  const orderData = {
     orderId: 'order-1',
     restaurantId: 'restaurant-1',
     customerId: 'customer-1',
@@ -15,13 +15,13 @@ describe('AnalyticsProjectionService', () => {
 
   it('uses order_id upsert so a replay has one projection row', async () => {
     const metrics = { upsert: jest.fn().mockResolvedValue(undefined) };
-    const reader = {
-      findAnalyticsSnapshot: jest.fn().mockResolvedValue(snapshot),
-      listAnalyticsSnapshots: jest.fn(),
+    const orderAnalytics = {
+      getOrderData: jest.fn().mockResolvedValue(orderData),
+      listOrderData: jest.fn(),
     };
     const service = new AnalyticsProjectionService(
       metrics as never,
-      reader as unknown as OrderAnalyticsReaderAdapter,
+      orderAnalytics as unknown as OrderAnalyticsService,
     );
 
     await service.projectOrder('order-1');
@@ -40,13 +40,13 @@ describe('AnalyticsProjectionService', () => {
       upsert: jest.fn().mockResolvedValue(undefined),
       update: jest.fn().mockResolvedValue(undefined),
     };
-    const reader = {
-      findAnalyticsSnapshot: jest.fn().mockResolvedValue(snapshot),
-      listAnalyticsSnapshots: jest.fn(),
+    const orderAnalytics = {
+      getOrderData: jest.fn().mockResolvedValue(orderData),
+      listOrderData: jest.fn(),
     };
     const service = new AnalyticsProjectionService(
       metrics as never,
-      reader as unknown as OrderAnalyticsReaderAdapter,
+      orderAnalytics as unknown as OrderAnalyticsService,
     );
 
     await expect(service.recordPayment('order-1', 'COMPLETED')).resolves.toBe(true);

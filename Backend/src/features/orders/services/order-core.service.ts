@@ -2,10 +2,8 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
-import { OrderReviewReaderService } from 'src/features/reviews/review-reader.public-api';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { Repository } from 'typeorm';
-import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
 import type {
   AssertCustomerCanChatWithShipperRequest,
   CustomerShipperChatPartner,
@@ -249,26 +247,6 @@ export class OrderActorPolicy {
 // 5. ORDER CORE QUERY SERVICE
 // ==========================================
 
-export interface ReviewInfo {
-  hasReviewedFood: boolean;
-  hasReviewedShipper: boolean;
-  foodReviews: Array<{
-    id: string;
-    foodId: string;
-    rating: number;
-    comment: string;
-    createdAt: Date;
-  }>;
-  shipperReview: {
-    id: string;
-    rating: number;
-    comment: string;
-    createdAt: Date;
-  } | null;
-  canReviewFood: boolean;
-  canReviewShipper: boolean;
-}
-
 @Injectable()
 export class OrderCoreService {
   readonly stateMachine = new OrderStateMachine();
@@ -278,10 +256,9 @@ export class OrderCoreService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    private readonly orderReviewReader: OrderReviewReaderService,
   ) {}
 
-  async getOrderById(id: string, includeReviewInfo = false): Promise<Order> {
+  async getOrderById(id: string): Promise<Order> {
     const order = await this.orderRepository.findOne({
       where: { id },
       relations: [
@@ -302,59 +279,12 @@ export class OrderCoreService {
 
     if (!order) throw new NotFoundException('Order not found');
 
-    if (includeReviewInfo) {
-      const reviewSummary = await this.orderReviewReader.findOrderReviewSummary({
-        customerId: order.user.id,
-        foodIds: order.orderDetails.map((detail) => detail.food.id),
-        shipperId: order.shippingDetail?.shipper?.id ?? null,
-      });
-
-      const orderWithReviewInfo = order as Order & { reviewInfo: ReviewInfo };
-      orderWithReviewInfo.reviewInfo = {
-        hasReviewedFood: reviewSummary.foodReviews.length > 0,
-        hasReviewedShipper: Boolean(reviewSummary.shipperReview),
-        foodReviews: [...reviewSummary.foodReviews],
-        shipperReview: reviewSummary.shipperReview,
-        canReviewFood: order.status === 'completed' && reviewSummary.foodReviews.length === 0,
-        canReviewShipper:
-          order.status === 'completed' &&
-          Boolean(order.shippingDetail?.shipper && !reviewSummary.shipperReview),
-      };
-    }
-
     return this.cleanSensitiveData(order);
   }
 
   async getOrderDetails(id: string): Promise<OrderDetail[]> {
     const order = await this.getOrderById(id);
     return order.orderDetails ?? [];
-  }
-
-  async getAnalyticsSnapshot(orderId: string): Promise<OrderAnalyticsSnapshot> {
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['user', 'restaurant', 'shippingDetail', 'shippingDetail.shipper'],
-    });
-    if (!order) throw new NotFoundException('Order not found');
-    return this.toAnalyticsSnapshot(order);
-  }
-
-  async getAnalyticsSnapshots(page = 1, pageSize = 200): Promise<OrderAnalyticsPage> {
-    const safePage = Math.max(1, page);
-    const safePageSize = Math.min(Math.max(1, pageSize), 500);
-    const [orders, totalItems] = await this.orderRepository.findAndCount({
-      relations: ['user', 'restaurant', 'shippingDetail', 'shippingDetail.shipper'],
-      order: { createdAt: 'ASC' },
-      skip: (safePage - 1) * safePageSize,
-      take: safePageSize,
-    });
-    return {
-      items: orders.map((order) => this.toAnalyticsSnapshot(order)),
-      page: safePage,
-      pageSize: safePageSize,
-      totalItems,
-      totalPages: Math.ceil(totalItems / safePageSize),
-    };
   }
 
   async assertCustomerCanChatWithShipper(
@@ -456,19 +386,6 @@ export class OrderCoreService {
     }
 
     return order;
-  }
-
-  private toAnalyticsSnapshot(order: Order): OrderAnalyticsSnapshot {
-    return {
-      orderId: order.id,
-      restaurantId: order.restaurant?.id ?? null,
-      customerId: order.user?.id ?? null,
-      shipperId: order.shippingDetail?.shipper?.id ?? null,
-      total: Number(order.total ?? 0),
-      status: order.status ?? 'pending',
-      createdAt: order.createdAt,
-      deliveryCompletedAt: order.shippingDetail?.actualDeliveryTime ?? null,
-    };
   }
 
   private toCustomerShipperChatPartner(order: Order): CustomerShipperChatPartner[] {

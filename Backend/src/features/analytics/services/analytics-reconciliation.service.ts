@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { OrderAnalyticsReaderAdapter } from 'src/features/orders/order-analytics-reader.public-api';
+import { OrderAnalyticsService } from 'src/features/orders/public-api';
 import { AnalyticsProjectionService } from './analytics-projection.service';
 
 /** Explicit rebuild entry point for operational reconciliation, never an HTTP write endpoint. */
 @Injectable()
 export class AnalyticsReconciliationService {
   constructor(
-    private readonly orderReader: OrderAnalyticsReaderAdapter,
+    private readonly orderAnalytics: OrderAnalyticsService,
     private readonly projection: AnalyticsProjectionService,
   ) {}
 
@@ -17,8 +17,8 @@ export class AnalyticsReconciliationService {
     let hasMore = true;
 
     while (hasMore) {
-      const batch = await this.orderReader.listAnalyticsSnapshots(page, pageSize);
-      await Promise.all(batch.items.map((snapshot) => this.projection.upsertSnapshot(snapshot)));
+      const batch = await this.orderAnalytics.listOrderData(page, pageSize);
+      await Promise.all(batch.items.map((orderData) => this.projection.upsertOrderData(orderData)));
       processed += batch.items.length;
       pages += 1;
       hasMore = page < batch.totalPages;

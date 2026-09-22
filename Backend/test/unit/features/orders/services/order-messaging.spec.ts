@@ -6,7 +6,7 @@ describe('Order messaging authorization', () => {
     findOne: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
-  const service = new OrderCoreService(repository as never, {} as never);
+  const service = new OrderCoreService(repository as never);
 
   beforeEach(() => jest.clearAllMocks());
 

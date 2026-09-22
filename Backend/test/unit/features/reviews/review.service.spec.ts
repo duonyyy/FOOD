@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { ReviewType } from 'src/entities/review.entity';
 import { FoodIntegrationService } from 'src/features/menu/public-api';
-import { OrderReviewEligibilityService } from 'src/features/orders/order-review-eligibility.public-api';
+import { OrderReviewRulesService } from 'src/features/orders/public-api';
 import { ReviewService } from 'src/features/reviews/services/customer-reviews.service';
 
 const completedOrder = {
@@ -34,7 +34,7 @@ describe('ReviewService', () => {
       find: jest.fn(),
       delete: jest.fn(),
     };
-    const orderReviewEligibilityReader = {
+    const orderReviewRules = {
       assertCustomerCanReviewFood: jest
         .fn()
         .mockImplementation(() =>
@@ -49,6 +49,7 @@ describe('ReviewService', () => {
             ? Promise.reject(overrides.shipperReviewError)
             : Promise.resolve(),
         ),
+      getOrderReviewContext: jest.fn(),
     };
     const foodReviewTargetReader = {
       assertFoodExists: jest
@@ -63,18 +64,17 @@ describe('ReviewService', () => {
     return {
       service: new ReviewService(
         reviewRepository as never,
-        orderReviewEligibilityReader as unknown as OrderReviewEligibilityService,
+        orderReviewRules as unknown as OrderReviewRulesService,
         foodReviewTargetReader as unknown as FoodIntegrationService,
       ),
       reviewRepository,
-      orderReviewEligibilityReader,
+      orderReviewRules,
       foodReviewTargetReader,
     };
   }
 
   it('creates a food review only for a purchased food in the actor completed order', async () => {
-    const { service, reviewRepository, orderReviewEligibilityReader, foodReviewTargetReader } =
-      createService();
+    const { service, reviewRepository, orderReviewRules, foodReviewTargetReader } = createService();
 
     const response = await service.createFoodReview(
       {
@@ -86,7 +86,7 @@ describe('ReviewService', () => {
       'customer-1',
     );
 
-    expect(orderReviewEligibilityReader.assertCustomerCanReviewFood).toHaveBeenCalledWith({
+    expect(orderReviewRules.assertCustomerCanReviewFood).toHaveBeenCalledWith({
       orderId: completedOrder.orderId,
       customerId: 'customer-1',
       foodId: completedOrder.foodId,
@@ -104,8 +104,7 @@ describe('ReviewService', () => {
   });
 
   it('creates a shipper review only for the shipper assigned to the completed order', async () => {
-    const { service, reviewRepository, foodReviewTargetReader, orderReviewEligibilityReader } =
-      createService();
+    const { service, reviewRepository, foodReviewTargetReader, orderReviewRules } = createService();
 
     const response = await service.createShipperReview(
       {
@@ -124,7 +123,7 @@ describe('ReviewService', () => {
         shipper: { id: 'shipper-1' },
       }),
     );
-    expect(orderReviewEligibilityReader.assertCustomerCanReviewShipper).toHaveBeenCalledWith({
+    expect(orderReviewRules.assertCustomerCanReviewShipper).toHaveBeenCalledWith({
       orderId: completedOrder.orderId,
       customerId: 'customer-1',
       shipperId: completedOrder.shipperId,
@@ -205,5 +204,58 @@ describe('ReviewService', () => {
         'customer-1',
       ),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('builds order review info inside Reviews and scopes queries to the order', async () => {
+    const { service, reviewRepository, orderReviewRules } = createService();
+    let foodReviewQuery: unknown;
+    let shipperReviewQuery: unknown;
+    orderReviewRules.getOrderReviewContext.mockResolvedValue({
+      customerId: 'customer-1',
+      foodIds: ['food-1'],
+      shipperId: 'shipper-1',
+      status: 'completed',
+    });
+    reviewRepository.find.mockImplementation((query: unknown) => {
+      foodReviewQuery = query;
+      return Promise.resolve([
+        {
+          id: 'food-review-1',
+          food: { id: 'food-1' },
+          rating: 5,
+          comment: 'Ngon',
+          createdAt: new Date('2026-08-12T00:00:00.000Z'),
+        },
+      ]);
+    });
+    reviewRepository.findOne.mockImplementation((query: unknown) => {
+      shipperReviewQuery = query;
+      return Promise.resolve({
+        id: 'shipper-review-1',
+        rating: 4,
+        comment: 'Giao nhanh',
+        createdAt: new Date('2026-08-12T00:00:00.000Z'),
+      });
+    });
+
+    await expect(
+      service.getOrderReviewInfo('order-1', 'customer-1', 'customer'),
+    ).resolves.toMatchObject({
+      hasReviewedFood: true,
+      hasReviewedShipper: true,
+      canReviewFood: false,
+      canReviewShipper: false,
+    });
+    expect(orderReviewRules.getOrderReviewContext).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      actorId: 'customer-1',
+      actorRole: 'customer',
+    });
+    expect(foodReviewQuery).toMatchObject({
+      where: { orderId: 'order-1' },
+    });
+    expect(shipperReviewQuery).toMatchObject({
+      where: { orderId: 'order-1' },
+    });
   });
 });

@@ -1,7 +1,7 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { OrderReviewEligibilityService } from 'src/features/orders/services/order-cross-feature.adapters';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { OrderReviewRulesService } from 'src/features/orders/services/order-review-rules.service';
 
-describe('OrderReviewEligibilityService', () => {
+describe('OrderReviewRulesService', () => {
   const completedOrder = {
     id: 'order-1',
     status: 'completed',
@@ -13,7 +13,7 @@ describe('OrderReviewEligibilityService', () => {
     const repository = {
       findOne: jest.fn().mockResolvedValue(completedOrder),
     };
-    const service = new OrderReviewEligibilityService(repository as never);
+    const service = new OrderReviewRulesService(repository as never);
 
     await expect(
       service.assertCustomerCanReviewFood({
@@ -29,7 +29,7 @@ describe('OrderReviewEligibilityService', () => {
 
   it('rejects a food that was not purchased without returning order data', async () => {
     const repository = { findOne: jest.fn().mockResolvedValue(completedOrder) };
-    const service = new OrderReviewEligibilityService(repository as never);
+    const service = new OrderReviewRulesService(repository as never);
 
     await expect(
       service.assertCustomerCanReviewFood({
@@ -44,7 +44,7 @@ describe('OrderReviewEligibilityService', () => {
     const repository = {
       findOne: jest.fn().mockResolvedValue({ ...completedOrder, status: 'delivering' }),
     };
-    const service = new OrderReviewEligibilityService(repository as never);
+    const service = new OrderReviewRulesService(repository as never);
 
     await expect(
       service.assertCustomerCanReviewShipper({
@@ -57,7 +57,7 @@ describe('OrderReviewEligibilityService', () => {
 
   it('rejects a shipper who did not deliver the order', async () => {
     const repository = { findOne: jest.fn().mockResolvedValue(completedOrder) };
-    const service = new OrderReviewEligibilityService(repository as never);
+    const service = new OrderReviewRulesService(repository as never);
 
     await expect(
       service.assertCustomerCanReviewShipper({
@@ -70,7 +70,7 @@ describe('OrderReviewEligibilityService', () => {
 
   it('does not reveal an order not owned by the current customer', async () => {
     const repository = { findOne: jest.fn().mockResolvedValue(null) };
-    const service = new OrderReviewEligibilityService(repository as never);
+    const service = new OrderReviewRulesService(repository as never);
 
     await expect(
       service.assertCustomerCanReviewFood({
@@ -79,5 +79,40 @@ describe('OrderReviewEligibilityService', () => {
         foodId: 'food-1',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('returns a minimal review context to Reviews for an authorized actor', async () => {
+    const repository = {
+      findOne: jest.fn().mockResolvedValue({
+        ...completedOrder,
+        user: { id: 'customer-1' },
+        restaurant: { owner: { id: 'merchant-1' } },
+      }),
+    };
+    const service = new OrderReviewRulesService(repository as never);
+
+    await expect(
+      service.getOrderReviewContext({ orderId: 'order-1', actorId: 'customer-1' }),
+    ).resolves.toEqual({
+      customerId: 'customer-1',
+      foodIds: ['food-1', 'food-2'],
+      shipperId: 'shipper-1',
+      status: 'completed',
+    });
+  });
+
+  it('does not reveal review context to an unrelated actor', async () => {
+    const repository = {
+      findOne: jest.fn().mockResolvedValue({
+        ...completedOrder,
+        user: { id: 'customer-1' },
+        restaurant: { owner: { id: 'merchant-1' } },
+      }),
+    };
+    const service = new OrderReviewRulesService(repository as never);
+
+    await expect(
+      service.getOrderReviewContext({ orderId: 'order-1', actorId: 'customer-other' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

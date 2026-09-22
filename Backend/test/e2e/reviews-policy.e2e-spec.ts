@@ -10,6 +10,14 @@ describe('Reviews policy (e2e)', () => {
   const reviewService = {
     createFoodReview: jest.fn().mockResolvedValue({ id: 'food-review-1', type: 'food' }),
     createShipperReview: jest.fn().mockResolvedValue({ id: 'shipper-review-1', type: 'shipper' }),
+    getOrderReviewInfo: jest.fn().mockResolvedValue({
+      hasReviewedFood: false,
+      hasReviewedShipper: false,
+      foodReviews: [],
+      shipperReview: null,
+      canReviewFood: true,
+      canReviewShipper: true,
+    }),
     getReviewsForFood: jest.fn(),
     getReviewsForShipper: jest.fn(),
     updateReview: jest.fn(),
@@ -62,6 +70,14 @@ describe('Reviews policy (e2e)', () => {
     await request(app.getHttpServer()).post('/reviews/shipper').send(body).expect(201);
 
     expect(reviewService.createShipperReview).toHaveBeenCalledWith(body, 'customer-a');
+  });
+
+  it('uses the JWT actor when reading review state for an order', async () => {
+    const orderId = '00000000-0000-4000-8000-000000000001';
+
+    await request(app.getHttpServer()).get(`/reviews/orders/${orderId}/summary`).expect(200);
+
+    expect(reviewService.getOrderReviewInfo).toHaveBeenCalledWith(orderId, 'customer-a', undefined);
   });
 
   it('requires the JWT actor and returns 204 when deleting a review', async () => {

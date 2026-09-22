@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AnalyticsOrderMetric } from 'src/entities/analyticsOrderMetric.entity';
-import {
-  OrderAnalyticsReaderAdapter,
-  type OrderAnalyticsSnapshot,
-} from 'src/features/orders/order-analytics-reader.public-api';
+import { OrderAnalyticsService, type OrderAnalyticsData } from 'src/features/orders/public-api';
 import { Repository } from 'typeorm';
 
 @Injectable()
@@ -12,13 +9,13 @@ export class AnalyticsProjectionService {
   constructor(
     @InjectRepository(AnalyticsOrderMetric)
     private readonly metrics: Repository<AnalyticsOrderMetric>,
-    private readonly orderReader: OrderAnalyticsReaderAdapter,
+    private readonly orderAnalytics: OrderAnalyticsService,
   ) {}
 
   async projectOrder(orderId: string): Promise<boolean> {
-    const snapshot = await this.orderReader.findAnalyticsSnapshot(orderId);
-    if (!snapshot) return false;
-    await this.upsertSnapshot(snapshot);
+    const orderData = await this.orderAnalytics.getOrderData(orderId);
+    if (!orderData) return false;
+    await this.upsertOrderData(orderData);
     return true;
   }
 
@@ -53,17 +50,17 @@ export class AnalyticsProjectionService {
     return true;
   }
 
-  async upsertSnapshot(snapshot: OrderAnalyticsSnapshot): Promise<void> {
+  async upsertOrderData(orderData: OrderAnalyticsData): Promise<void> {
     await this.metrics.upsert(
       {
-        orderId: snapshot.orderId,
-        restaurantId: snapshot.restaurantId,
-        customerId: snapshot.customerId,
-        shipperId: snapshot.shipperId,
-        total: String(snapshot.total),
-        status: snapshot.status,
-        createdAt: snapshot.createdAt,
-        deliveryCompletedAt: snapshot.deliveryCompletedAt,
+        orderId: orderData.orderId,
+        restaurantId: orderData.restaurantId,
+        customerId: orderData.customerId,
+        shipperId: orderData.shipperId,
+        total: String(orderData.total),
+        status: orderData.status,
+        createdAt: orderData.createdAt,
+        deliveryCompletedAt: orderData.deliveryCompletedAt,
       },
       ['orderId'],
     );

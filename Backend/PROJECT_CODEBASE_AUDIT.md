@@ -241,7 +241,7 @@ Boundary test hiện tại xác nhận các nguyên tắc chính:
 - Orders sở hữu cập nhật trạng thái Order;
 - Delivery sở hữu dispatch, shipper profile và trạng thái giao hàng;
 - Analytics dùng projection/read model;
-- Reviews kiểm tra eligibility qua API hẹp của Orders;
+- Reviews kiểm tra rules qua `OrderReviewRulesService` trong public API chính của Orders;
 - queue không phụ thuộc Delivery hoặc feature business.
 
 Trạng thái: **Đạt theo test hiện tại**.
@@ -255,14 +255,14 @@ Bằng chứng hiện tại:
 | File | Số dòng |
 | --- | ---: |
 | `services/customer-orders.service.ts` | 946 |
-| `services/order-core.service.ts` | 435 |
-| `services/admin-orders.service.ts` | 229 |
-| `services/order.service.ts` | 191 |
-| `services/merchant-orders.service.ts` | 160 |
+| `services/order-core.service.ts` | 413 |
+| `services/admin-orders.service.ts` | 256 |
+| `services/order.service.ts` | 240 |
+| `services/merchant-orders.service.ts` | 184 |
 | `controllers/order.resolver.ts` | 82 |
 | `services/order-events.handler.ts` | 153 |
 | `controllers/merchant-orders.controller.ts` | 109 |
-| `services/order-cross-feature.adapters.ts` | 148 |
+| `services/order-analytics.service.ts` | 54 |
 | `controllers/public-orders.controller.ts` | 96 |
 | `controllers/admin-orders.controller.ts` | 57 |
 
@@ -270,7 +270,8 @@ Bằng chứng hiện tại:
 `customer-orders.controller.ts` (275 dòng), `merchant-orders.controller.ts` và
 `admin-orders.controller.ts` mà không đổi route.
 
-Ngoài module chính, Orders còn bảy module reader/command hẹp và sáu public API phụ. Điều này từng giúp phá vòng phụ thuộc, nhưng làm người đọc khó biết API nào là chuẩn.
+Ngoài module chính, Orders vẫn còn các module reader/command hẹp cho Delivery. Module/public API
+Analytics riêng đã được xóa; Analytics dùng `OrderAnalyticsService` qua public API chính.
 
 `orders/public-api.ts` cũng đang export quá rộng: nhiều DTO, role service, core service, state machine, policy, adapter và helper. Đây chưa phải public API hẹp.
 
@@ -499,7 +500,9 @@ Nhịp 2:
 - [x] xóa `OrderMessagingReaderService`; Messenger dùng `OrderService` mà không tạo module/API phụ;
 - [x] xóa `ChatOrderingService`; Chat dùng `OrderService` qua public API chính, vẫn xác nhận trước
   khi tạo đơn và để Orders tính lại giá;
-- làm query dependency một chiều;
+- [x] chuyển review summary sang Reviews, cập nhật frontend gọi API riêng và xóa hoàn toàn chiều
+  `Orders -> Reviews` cùng `OrderReviewReaderModule`;
+- [x] làm dependency Orders–Reviews một chiều;
 - chỉ sau đó mới gộp các reader module/public API phụ.
 
 ### Bước 4 — Users/Auth
@@ -537,4 +540,4 @@ Một feature chỉ được xem là hoàn thành migration khi:
 
 Codebase không cần viết lại. Boundary runtime hiện tại tốt hơn báo cáo cũ mô tả: build và test xanh, không có `forwardRef`, không có deep import chéo feature và infra không phụ thuộc business feature.
 
-Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Orders đã hoàn thành tách controller, gỡ dependency ngược sang Delivery, harden status event bằng Outbox, phục hồi assignment bị thiếu, tách Notifications và xóa các service trung gian riêng cho Messenger/Chat. Bước tiếp theo là đánh giá contract review summary để xử lý vòng Orders–Reviews; chưa xóa reader module khi quyết định contract này chưa rõ.
+Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Orders đã hoàn thành tách controller, gỡ dependency ngược sang Delivery và Reviews, harden status event bằng Outbox, phục hồi assignment bị thiếu, tách Notifications và xóa các service trung gian riêng cho Messenger/Chat. Bước tiếp theo là đánh giá Analytics boundary và dọn tên/file adapter còn mơ hồ, không gộp read model vào write service một cách máy móc.

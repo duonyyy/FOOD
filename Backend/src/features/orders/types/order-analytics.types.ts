@@ -1,5 +1,5 @@
-/** Minimal, read-only order shape shared with Analytics. */
-export interface OrderAnalyticsSnapshot {
+/** Minimal, read-only order data shared with Analytics. */
+export interface OrderAnalyticsData {
   orderId: string;
   restaurantId: string | null;
   customerId: string | null;
@@ -11,7 +11,7 @@ export interface OrderAnalyticsSnapshot {
 }
 
 export interface OrderAnalyticsPage {
-  items: OrderAnalyticsSnapshot[];
+  items: OrderAnalyticsData[];
   page: number;
   pageSize: number;
   totalItems: number;

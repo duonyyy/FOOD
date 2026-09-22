@@ -18,13 +18,13 @@ import {
   type FoodPreview,
   type GetOrderableItemsRequest,
 } from 'src/features/menu/public-api';
-import { OrderAnalyticsReaderModule } from 'src/features/orders/order-analytics-reader.public-api';
 import {
   OrderTrackingReaderModule,
   OrderTrackingReaderService,
 } from 'src/features/orders/order-tracking-reader.public-api';
 import {
-  OrderAnalyticsReaderAdapter,
+  OrderAnalyticsService,
+  OrderReviewRulesService,
   OrderService,
   OrdersModule,
 } from 'src/features/orders/public-api';
@@ -35,10 +35,6 @@ import {
   RestaurantReaderService,
   RestaurantsModule,
 } from 'src/features/restaurants/public-api';
-import {
-  OrderReviewReaderModule,
-  OrderReviewReaderService,
-} from 'src/features/reviews/review-reader.public-api';
 import { IdentityModule, IdentityUserQueryService } from 'src/features/users/public-api';
 import { IdentityUserQueryModule } from 'src/features/users/users/identity-user-query.module';
 
@@ -99,19 +95,17 @@ describe('feature public contracts', () => {
     expect(deliveryController).toContain('OrderTrackingReaderService');
   });
 
-  it('keeps Analytics on a narrow Orders reader without loading OrdersModule', () => {
-    const analyticsReaderExports = Reflect.getMetadata(
-      MODULE_METADATA.EXPORTS,
-      OrderAnalyticsReaderModule,
-    ) as unknown[];
+  it('keeps Analytics on the main Orders public API', () => {
     const analyticsModule = readFileSync(
       resolve(process.cwd(), 'src/features/analytics/analytics.module.ts'),
       'utf8',
     );
 
-    expect(analyticsReaderExports).toContain(OrderAnalyticsReaderAdapter);
-    expect(analyticsModule).toContain('OrderAnalyticsReaderModule');
-    expect(analyticsModule).not.toContain('OrdersModule');
+    const ordersExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, OrdersModule) as unknown[];
+    expect(ordersExports).toContain(OrderAnalyticsService);
+    expect(analyticsModule).toContain("from 'src/features/orders/public-api'");
+    expect(analyticsModule).toContain('OrdersModule');
+    expect(analyticsModule).not.toContain('order-analytics-reader');
   });
 
   it('keeps Menu read models independent from ORM entities', () => {
@@ -156,10 +150,6 @@ describe('feature public contracts', () => {
 
   it('exports Phase 3 concrete services from their owner modules', () => {
     const ordersExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, OrdersModule) as unknown[];
-    const reviewReaderExports = Reflect.getMetadata(
-      MODULE_METADATA.EXPORTS,
-      OrderReviewReaderModule,
-    ) as unknown[];
     const deliveryExports = Reflect.getMetadata(
       MODULE_METADATA.EXPORTS,
       DeliveryModule,
@@ -171,9 +161,8 @@ describe('feature public contracts', () => {
     const paymentExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, PaymentModule) as unknown[];
 
     expect(ordersExports).toEqual(
-      expect.arrayContaining([OrderAnalyticsReaderAdapter, OrderService]),
+      expect.arrayContaining([OrderAnalyticsService, OrderReviewRulesService, OrderService]),
     );
-    expect(reviewReaderExports).toContain(OrderReviewReaderService);
     expect(deliveryExports).toContain(DeliveryIntegrationService);
     expect(profileExports).toContain(ShipperProfileService);
     expect(paymentExports).toContain(PaymentService);

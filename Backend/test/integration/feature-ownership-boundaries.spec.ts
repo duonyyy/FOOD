@@ -108,20 +108,38 @@ describe('feature ownership boundaries', () => {
     expect(completion).not.toContain('orderRepository');
   });
 
-  it('keeps Analytics on a narrow Orders reader contract', () => {
+  it('keeps Analytics on the main Orders public API', () => {
     const analyticsModule = source('src/features/analytics/analytics.module.ts');
 
-    expect(analyticsModule).toContain('order-analytics-reader.public-api');
-    expect(analyticsModule).toContain('OrderAnalyticsReaderModule');
-    expect(analyticsModule).not.toContain('OrdersModule');
+    expect(analyticsModule).toContain("from 'src/features/orders/public-api'");
+    expect(analyticsModule).toContain('OrdersModule');
+    expect(analyticsModule).not.toContain('order-analytics-reader');
 
     for (const analyticsConsumer of [
       'src/features/analytics/services/analytics-projection.service.ts',
       'src/features/analytics/services/analytics-reconciliation.service.ts',
     ]) {
-      expect(source(analyticsConsumer)).toContain('order-analytics-reader.public-api');
-      expect(source(analyticsConsumer)).not.toContain('src/features/orders/public-api');
+      expect(source(analyticsConsumer)).toContain('src/features/orders/public-api');
+      expect(source(analyticsConsumer)).toContain('OrderAnalyticsService');
+      expect(source(analyticsConsumer)).not.toContain('order-analytics-reader');
     }
+  });
+
+  it('keeps order review composition inside Reviews with a one-way dependency', () => {
+    const ordersModule = source('src/features/orders/orders.module.ts');
+    const orderCoreService = source('src/features/orders/services/order-core.service.ts');
+    const reviewsModule = source('src/features/reviews/reviews.module.ts');
+    const reviewsService = source('src/features/reviews/services/customer-reviews.service.ts');
+
+    expect(ordersModule).not.toContain('src/features/reviews');
+    expect(ordersModule).not.toContain('OrderReviewReaderModule');
+    expect(orderCoreService).not.toContain('src/features/reviews');
+    expect(orderCoreService).not.toContain('reviewInfo');
+    expect(reviewsModule).toContain('OrdersModule');
+    expect(reviewsModule).toContain("from 'src/features/orders/public-api'");
+    expect(reviewsService).toContain("from 'src/features/orders/public-api'");
+    expect(reviewsService).toContain('getOrderReviewContext');
+    expect(reviewsService).toContain('getOrderReviewInfo');
   });
 
   it('keeps Notifications independent from Orders runtime providers', () => {

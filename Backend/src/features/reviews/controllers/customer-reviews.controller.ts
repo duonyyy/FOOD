@@ -20,6 +20,7 @@ import {
 } from '../dto/create-review.dto';
 import { ReviewResponseDto } from '../dto/review-response.dto';
 import { CustomerReviewsService } from '../services/customer-reviews.service';
+import type { OrderReviewInfo } from '../types/order-review.types';
 
 @ApiTags('reviews')
 @Controller('reviews')
@@ -56,6 +57,19 @@ export class CustomerReviewsController {
     @Body() createReviewDto: CreateShipperReviewDto,
   ): Promise<ReviewResponseDto> {
     return this.reviewService.createShipperReview(createReviewDto, actor.userId);
+  }
+
+  @Get('orders/:orderId/summary')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'Get review state for an order visible to the current actor' })
+  @ApiParam({ name: 'orderId', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Review state for the order' })
+  getOrderReviewInfo(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @CurrentActor() actor: CurrentActorData,
+  ): Promise<OrderReviewInfo> {
+    return this.reviewService.getOrderReviewInfo(orderId, actor.userId, actor.role);
   }
 
   @Get('food/:foodId')

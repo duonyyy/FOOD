@@ -7,8 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Review, ReviewType } from 'src/entities/review.entity';
 import { FoodIntegrationService } from 'src/features/menu/public-api';
-import { OrderReviewEligibilityService } from 'src/features/orders/order-review-eligibility.public-api';
-import { Repository } from 'typeorm';
+import { OrderReviewRulesService } from 'src/features/orders/public-api';
+import { In, Repository } from 'typeorm';
 import {
   CreateFoodReviewDto,
   CreateShipperReviewDto,
@@ -16,13 +16,14 @@ import {
 } from '../dto/create-review.dto';
 import { ReviewResponseDto } from '../dto/review-response.dto';
 import { toReviewResponse } from '../mappers/review.mapper';
+import type { OrderReviewInfo } from '../types/order-review.types';
 
 @Injectable()
 export class CustomerReviewsService {
   constructor(
     @InjectRepository(Review)
     private readonly reviewRepository: Repository<Review>,
-    private readonly orderReviewEligibilityReader: OrderReviewEligibilityService,
+    private readonly orderReviewRules: OrderReviewRulesService,
     private readonly foodReviewTargetReader: FoodIntegrationService,
   ) {}
 
@@ -30,7 +31,7 @@ export class CustomerReviewsService {
     createReviewDto: CreateFoodReviewDto,
     actorUserId: string,
   ): Promise<ReviewResponseDto> {
-    await this.orderReviewEligibilityReader.assertCustomerCanReviewFood({
+    await this.orderReviewRules.assertCustomerCanReviewFood({
       orderId: createReviewDto.orderId,
       customerId: actorUserId,
       foodId: createReviewDto.foodId,
@@ -59,7 +60,7 @@ export class CustomerReviewsService {
     createReviewDto: CreateShipperReviewDto,
     actorUserId: string,
   ): Promise<ReviewResponseDto> {
-    await this.orderReviewEligibilityReader.assertCustomerCanReviewShipper({
+    await this.orderReviewRules.assertCustomerCanReviewShipper({
       orderId: createReviewDto.orderId,
       customerId: actorUserId,
       shipperId: createReviewDto.shipperId,
@@ -81,6 +82,65 @@ export class CustomerReviewsService {
       comment: createReviewDto.comment.trim(),
       image: null,
     });
+  }
+
+  async getOrderReviewInfo(
+    orderId: string,
+    actorUserId: string,
+    actorRole?: string,
+  ): Promise<OrderReviewInfo> {
+    const context = await this.orderReviewRules.getOrderReviewContext({
+      orderId,
+      actorId: actorUserId,
+      actorRole,
+    });
+    const foodReviews =
+      context.foodIds.length === 0
+        ? []
+        : await this.reviewRepository.find({
+            where: {
+              orderId,
+              user: { id: context.customerId },
+              food: { id: In(context.foodIds) },
+              type: ReviewType.FOOD,
+            },
+            relations: ['food'],
+          });
+    const shipperReview = context.shipperId
+      ? await this.reviewRepository.findOne({
+          where: {
+            orderId,
+            user: { id: context.customerId },
+            shipper: { id: context.shipperId },
+            type: ReviewType.SHIPPER,
+          },
+        })
+      : null;
+    const mappedFoodReviews = foodReviews.map((review) => ({
+      id: review.id,
+      foodId: review.food.id,
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.createdAt,
+    }));
+    const mappedShipperReview = shipperReview
+      ? {
+          id: shipperReview.id,
+          rating: shipperReview.rating,
+          comment: shipperReview.comment,
+          createdAt: shipperReview.createdAt,
+        }
+      : null;
+
+    return {
+      hasReviewedFood: mappedFoodReviews.length > 0,
+      hasReviewedShipper: Boolean(mappedShipperReview),
+      foodReviews: mappedFoodReviews,
+      shipperReview: mappedShipperReview,
+      canReviewFood: context.status === 'completed' && mappedFoodReviews.length === 0,
+      canReviewShipper:
+        context.status === 'completed' && Boolean(context.shipperId && !mappedShipperReview),
+    };
   }
 
   async getReviewsForFood(foodId: string): Promise<ReviewResponseDto[]> {

@@ -3,14 +3,17 @@ import { ReviewsController } from 'src/features/reviews/controllers/customer-rev
 import { AuthGuard } from 'src/features/users/public-api';
 
 describe('Review authorization policy', () => {
-  it.each(['createFoodReview', 'createShipperReview', 'updateReview', 'deleteReview'])(
-    'requires authentication for %s',
-    (methodName) => {
-      const method = Object.getOwnPropertyDescriptor(ReviewsController.prototype, methodName)
-        ?.value as unknown;
-      const guards = Reflect.getMetadata(GUARDS_METADATA, method as object) as unknown[];
+  it.each([
+    'createFoodReview',
+    'createShipperReview',
+    'getOrderReviewInfo',
+    'updateReview',
+    'deleteReview',
+  ])('requires authentication for %s', (methodName) => {
+    const method = Object.getOwnPropertyDescriptor(ReviewsController.prototype, methodName)
+      ?.value as unknown;
+    const guards = Reflect.getMetadata(GUARDS_METADATA, method as object) as unknown[];
 
-      expect(guards).toContain(AuthGuard);
-    },
-  );
+    expect(guards).toContain(AuthGuard);
+  });
 });

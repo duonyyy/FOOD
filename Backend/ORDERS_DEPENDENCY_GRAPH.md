@@ -1,24 +1,16 @@
 # Orders Dependency Graph
 
 Ngày kiểm tra: 2026-09-22
-Code tham chiếu: commit `6998138`
+Code tham chiếu: commit `2f5d943` và working tree của nhịp Orders–Reviews
 
 ## 1. Kết luận ngắn
 
-`orders` chưa thể chuyển ngay thành một module duy nhất và một public API duy nhất.
+`orders` chưa thể chuyển ngay thành một module duy nhất và một public API duy nhất vì Delivery và
+Analytics vẫn dùng các API hẹp. Tuy nhiên, các quan hệ hai chiều Orders–Delivery và Orders–Reviews
+đã được gỡ mà không dùng `forwardRef()`.
 
-Nguyên nhân không phải do NestJS bắt buộc phải có nhiều module. Quan hệ hai chiều Orders–Delivery
-đã được gỡ. Quan hệ hai chiều còn lại ở cấp feature là:
-
-- Orders đọc Reviews để trang trí dữ liệu Order, trong khi Reviews hỏi Orders xem khách hàng có được
-  phép đánh giá hay không.
-
-Các module reader/command hẹp đang ngăn hai quan hệ này trở thành vòng import NestJS trực tiếp. Nếu
-xóa chúng và cho tất cả consumer import `OrdersModule`, dự án sẽ tạo lại cycle và dễ dẫn đến
-`forwardRef()`.
-
-Bước chia controller theo role và gỡ chiều `Orders -> Delivery` đã hoàn thành. Chỉ gộp module sau
-khi đánh giá riêng vòng Orders–Reviews và thu hẹp các consumer còn import `OrdersModule` quá rộng.
+Review summary hiện thuộc Reviews. Client đọc Order và review summary bằng hai request rồi ghép ở
+lớp API frontend. Reviews chỉ đọc review context tối thiểu từ Orders để kiểm tra actor và trạng thái.
 
 ## 2. Phạm vi và số liệu hiện tại
 
@@ -45,13 +37,13 @@ Các hotspot lớn:
 | File                              | Số dòng | Nhận xét                                                   |
 | --------------------------------- | ------: | ---------------------------------------------------------- |
 | `customer-orders.service.ts`      |     946 | Trộn tính giá, địa chỉ tạm, tạo đơn, lịch sử và thanh toán |
-| `order-core.service.ts`           |     435 | Trộn state machine, pricing, policy và query/presentation  |
-| `admin-orders.service.ts`         |     229 | Có Order state, payment timeout và operational command     |
+| `order-core.service.ts`           |     413 | Trộn state machine, pricing, policy và query/presentation  |
+| `admin-orders.service.ts`         |     256 | Có Order state, payment timeout và operational command     |
 | `customer-orders.controller.ts`   |     275 | Đã tách route customer nhưng vẫn còn nhiều use case        |
-| `order.service.ts`                |     191 | Chủ yếu là facade chuyển tiếp sang ba role service         |
-| `merchant-orders.service.ts`      |     160 | Order state và phát event sau khi đổi trạng thái           |
+| `order.service.ts`                |     240 | Chủ yếu là facade chuyển tiếp sang ba role service         |
+| `merchant-orders.service.ts`      |     184 | Order state và phát event sau khi đổi trạng thái           |
 | `order-events.handler.ts`         |     153 | Bốn event handler khác mục đích trong một file             |
-| `order-cross-feature.adapters.ts` |     148 | Trộn adapter cho Analytics, Notifications, Reviews và Chat |
+| `order-analytics.service.ts`      |      54 | Cung cấp dữ liệu Order tối thiểu cho Analytics             |
 
 ## 3. Dependency graph hiện tại
 
@@ -69,16 +61,15 @@ flowchart LR
 
   Delivery -->|narrow readers and lifecycle command| Orders
 
-  Orders -->|review summary reader| Reviews
-  Reviews -->|review permission query| Orders
+  Reviews -->|OrderRules qua public API| Orders
 
   Orders -->|order.created and notification events| EventBus[EventBus / Outbox]
   EventBus --> Analytics
   EventBus --> Notifications
   EventBus --> Delivery
 
-  Analytics -->|OrderAnalyticsReaderModule| Orders
-  Notifications -->|OrdersModule / recipient reader| Orders
+  Analytics -->|OrdersModule / OrderAnalyticsService| Orders
+  Notifications -->|event recipient data| EventBus
   Communications -->|OrdersModule / chat services| Orders
 ```
 
@@ -99,19 +90,20 @@ dữ liệu.
 | Mapbox             | Khoảng cách và thời gian giao                                       | Infra query       | `src/infra/mapbox/public-api` | Hợp lệ                                                        |
 | Payments           | Tạo checkout, hủy checkout pending                                  | Command           | Public API                    | Một chiều và chưa tạo cycle                                   |
 | Delivery           | Phát sự kiện trạng thái Order để Delivery đồng bộ assignment       | Async event       | Common EventBus               | Không còn import hoặc inject Delivery trong Orders            |
-| Reviews            | Đọc review summary khi lấy Order                                    | Read              | Narrow public API             | Tạo dependency hai chiều cấp feature                          |
 | EventBus/Outbox    | Order created, payment/delivery/assignment events                   | Async integration | Common events                 | Hợp lệ cho thay đổi trạng thái và retry-sensitive flow        |
 
 ### Bằng chứng quan trọng
 
-- `orders.module.ts` không còn import `DeliveryModule`; vẫn import `PaymentModule`,
-  `PromotionsModule` và `OrderReviewReaderModule`.
+- `orders.module.ts` không còn import `DeliveryModule` hoặc module của Reviews; vẫn import
+  `PaymentModule` và `PromotionsModule`.
 - `merchant-orders.controller.ts`, `admin-orders.service.ts` và `merchant-orders.service.ts` không
   còn import hoặc inject `DeliveryDispatchService`.
 - Subscription đăng ký active shipper đã được chuyển từ `order.resolver.ts` sang
   `delivery/controllers/shipper.resolver.ts`. Delivery dùng kiểu GraphQL qua
   `order-delivery-shipper.public-api.ts`, không import trực tiếp Order entity.
-- `order-core.service.ts` gọi `OrderReviewReaderService` để gắn review summary vào Order response.
+- `order-core.service.ts` không còn đọc Review hoặc gắn `reviewInfo` vào Order response.
+- `CustomerReviewsService` tạo review summary qua context tối thiểu do Orders cung cấp; mọi query
+  Review đều nằm trong Reviews và được giới hạn theo `orderId`.
 - `customer-orders.service.ts` tạo `ORDER_CREATED_EVENT` trong Outbox và dùng
   `PromotionUsageService` trong cùng transaction.
 
@@ -120,8 +112,8 @@ dữ liệu.
 | Consumer                 | API/module Orders đang dùng                        | Mục đích                                                            | Read/write     | Đánh giá                                                   |
 | ------------------------ | -------------------------------------------------- | ------------------------------------------------------------------- | -------------- | ---------------------------------------------------------- |
 | Delivery                 | 4 reader modules và 1 lifecycle command module     | Dispatch, tracking, shipper views, completion và cập nhật lifecycle | Read + command | Ownership đúng: Order status vẫn do Orders quyết định      |
-| Analytics                | `OrderAnalyticsReaderModule`                       | Project/reconcile snapshot                                          | Read           | Đúng hướng; không dùng Order repository                    |
-| Reviews                  | `OrderReviewEligibilityModule`                     | Kiểm tra khách đã mua và Order completed                            | Read/policy    | Đúng ownership nhưng tạo chiều ngược với Orders -> Reviews |
+| Analytics                | `OrdersModule` và `OrderAnalyticsService`          | Project/reconcile dữ liệu Order                                     | Read           | Dùng public API chính; không dùng Order repository         |
+| Reviews                  | `OrdersModule` và `OrderReviewRulesService`        | Kiểm tra quyền tạo/xem review summary theo Order                    | Read/policy    | Một chiều Reviews -> Orders; dùng public API chính         |
 | Notifications            | Event mang `customerId`                              | Tạo notification từ snapshot của producer                            | Event          | Đã tách khỏi `OrdersModule`                                      |
 | Communications/Messenger | `OrdersModule` và `OrderService`                   | Kiểm tra quyền chat theo Order                                      | Read           | Đã xóa messaging service trung gian; dùng public service chính |
 | Communications/Chat      | `OrdersModule` và `OrderService`                    | Xem đơn gần đây và tạo đơn từ chat                                  | Read + command | Đã xóa adapter riêng; dùng public service chính            |
@@ -169,18 +161,14 @@ event là `published`. Outbox cũng từ chối hoàn tất nếu process dispat
 Hiện tại:
 
 ```text
-Orders -> OrderReviewReaderModule -> Reviews
-Reviews -> OrderReviewEligibilityModule -> Orders
+Reviews -> OrdersModule / OrderReviewRulesService
+Frontend -> Orders API + Reviews summary API
 ```
 
-Module hẹp đang giữ cho hai module chính không import lẫn nhau. Có ba lựa chọn:
-
-1. Giữ nguyên hai boundary hẹp. Đây là lựa chọn ít rủi ro nhất trong ngắn hạn.
-2. Bỏ review summary khỏi response Order và để client gọi Reviews riêng. Cách này thay API contract.
-3. Tạo projection/event cho review summary trong Orders. Cách này phức tạp hơn và chỉ nên làm nếu có
-   nhu cầu hiệu năng hoặc cần một module duy nhất thật sự.
-
-Khuyến nghị hiện tại: giữ boundary hẹp, không gộp phần Reviews trong đợt đầu.
+`OrderReviewReaderModule`, `OrderReviewReaderService` và `review-reader.public-api.ts` đã được xóa.
+Endpoint mới `GET /reviews/orders/:orderId/summary` giữ dữ liệu review trong feature Reviews và dùng
+JWT actor để chống đọc Order không liên quan. Frontend giữ nguyên `AdminOrderDetail.reviewInfo` bằng
+cách ghép response ở lớp API, nên trang chi tiết không cần đổi UI.
 
 ## 7. Ownership sau refactor phải giữ nguyên
 
@@ -242,7 +230,7 @@ Thứ tự:
 5. Tách Notifications khỏi broad `OrdersModule`. **Đã hoàn thành.**
 6. Xóa `OrderMessagingReaderService`; Messenger dùng `OrderService`. **Đã hoàn thành.**
 7. Thu hẹp Chat và xóa `ChatOrderingService` trung gian. **Đã hoàn thành.**
-8. Đánh giá riêng vòng Orders–Reviews trước khi gộp module.
+8. Chuyển review summary sang Reviews và xóa chiều `Orders -> Reviews`. **Đã hoàn thành.**
 9. Chỉ xóa module/public API hẹp khi `rg` xác nhận không còn consumer.
 
 Exit gate:
@@ -253,10 +241,11 @@ Exit gate:
 - assignment, completion, payment, notification và analytics regression test pass;
 - không dùng `forwardRef()`.
 
-## 9. Quyết định chưa được phép giả định
+## 9. Quyết định contract đã xác minh
 
-Trước khi gỡ vòng Orders–Reviews cần quyết định rõ API Order có bắt buộc trả review summary trong
-cùng response hay không. Đây là thay đổi contract, không nên tự quyết chỉ để giảm số module.
+Frontend cần `reviewInfo` để hiện thao tác đánh giá món và shipper, nhưng không bắt buộc Backend trả
+review summary trong cùng response Order. Lớp API frontend gọi riêng Orders và Reviews rồi giữ nguyên
+kiểu dữ liệu mà trang chi tiết đang nhận.
 
 Tương tự, mục tiêu “một module, một public API” là mục tiêu về khả năng đọc code, không phải luật
 cao hơn ownership. Nếu việc gộp tạo dependency hai chiều thì boundary hẹp phải được giữ lại cho đến
@@ -277,9 +266,10 @@ Messenger và Chat đã dùng `OrderService`; các service trung gian riêng cho
 được xóa mà không tạo module/public API mới. Chat vẫn bắt buộc xác nhận trước khi tạo đơn, truyền
 customer từ phiên đăng nhập và để Orders tính lại giá phía server.
 
-Bước nhỏ nhất tiếp theo là đánh giá riêng vòng Orders–Reviews và xác nhận review summary có bắt
-buộc nằm trong Order response hay không. Chưa gộp hoặc xóa reader module trước quyết định contract
-này.
+Bước Analytics đã hoàn thành: `OrderAnalyticsService` nằm trong module/public API chính, còn
+Analytics không import module reader hoặc adapter riêng. Bước nhỏ nhất tiếp theo là tách phần tạo
+Order lớn khỏi `CustomerOrdersService` vào `OrderCreationService`, nhưng chỉ sau khi migration
+Orders–Reviews hiện tại đã được kiểm tra và đóng gói riêng.
 
 Không thực hiện đồng thời việc gộp module, đổi event, đổi schema hoặc format toàn repository trong
 commit này.

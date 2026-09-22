@@ -10,7 +10,6 @@ import { MenuModule } from 'src/features/menu/public-api';
 import { PaymentModule } from 'src/features/payments/public-api';
 import { PromotionsModule } from 'src/features/promotions/public-api';
 import { RestaurantsModule } from 'src/features/restaurants/public-api';
-import { OrderReviewReaderModule } from 'src/features/reviews/review-reader.public-api';
 import { SystemConstraintsModule } from 'src/features/system-constraints/public-api';
 import { IdentityModule } from 'src/features/users/public-api';
 import { AdminOrdersController } from './controllers/admin-orders.controller';
@@ -21,8 +20,8 @@ import { PublicOrdersController } from './controllers/public-orders.controller';
 import { AdminOrdersService } from './services/admin-orders.service';
 import { CustomerOrdersService } from './services/customer-orders.service';
 import { MerchantOrdersService } from './services/merchant-orders.service';
+import { OrderAnalyticsService } from './services/order-analytics.service';
 import { OrderCoreService } from './services/order-core.service';
-import { OrderAnalyticsReaderAdapter } from './services/order-cross-feature.adapters';
 import { OrderDeliveryAssignmentCommandService } from './services/order-delivery-assignment-command.service';
 import {
   DeliveryAssignmentRequestedOrderHandler,
@@ -30,6 +29,7 @@ import {
   PaymentSucceededOrderHandler,
   ShipperOfferRequestedOrderHandler,
 } from './services/order-events.handler';
+import { OrderReviewRulesService } from './services/order-review-rules.service';
 import { OrderService } from './services/order.service';
 
 /** Owns order HTTP/GraphQL APIs, role services, commands, queries and order persistence wiring. */
@@ -43,7 +43,6 @@ import { OrderService } from './services/order.service';
     PromotionsModule,
     IdentityModule,
     RestaurantsModule,
-    OrderReviewReaderModule,
     LocationsModule,
     MenuModule,
     SystemConstraintsModule,
@@ -60,13 +59,14 @@ import { OrderService } from './services/order.service';
     MerchantOrdersService,
     AdminOrdersService,
     OrderCoreService,
+    OrderReviewRulesService,
     OrderResolver,
     PaymentSucceededOrderHandler,
     DeliveryCompletedOrderHandler,
     DeliveryAssignmentRequestedOrderHandler,
     OrderDeliveryAssignmentCommandService,
     ShipperOfferRequestedOrderHandler,
-    OrderAnalyticsReaderAdapter,
+    OrderAnalyticsService,
   ],
   exports: [
     OrderService,
@@ -74,7 +74,8 @@ import { OrderService } from './services/order.service';
     MerchantOrdersService,
     AdminOrdersService,
     OrderCoreService,
-    OrderAnalyticsReaderAdapter,
+    OrderReviewRulesService,
+    OrderAnalyticsService,
   ],
 })
 export class OrdersModule {}

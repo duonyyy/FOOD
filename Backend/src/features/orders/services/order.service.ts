@@ -7,7 +7,6 @@ import type {
   CreateChatOrderRequest,
   CreatedChatOrder,
 } from '../types/chat-ordering.types';
-import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
 import type {
   AssertCustomerCanChatWithShipperRequest,
   CustomerShipperChatPartner,
@@ -217,24 +216,12 @@ export class OrderService {
   // CORE QUERIES & ANALYTICS
   // ==========================================
 
-  getOrderById(id: string, includeReviewInfo: boolean = false): Promise<Order> {
-    return this.orderCoreService.getOrderById(id, includeReviewInfo);
-  }
-
-  getOrderByIdWithReviews(id: string) {
-    return this.orderCoreService.getOrderById(id, true);
+  getOrderById(id: string): Promise<Order> {
+    return this.orderCoreService.getOrderById(id);
   }
 
   getOrderDetails(orderId: string) {
     return this.orderCoreService.getOrderDetails(orderId);
-  }
-
-  getAnalyticsSnapshot(orderId: string): Promise<OrderAnalyticsSnapshot> {
-    return this.orderCoreService.getAnalyticsSnapshot(orderId);
-  }
-
-  getAnalyticsSnapshots(page: number, pageSize: number): Promise<OrderAnalyticsPage> {
-    return this.orderCoreService.getAnalyticsSnapshots(page, pageSize);
   }
 
   assertCustomerCanChatWithShipper(

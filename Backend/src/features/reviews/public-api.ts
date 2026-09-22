@@ -9,13 +9,10 @@ export {
   UpdateReviewDto,
 } from './dto/create-review.dto';
 export { ReviewResponseDto } from './dto/review-response.dto';
-export { OrderReviewReaderModule } from './order-review-reader.module';
 export { ReviewsModule } from './reviews.module';
 export { CustomerReviewsService, ReviewService } from './services/customer-reviews.service';
-export { OrderReviewReaderService } from './services/order-review-reader.service';
 export type {
   OrderFoodReview,
-  OrderReviewSummary,
-  OrderReviewSummaryRequest,
+  OrderReviewInfo,
   OrderShipperReview,
-} from './types/order-review-reader.types';
+} from './types/order-review.types';

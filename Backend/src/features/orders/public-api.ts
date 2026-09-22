@@ -19,6 +19,7 @@ export { OrdersModule } from './orders.module';
 export { AdminOrdersService } from './services/admin-orders.service';
 export { CustomerOrdersService } from './services/customer-orders.service';
 export { MerchantOrdersService } from './services/merchant-orders.service';
+export { OrderAnalyticsService } from './services/order-analytics.service';
 export {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
@@ -36,15 +37,21 @@ export {
   type OrderPricingResult,
   type OrderPricingTopping,
 } from './services/order-core.service';
-export { OrderAnalyticsReaderAdapter } from './services/order-cross-feature.adapters';
+export { OrderReviewRulesService } from './services/order-review-rules.service';
 export { OrderService } from './services/order.service';
 export type {
   ChatReorderOrder,
   CreateChatOrderRequest,
   CreatedChatOrder,
 } from './types/chat-ordering.types';
-export type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from './types/order-analytics.types';
+export type { OrderAnalyticsData, OrderAnalyticsPage } from './types/order-analytics.types';
 export type {
   AssertCustomerCanChatWithShipperRequest,
   CustomerShipperChatPartner,
 } from './types/order-messaging.types';
+export type {
+  AssertCustomerCanReviewFoodRequest,
+  AssertCustomerCanReviewShipperRequest,
+  GetOrderReviewContextRequest,
+  OrderReviewContext,
+} from './types/order-review-rules.types';
