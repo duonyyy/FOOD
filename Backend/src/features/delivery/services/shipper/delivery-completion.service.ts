@@ -103,6 +103,7 @@ export class DeliveryCompletionService {
         idempotencyKey: `delivery-completed:${orderId}`,
         payload: {
           orderId,
+          customerId: order.customerId,
           shipperId,
           shippingDetailId: shippingDetail.id,
           completedAt: actualDeliveryTime.toISOString(),

@@ -16,7 +16,6 @@ import type {
   CreatedChatOrder,
 } from '../types/chat-ordering.types';
 import type { OrderAnalyticsPage, OrderAnalyticsSnapshot } from '../types/order-analytics.types';
-import type { OrderNotificationRecipient } from '../types/order-notification.types';
 import type {
   AssertCustomerCanReviewFoodRequest,
   AssertCustomerCanReviewShipperRequest,
@@ -38,23 +37,6 @@ export class OrderAnalyticsReaderAdapter {
 
   async listAnalyticsSnapshots(page: number, pageSize: number): Promise<OrderAnalyticsPage> {
     return this.orderCoreService.getAnalyticsSnapshots(page, pageSize);
-  }
-}
-
-/** Compatibility adapter: Notifications sees an Ordering snapshot, never Order persistence. */
-@Injectable()
-export class OrderNotificationReaderAdapter {
-  constructor(private readonly orderCoreService: OrderCoreService) {}
-
-  async findNotificationRecipient(orderId: string): Promise<OrderNotificationRecipient | null> {
-    try {
-      const order = await this.orderCoreService.getOrderById(orderId);
-      if (!order.user?.id) return null;
-      return { orderId: order.id, customerId: order.user.id };
-    } catch (error) {
-      if (error instanceof NotFoundException) return null;
-      throw error;
-    }
   }
 }
 

@@ -8,7 +8,6 @@ import { Notification } from 'src/entities/notification.entity';
 import { NotificationEventHandler } from 'src/features/notifications/handlers/notification-event.handler';
 import { NotificationDeadLetterService } from 'src/features/notifications/services/notification-dead-letter.service';
 import { NotificationService } from 'src/features/notifications/services/notification.service';
-import { OrderNotificationReaderAdapter } from 'src/features/orders/public-api';
 import { pubSub } from 'src/pubsub';
 
 jest.mock('src/pubsub', () => ({
@@ -20,25 +19,16 @@ describe('NotificationEventHandler', () => {
   let eventBus: InProcessEventBus;
   let notificationService: { createFromEvent: jest.Mock };
   let deadLetterService: { record: jest.Mock };
-  let orderNotificationReader: { findNotificationRecipient: jest.Mock };
 
   beforeEach(async () => {
     notificationService = { createFromEvent: jest.fn() };
     deadLetterService = { record: jest.fn().mockResolvedValue(undefined) };
-    orderNotificationReader = {
-      findNotificationRecipient: jest.fn().mockResolvedValue({
-        orderId: 'order-1',
-        customerId: 'customer-1',
-      }),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationEventHandler,
         InProcessEventBus,
         { provide: NotificationService, useValue: notificationService },
         { provide: NotificationDeadLetterService, useValue: deadLetterService },
-        { provide: OrderNotificationReaderAdapter, useValue: orderNotificationReader },
       ],
     }).compile();
 
@@ -75,7 +65,7 @@ describe('NotificationEventHandler', () => {
     });
   });
 
-  it('consumes Payment and Delivery events through the Ordering recipient port', async () => {
+  it('consumes Payment and Delivery events using their customer snapshot', async () => {
     const savedNotification = { id: 'n2', receiveUser: 'customer-1' } as Notification;
     notificationService.createFromEvent.mockResolvedValue({
       notification: savedNotification,
@@ -84,11 +74,13 @@ describe('NotificationEventHandler', () => {
 
     await eventBus.publish(PAYMENT_SUCCEEDED_EVENT, {
       orderId: 'order-1',
+      customerId: 'customer-1',
       checkoutId: 'checkout-1',
       paymentId: 'payment-1',
     });
     await eventBus.publish(DELIVERY_COMPLETED_EVENT, {
       orderId: 'order-1',
+      customerId: 'customer-1',
       shipperId: 'shipper-1',
       shippingDetailId: 'shipping-1',
       completedAt: '2026-09-03T00:00:00.000Z',
@@ -97,7 +89,6 @@ describe('NotificationEventHandler', () => {
       onTime: true,
     });
 
-    expect(orderNotificationReader.findNotificationRecipient).toHaveBeenCalledTimes(2);
     expect(notificationService.createFromEvent).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -112,6 +103,17 @@ describe('NotificationEventHandler', () => {
         type: 'delivery',
       }),
     );
+  });
+
+  it('skips an old event that does not contain a customer snapshot', async () => {
+    await eventBus.publish(PAYMENT_SUCCEEDED_EVENT, {
+      orderId: 'order-1',
+      customerId: null,
+      checkoutId: 'checkout-1',
+      paymentId: 'payment-1',
+    });
+
+    expect(notificationService.createFromEvent).not.toHaveBeenCalled();
   });
 
   it('does not publish a duplicate when an event is replayed', async () => {

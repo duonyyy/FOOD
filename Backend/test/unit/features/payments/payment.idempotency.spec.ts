@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
-import { PaymentStatus } from 'src/infra/payment-gateways/public-api';
 import { PaymentService } from 'src/features/payments/payment.service';
+import { PaymentStatus } from 'src/infra/payment-gateways/public-api';
 
 describe('Payment callback idempotency characterization', () => {
   let checkout: Checkout;
@@ -87,6 +87,7 @@ describe('Payment callback idempotency characterization', () => {
       expect.objectContaining({
         eventType: 'payment.succeeded',
         idempotencyKey: 'Checkout:checkout-1:payment:succeeded',
+        payload: expect.objectContaining({ customerId: 'customer-1' }) as unknown,
       }),
     );
     expect(outboxService.enqueue).toHaveBeenCalledTimes(1);

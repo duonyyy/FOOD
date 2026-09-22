@@ -27,7 +27,6 @@ import {
   ChatOrderingService,
   OrderAnalyticsReaderAdapter,
   OrderMessagingReaderService,
-  OrderNotificationReaderAdapter,
   OrdersModule,
 } from 'src/features/orders/public-api';
 import { PaymentModule, PaymentService } from 'src/features/payments/public-api';
@@ -177,7 +176,6 @@ describe('feature public contracts', () => {
         ChatOrderingService,
         OrderAnalyticsReaderAdapter,
         OrderMessagingReaderService,
-        OrderNotificationReaderAdapter,
       ]),
     );
     expect(reviewReaderExports).toContain(OrderReviewReaderService);

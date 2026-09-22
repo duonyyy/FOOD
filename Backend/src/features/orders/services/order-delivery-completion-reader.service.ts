@@ -13,13 +13,17 @@ export class OrderDeliveryCompletionReaderService {
   ) {}
 
   async findForCompletion(orderId: string): Promise<DeliveryCompletionOrder | null> {
-    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['user'],
+    });
     if (!order) {
       return null;
     }
 
     return {
       orderId: order.id,
+      customerId: order.user?.id ?? null,
       status: order.status,
       shippingFee: order.shippingFee ?? null,
       deliveryDistance: order.deliveryDistance ?? null,

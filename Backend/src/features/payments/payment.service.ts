@@ -11,20 +11,20 @@ import {
   type PaymentSucceededEvent,
 } from 'src/common/events/payment-succeeded.event';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
-import type {
-  PaymentGateway,
-  PaymentIntent,
-} from 'src/infra/payment-gateways/public-api';
-import { PaymentStatus } from 'src/infra/payment-gateways/public-api';
 import type { PaymentOrderSnapshot } from 'src/features/payments/contracts/payment-order-snapshot.contract';
 import type {
   PaymentWebhookAcknowledgement,
   VerifiedPaymentOutcome,
 } from 'src/features/payments/contracts/payment-webhook.contract';
 import { assertPaymentStatusTransition } from 'src/features/payments/domain/payment-status-machine';
-import { PaymentGatewayRouter } from 'src/infra/payment-gateways/public-api';
+import type { PaymentGateway, PaymentIntent } from 'src/infra/payment-gateways/public-api';
+import {
+  PaymentGatewayRouter,
+  PaymentStatus,
+  type PaymentResult,
+  type PaymentStatusResponse,
+} from 'src/infra/payment-gateways/public-api';
 import { Repository } from 'typeorm';
-import { type PaymentResult, type PaymentStatusResponse } from 'src/infra/payment-gateways/public-api';
 
 @Injectable()
 export class PaymentService {
@@ -629,6 +629,7 @@ export class PaymentService {
   ): PaymentSucceededEvent | PaymentFailedEvent {
     const payload = {
       orderId: checkout.orderId,
+      customerId: checkout.customerId,
       checkoutId: checkout.id,
       paymentId: checkout.paymentIntentId ?? null,
     };

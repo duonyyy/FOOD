@@ -18,7 +18,6 @@ import {
   PAYMENT_SUCCEEDED_EVENT,
   type PaymentSucceededEvent,
 } from 'src/common/events/payment-succeeded.event';
-import { OrderNotificationReaderAdapter } from 'src/features/orders/public-api';
 import { pubSub } from 'src/pubsub';
 import { NotificationDeadLetterService } from '../services/notification-dead-letter.service';
 import { NotificationService } from '../services/notification.service';
@@ -44,7 +43,6 @@ export class NotificationEventHandler implements OnModuleInit, OnModuleDestroy {
     private readonly eventBus: InProcessEventBus,
     private readonly notificationService: NotificationService,
     private readonly deadLetterService: NotificationDeadLetterService,
-    private readonly orderNotificationReader: OrderNotificationReaderAdapter,
   ) {}
 
   onModuleInit(): void {
@@ -100,8 +98,7 @@ export class NotificationEventHandler implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handlePaymentSucceeded(event: PaymentSucceededEvent): Promise<void> {
-    const recipient = await this.orderNotificationReader.findNotificationRecipient(event.orderId);
-    if (!recipient) {
+    if (!event.customerId) {
       this.logger.warn(
         `notification_skipped event=${PAYMENT_SUCCEEDED_EVENT} order=${event.orderId}`,
       );
@@ -109,8 +106,8 @@ export class NotificationEventHandler implements OnModuleInit, OnModuleDestroy {
     }
     await this.handle({
       eventType: PAYMENT_SUCCEEDED_EVENT,
-      idempotencyKey: `${PAYMENT_SUCCEEDED_EVENT}:${event.checkoutId}:${recipient.customerId}`,
-      recipientUserId: recipient.customerId,
+      idempotencyKey: `${PAYMENT_SUCCEEDED_EVENT}:${event.checkoutId}:${event.customerId}`,
+      recipientUserId: event.customerId,
       description: 'Thanh toán thành công',
       content: `Thanh toán cho đơn hàng #${event.orderId} đã thành công.`,
       type: 'payment',
@@ -119,15 +116,14 @@ export class NotificationEventHandler implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handlePaymentFailed(event: PaymentFailedEvent): Promise<void> {
-    const recipient = await this.orderNotificationReader.findNotificationRecipient(event.orderId);
-    if (!recipient) {
+    if (!event.customerId) {
       this.logger.warn(`notification_skipped event=${PAYMENT_FAILED_EVENT} order=${event.orderId}`);
       return;
     }
     await this.handle({
       eventType: PAYMENT_FAILED_EVENT,
-      idempotencyKey: `${PAYMENT_FAILED_EVENT}:${event.checkoutId}:${recipient.customerId}`,
-      recipientUserId: recipient.customerId,
+      idempotencyKey: `${PAYMENT_FAILED_EVENT}:${event.checkoutId}:${event.customerId}`,
+      recipientUserId: event.customerId,
       description: 'Thanh toán chưa thành công',
       content: `Thanh toán cho đơn hàng #${event.orderId} chưa thành công${
         event.reason ? `: ${event.reason}` : '.'
@@ -138,8 +134,7 @@ export class NotificationEventHandler implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleDeliveryCompleted(event: DeliveryCompletedEvent): Promise<void> {
-    const recipient = await this.orderNotificationReader.findNotificationRecipient(event.orderId);
-    if (!recipient) {
+    if (!event.customerId) {
       this.logger.warn(
         `notification_skipped event=${DELIVERY_COMPLETED_EVENT} order=${event.orderId}`,
       );
@@ -147,8 +142,8 @@ export class NotificationEventHandler implements OnModuleInit, OnModuleDestroy {
     }
     await this.handle({
       eventType: DELIVERY_COMPLETED_EVENT,
-      idempotencyKey: `${DELIVERY_COMPLETED_EVENT}:${event.orderId}:${recipient.customerId}`,
-      recipientUserId: recipient.customerId,
+      idempotencyKey: `${DELIVERY_COMPLETED_EVENT}:${event.orderId}:${event.customerId}`,
+      recipientUserId: event.customerId,
       description: 'Đơn hàng đã hoàn thành',
       content: `Đơn hàng #${event.orderId} đã được giao thành công.`,
       type: 'delivery',

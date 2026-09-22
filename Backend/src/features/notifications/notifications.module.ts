@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationDeadLetter } from 'src/entities/notification-dead-letter.entity';
 import { Notification } from 'src/entities/notification.entity';
 import { AuthModule } from 'src/features/auth/auth-module.public-api';
-import { OrdersModule } from 'src/features/orders/public-api';
 import { NotificationController } from './controllers/notification.controller';
 import { NotificationResolver } from './controllers/notification.resolver';
 import { NotificationEventHandler } from './handlers/notification-event.handler';
@@ -16,7 +15,6 @@ import { NotificationService } from './services/notification.service';
     TypeOrmModule.forFeature([Notification, NotificationDeadLetter]),
     AuthModule,
     JwtModule,
-    OrdersModule,
   ],
   controllers: [NotificationController],
   providers: [

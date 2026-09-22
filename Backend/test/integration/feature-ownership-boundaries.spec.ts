@@ -123,6 +123,19 @@ describe('feature ownership boundaries', () => {
     }
   });
 
+  it('keeps Notifications independent from Orders runtime providers', () => {
+    const notificationsModule = source('src/features/notifications/notifications.module.ts');
+    const notificationHandler = source(
+      'src/features/notifications/handlers/notification-event.handler.ts',
+    );
+
+    expect(notificationsModule).not.toContain('OrdersModule');
+    expect(notificationsModule).not.toContain('src/features/orders');
+    expect(notificationHandler).not.toContain('OrderNotificationReaderAdapter');
+    expect(notificationHandler).not.toContain('src/features/orders');
+    expect(notificationHandler).toContain('event.customerId');
+  });
+
   it('keeps Delivery assignment state changes out of the legacy Order transaction', () => {
     const shipperDelivery = source(
       'src/features/delivery/services/shipper/shipper-delivery.service.ts',

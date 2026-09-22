@@ -1,3 +1,4 @@
+export { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 export {
   CalculateOrderDto,
   CalculateOrderItemDto,
@@ -15,7 +16,6 @@ export { PaymentDto } from './dto/payment.dto';
 export { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 export { ValidatePromotionDto } from './dto/validate-promotion.dto';
 export { OrdersModule } from './orders.module';
-export { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 export { AdminOrdersService } from './services/admin-orders.service';
 export { CustomerOrdersService } from './services/customer-orders.service';
 export { MerchantOrdersService } from './services/merchant-orders.service';
@@ -36,13 +36,12 @@ export {
   type OrderPricingResult,
   type OrderPricingTopping,
 } from './services/order-core.service';
-export { OrderService } from './services/order.service';
 export {
   ChatOrderingService,
   OrderAnalyticsReaderAdapter,
-  OrderNotificationReaderAdapter,
 } from './services/order-cross-feature.adapters';
 export { OrderMessagingReaderService } from './services/order-messaging-reader.service';
+export { OrderService } from './services/order.service';
 export type {
   ChatReorderOrder,
   CreateChatOrderRequest,
@@ -53,4 +52,3 @@ export type {
   AssertCustomerCanChatWithShipperRequest,
   CustomerShipperChatPartner,
 } from './types/order-messaging.types';
-export type { OrderNotificationRecipient } from './types/order-notification.types';

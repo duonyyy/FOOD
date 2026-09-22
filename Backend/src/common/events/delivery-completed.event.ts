@@ -2,6 +2,7 @@ export const DELIVERY_COMPLETED_EVENT = 'delivery.completed';
 
 export type DeliveryCompletedEvent = Record<string, unknown> & {
   orderId: string;
+  customerId: string | null;
   shipperId: string;
   shippingDetailId: string;
   completedAt: string;

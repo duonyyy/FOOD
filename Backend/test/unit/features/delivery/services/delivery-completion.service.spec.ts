@@ -47,6 +47,7 @@ describe('DeliveryCompletionService', () => {
     const orderReader = {
       findForCompletion: jest.fn().mockResolvedValue({
         orderId: 'order-1',
+        customerId: 'customer-1',
         status,
         shippingFee: 25_000,
         deliveryDistance: 2,
@@ -81,6 +82,7 @@ describe('DeliveryCompletionService', () => {
         eventType: 'delivery.completed',
         aggregateId: 'order-1',
         idempotencyKey: 'delivery-completed:order-1',
+        payload: expect.objectContaining({ customerId: 'customer-1' }) as unknown,
       }),
     );
     expect(outbox.dispatchAfterCommit).toHaveBeenCalledWith('outbox-1');

@@ -25,7 +25,6 @@ import { OrderCoreService } from './services/order-core.service';
 import {
   ChatOrderingService,
   OrderAnalyticsReaderAdapter,
-  OrderNotificationReaderAdapter,
 } from './services/order-cross-feature.adapters';
 import { OrderDeliveryAssignmentCommandService } from './services/order-delivery-assignment-command.service';
 import {
@@ -74,7 +73,6 @@ import { OrderService } from './services/order.service';
     ShipperOfferRequestedOrderHandler,
     ChatOrderingService,
     OrderAnalyticsReaderAdapter,
-    OrderNotificationReaderAdapter,
   ],
   exports: [
     OrderService,
@@ -85,7 +83,6 @@ import { OrderService } from './services/order.service';
     ChatOrderingService,
     OrderAnalyticsReaderAdapter,
     OrderMessagingReaderService,
-    OrderNotificationReaderAdapter,
   ],
 })
 export class OrdersModule {}
