@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 function source(path: string): string {
@@ -6,6 +6,31 @@ function source(path: string): string {
 }
 
 describe('feature ownership boundaries', () => {
+  it('keeps Orders on one module, one public API and the approved service list', () => {
+    const ordersRoot = resolve(process.cwd(), 'src/features/orders');
+    const topLevel = readdirSync(ordersRoot);
+    const services = readdirSync(resolve(ordersRoot, 'services'))
+      .filter((name) => name.endsWith('.ts'))
+      .sort();
+
+    expect(topLevel.filter((name) => name.endsWith('.module.ts'))).toEqual(['orders.module.ts']);
+    expect(topLevel.filter((name) => name.endsWith('public-api.ts'))).toEqual(['public-api.ts']);
+    expect(services).toEqual(
+      [
+        'admin-orders.service.ts',
+        'customer-orders.service.ts',
+        'merchant-orders.service.ts',
+        'order-analytics.service.ts',
+        'order-creation.service.ts',
+        'order-delivery.service.ts',
+        'order-events.handler.ts',
+        'order-messaging.service.ts',
+        'order-rules.service.ts',
+        'public-orders.service.ts',
+      ].sort(),
+    );
+  });
+
   it('keeps Messenger persistence limited to its own Conversation and Message entities', () => {
     const module = source('src/features/communications/messenger/messenger.module.ts');
     const service = source('src/features/communications/messenger/messenger.service.ts');
@@ -13,8 +38,7 @@ describe('feature ownership boundaries', () => {
     expect(module).toContain('TypeOrmModule.forFeature([Conversation, Message])');
     expect(module).not.toMatch(/\b(User|Order|Restaurant|ShippingDetail)\b.*forFeature/);
     expect(service).not.toMatch(/@InjectRepository\((User|Order|Restaurant|ShippingDetail)\)/);
-    expect(service).toContain('OrderService');
-    expect(service).not.toContain('OrderMessagingReaderService');
+    expect(service).toContain('OrderMessagingService');
     expect(service).toContain('RestaurantReaderService');
     expect(service).toContain('IdentityUserQueryService');
   });
@@ -48,7 +72,7 @@ describe('feature ownership boundaries', () => {
     expect(promotionsModule).not.toMatch(/forFeature\(\[[^\]]*\b(Food|Order)\b/);
   });
 
-  it('keeps Delivery dispatch on the narrow Orders API instead of the Order repository', () => {
+  it('keeps Delivery dispatch on the Orders public API instead of the Order repository', () => {
     const deliveryModule = source('src/features/delivery/delivery.module.ts');
     const dispatch = source('src/features/delivery/services/dispatch/delivery-dispatch.service.ts');
     const integration = source(
@@ -57,7 +81,8 @@ describe('feature ownership boundaries', () => {
 
     expect(deliveryModule).not.toContain('entities/order.entity');
     expect(deliveryModule).not.toContain('      Order,');
-    expect(dispatch).toContain('order-delivery-dispatch-reader.public-api');
+    expect(dispatch).toContain('src/features/orders/public-api');
+    expect(dispatch).toContain('OrderDeliveryService');
     expect(dispatch).not.toContain('DeliveryIntegrationService');
     expect(integration).not.toContain('entities/order.entity');
     expect(integration).not.toContain('findOrderForDeliveryAssignment');
@@ -71,7 +96,7 @@ describe('feature ownership boundaries', () => {
     expect(orderResolver).not.toContain('orderConfirmedForShippers(');
     expect(shipperResolver).toContain('ActiveShipperTrackerService');
     expect(shipperResolver).toContain('orderConfirmedForShippers(');
-    expect(shipperResolver).toContain('order-delivery-shipper.public-api');
+    expect(shipperResolver).toContain('src/features/orders/public-api');
     expect(shipperResolver).not.toContain('entities/order.entity');
   });
 
@@ -98,12 +123,13 @@ describe('feature ownership boundaries', () => {
     expect(deliveryHandler).toContain('removePendingAssignment');
   });
 
-  it('keeps Delivery completion on a narrow Orders reader contract', () => {
+  it('keeps Delivery completion on the Orders public API', () => {
     const completion = source(
       'src/features/delivery/services/shipper/delivery-completion.service.ts',
     );
 
-    expect(completion).toContain('order-delivery-completion-reader.public-api');
+    expect(completion).toContain('src/features/orders/public-api');
+    expect(completion).toContain('OrderDeliveryService');
     expect(completion).not.toContain('entities/order.entity');
     expect(completion).not.toContain('orderRepository');
   });
@@ -127,14 +153,14 @@ describe('feature ownership boundaries', () => {
 
   it('keeps order review composition inside Reviews with a one-way dependency', () => {
     const ordersModule = source('src/features/orders/orders.module.ts');
-    const orderCoreService = source('src/features/orders/services/order-core.service.ts');
+    const orderRulesService = source('src/features/orders/services/order-rules.service.ts');
     const reviewsModule = source('src/features/reviews/reviews.module.ts');
     const reviewsService = source('src/features/reviews/services/customer-reviews.service.ts');
 
     expect(ordersModule).not.toContain('src/features/reviews');
     expect(ordersModule).not.toContain('OrderReviewReaderModule');
-    expect(orderCoreService).not.toContain('src/features/reviews');
-    expect(orderCoreService).not.toContain('reviewInfo');
+    expect(orderRulesService).not.toContain('src/features/reviews');
+    expect(orderRulesService).not.toContain('reviewInfo');
     expect(reviewsModule).toContain('OrdersModule');
     expect(reviewsModule).toContain("from 'src/features/orders/public-api'");
     expect(reviewsService).toContain("from 'src/features/orders/public-api'");
@@ -155,7 +181,7 @@ describe('feature ownership boundaries', () => {
     expect(notificationHandler).toContain('event.customerId');
   });
 
-  it('keeps Chat on the main Orders public service without a dedicated adapter', () => {
+  it('keeps Chat on the main Orders messaging service without a dedicated adapter', () => {
     const ordersModule = source('src/features/orders/orders.module.ts');
     const ordersPublicApi = source('src/features/orders/public-api.ts');
 
@@ -166,7 +192,7 @@ describe('feature ownership boundaries', () => {
     ]) {
       const consumer = source(chatConsumer);
       expect(consumer).toContain("from 'src/features/orders/public-api'");
-      expect(consumer).toContain('OrderService');
+      expect(consumer).toContain('OrderMessagingService');
       expect(consumer).not.toContain('ChatOrderingService');
       expect(consumer).not.toContain('entities/order.entity');
       expect(consumer).not.toContain('InjectRepository');
@@ -193,22 +219,22 @@ describe('feature ownership boundaries', () => {
     expect(assignmentSaga).toContain('DELIVERY_ASSIGNMENT_REQUESTED_EVENT');
   });
 
-  it('routes shipper reads and lifecycle changes through narrow Orders APIs', () => {
+  it('routes shipper reads and lifecycle changes through the Orders public API', () => {
     const shipperDelivery = source(
       'src/features/delivery/services/shipper/shipper-delivery.service.ts',
     );
 
-    expect(shipperDelivery).toContain('order-delivery-shipper.public-api');
-    expect(shipperDelivery).toContain('orderLifecycleCommand.startDelivery');
-    expect(shipperDelivery).toContain('orderLifecycleCommand.cancelDelivery');
-    expect(shipperDelivery).toContain('orderShipperReader.getShipperOrder');
+    expect(shipperDelivery).toContain('src/features/orders/public-api');
+    expect(shipperDelivery).toContain('orderDelivery.startDelivery');
+    expect(shipperDelivery).toContain('orderDelivery.cancelDelivery');
+    expect(shipperDelivery).toContain('orderDelivery.getShipperOrder');
     expect(shipperDelivery).not.toContain('entities/order.entity');
     expect(shipperDelivery).not.toContain('orderRepository');
     expect(shipperDelivery).not.toContain('orderReassignedToShippers');
   });
 
   it('uses concrete infrastructure services through public APIs', () => {
-    const customerOrders = source('src/features/orders/services/customer-orders.service.ts');
+    const orderCreation = source('src/features/orders/services/order-creation.service.ts');
     const adminOrders = source('src/features/orders/services/admin-orders.service.ts');
     const merchantOrders = source('src/features/orders/services/merchant-orders.service.ts');
     const publicPromotionsService = source(
@@ -218,9 +244,9 @@ describe('feature ownership boundaries', () => {
       'src/features/promotions/services/admin-promotions.service.ts',
     );
 
-    expect(customerOrders).toContain('MapboxService');
-    expect(customerOrders).toContain('src/infra/mapbox/public-api');
-    expect(customerOrders).not.toContain('src/infra/mapbox/mapbox.service');
+    expect(orderCreation).toContain('MapboxService');
+    expect(orderCreation).toContain('src/infra/mapbox/public-api');
+    expect(orderCreation).not.toContain('src/infra/mapbox/mapbox.service');
     expect(adminOrders).not.toContain('src/infra/queue/queue.service');
     expect(merchantOrders).not.toContain('src/infra/queue/queue.service');
     expect(adminPromotionsService).toContain('StorageService');

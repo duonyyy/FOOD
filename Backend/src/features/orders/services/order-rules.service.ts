@@ -1,13 +1,23 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from 'src/entities/order.entity';
-import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { Repository } from 'typeorm';
 import type {
   AssertCustomerCanChatWithShipperRequest,
   CustomerShipperChatPartner,
 } from '../types/order-messaging.types';
+import type {
+  AssertCustomerCanReviewFoodRequest,
+  AssertCustomerCanReviewShipperRequest,
+  GetOrderReviewContextRequest,
+  OrderReviewContext,
+} from '../types/order-review-rules.types';
 
 // ==========================================
 // 1. ORDER STATE MACHINE
@@ -244,11 +254,11 @@ export class OrderActorPolicy {
 }
 
 // ==========================================
-// 5. ORDER CORE QUERY SERVICE
+// 5. ORDER RULES AND SHARED ORDER LOOKUPS
 // ==========================================
 
 @Injectable()
-export class OrderCoreService {
+export class OrderRulesService {
   readonly stateMachine = new OrderStateMachine();
   readonly pricingService = new OrderPricingService();
   readonly actorPolicy = new OrderActorPolicy();
@@ -258,33 +268,61 @@ export class OrderCoreService {
     private readonly orderRepository: Repository<Order>,
   ) {}
 
-  async getOrderById(id: string): Promise<Order> {
+  async assertCustomerCanReviewFood(request: AssertCustomerCanReviewFoodRequest): Promise<void> {
+    const order = await this.findCompletedCustomerOrder(request.orderId, request.customerId);
+    const hasPurchasedFood = (order.orderDetails ?? []).some(
+      (detail) => detail.food?.id === request.foodId,
+    );
+    if (!hasPurchasedFood) {
+      throw new ForbiddenException('The reviewed food was not purchased in this order');
+    }
+  }
+
+  async assertCustomerCanReviewShipper(
+    request: AssertCustomerCanReviewShipperRequest,
+  ): Promise<void> {
+    const order = await this.findCompletedCustomerOrder(request.orderId, request.customerId);
+    if (order.shippingDetail?.shipper?.id !== request.shipperId) {
+      throw new ForbiddenException('The reviewed shipper did not deliver this order');
+    }
+  }
+
+  async getOrderReviewContext(request: GetOrderReviewContextRequest): Promise<OrderReviewContext> {
     const order = await this.orderRepository.findOne({
-      where: { id },
+      where: { id: request.orderId },
       relations: [
         'user',
-        'user.role',
-        'user.address',
         'restaurant',
         'restaurant.owner',
-        'restaurant.address',
         'orderDetails',
         'orderDetails.food',
         'shippingDetail',
         'shippingDetail.shipper',
-        'promotionCode',
-        'address',
       ],
     });
 
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order?.user?.id) {
+      throw new NotFoundException('Order not found');
+    }
 
-    return this.cleanSensitiveData(order);
-  }
+    const isAdmin = ['admin', 'administrator', 'super_admin'].includes(request.actorRole ?? '');
+    const isParticipant =
+      order.user.id === request.actorId ||
+      order.restaurant?.owner?.id === request.actorId ||
+      order.shippingDetail?.shipper?.id === request.actorId;
+    if (!isAdmin && !isParticipant) {
+      // A review summary must not reveal whether another customer's order exists.
+      throw new NotFoundException('Order not found');
+    }
 
-  async getOrderDetails(id: string): Promise<OrderDetail[]> {
-    const order = await this.getOrderById(id);
-    return order.orderDetails ?? [];
+    return {
+      customerId: order.user.id,
+      foodIds: (order.orderDetails ?? [])
+        .map((detail) => detail.food?.id)
+        .filter((foodId): foodId is string => Boolean(foodId)),
+      shipperId: order.shippingDetail?.shipper?.id ?? null,
+      status: order.status,
+    };
   }
 
   async assertCustomerCanChatWithShipper(
@@ -327,64 +365,18 @@ export class OrderCoreService {
     return Boolean(order && this.isShipperMessagingAllowedStatus(order.status));
   }
 
-  cleanSensitiveData(order: Order): Order {
-    if (order.user) {
-      this.removeFields(order.user, [
-        'password',
-        'resetPasswordToken',
-        'resetPasswordExpires',
-        'birthday',
-        'lastLoginAt',
-        'createdAt',
-        'googleId',
-      ]);
-      if (order.user.role) {
-        this.removeFields(order.user.role, ['isSystem', 'description', 'createdAt', 'updatedAt']);
-      }
-      if (order.user.address) {
-        order.user.address.forEach((address) => {
-          this.removeFields(address, ['latitude', 'longitude']);
-        });
-      }
-    }
-
-    if (order.restaurant) {
-      this.removeFields(order.restaurant, [
-        'openTime',
-        'closeTime',
-        'licenseCode',
-        'certificateImage',
-        'updatedAt',
-        'createdAt',
-      ]);
-    }
-
-    order.orderDetails?.forEach((detail) => {
-      if (detail.food) {
-        this.removeFields(detail.food, ['soldCount', 'purchasedNumber']);
-      }
+  private async findCompletedCustomerOrder(orderId: string, customerId: string): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId, user: { id: customerId } },
+      relations: ['orderDetails', 'orderDetails.food', 'shippingDetail', 'shippingDetail.shipper'],
     });
 
-    if (order.shippingDetail?.shipper) {
-      const shipper = order.shippingDetail.shipper;
-      this.removeFields(shipper, [
-        'password',
-        'resetPasswordToken',
-        'resetPasswordExpires',
-        'email',
-        'birthday',
-        'lastLoginAt',
-        'createdAt',
-        'googleId',
-        'address',
-        'role',
-      ]);
+    if (!order) {
+      throw new ForbiddenException('This order is not available for review by the current user');
     }
-
-    if (order.promotionCode) {
-      this.removeFields(order.promotionCode, ['maxUsage', 'numberOfUsed']);
+    if (order.status !== 'completed') {
+      throw new ConflictException('Reviews are available only after the order is completed');
     }
-
     return order;
   }
 
@@ -403,11 +395,5 @@ export class OrderCoreService {
 
   private isShipperMessagingAllowedStatus(status: string): boolean {
     return ['confirmed', 'delivering', 'completed'].includes(status);
-  }
-
-  private removeFields(target: object, fields: readonly string[]): void {
-    for (const field of fields) {
-      Reflect.deleteProperty(target, field);
-    }
   }
 }

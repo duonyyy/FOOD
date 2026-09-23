@@ -10,14 +10,13 @@ describe('DeliveryDispatchService expired assignment cleanup', () => {
     cancelUnassigned: jest.fn().mockResolvedValue({ orderId: 'order-1', status: 'canceled' }),
   };
   const service = new DeliveryDispatchService(
-    {} as never,
+    orderLifecycleCommand as never,
     {} as never,
     {} as never,
     store as never,
     {} as never,
     {} as never,
     {} as never,
-    orderLifecycleCommand as never,
   );
 
   beforeEach(() => {

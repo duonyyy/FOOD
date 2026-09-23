@@ -78,6 +78,7 @@ describe('DeliveryEarningsService', () => {
 
   const event: DeliveryCompletedEvent = {
     orderId: 'order-1',
+    customerId: 'customer-a',
     shipperId: 'shipper-a',
     shippingDetailId: 'shipping-1',
     completedAt: new Date().toISOString(),

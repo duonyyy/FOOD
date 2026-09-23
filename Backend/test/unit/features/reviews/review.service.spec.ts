@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { ReviewType } from 'src/entities/review.entity';
 import { FoodIntegrationService } from 'src/features/menu/public-api';
-import { OrderReviewRulesService } from 'src/features/orders/public-api';
+import { OrderRulesService } from 'src/features/orders/public-api';
 import { ReviewService } from 'src/features/reviews/services/customer-reviews.service';
 
 const completedOrder = {
@@ -64,7 +64,7 @@ describe('ReviewService', () => {
     return {
       service: new ReviewService(
         reviewRepository as never,
-        orderReviewRules as unknown as OrderReviewRulesService,
+        orderReviewRules as unknown as OrderRulesService,
         foodReviewTargetReader as unknown as FoodIntegrationService,
       ),
       reviewRepository,

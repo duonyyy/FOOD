@@ -1,42 +1,63 @@
-# orders
+# Orders
 
-Owner: Order, OrderDetail, order state machine, immutable order snapshots và order commands/queries.
+Orders sở hữu `Order`, `OrderDetail`, cách tính giá và toàn bộ thay đổi `Order.status`.
 
-Payment, Delivery, Communications and Reviews use contracts/events rather than write Order
-repositories.
+## Cấu trúc hiện tại
 
-Orders không import `DeliveryModule`. Khi Order đổi trạng thái, Orders phát
-`ORDER_STATUS_CHANGED_EVENT`; Delivery tự quản lý pending assignment. Khi tìm tài xế quá hạn,
-Delivery gọi lifecycle command hẹp và Orders tự quyết định có hủy Order hay không.
+```text
+orders/
+├── controllers/
+│   ├── public-orders.controller.ts
+│   ├── customer-orders.controller.ts
+│   ├── merchant-orders.controller.ts
+│   ├── admin-orders.controller.ts
+│   └── order.resolver.ts
+├── services/
+│   ├── public-orders.service.ts
+│   ├── customer-orders.service.ts
+│   ├── merchant-orders.service.ts
+│   ├── admin-orders.service.ts
+│   ├── order-creation.service.ts
+│   ├── order-rules.service.ts
+│   ├── order-delivery.service.ts
+│   ├── order-analytics.service.ts
+│   ├── order-messaging.service.ts
+│   └── order-events.handler.ts
+├── dto/
+├── types/
+├── contracts/
+├── orders.module.ts
+└── public-api.ts
+```
 
-Status event được lưu bằng Outbox trong cùng transaction với Order. API process dispatch/retry;
-queue worker chỉ tạo event và không tự đánh dấu event là `published` khi thiếu consumer.
+Feature chỉ có một Nest module và một public API. Feature khác chỉ được import
+`src/features/orders/public-api`; không deep import service, type, DTO hoặc module nội bộ.
 
-Delivery định kỳ đọc tối đa 100 ID Order `confirmed` và phục hồi pending assignment
-bị thiếu. Reader chỉ trả ID; Delivery tự kiểm tra `ShippingDetail`, assignment hiện có
-và trạng thái Order hiện tại trước khi tạo theo cách idempotent.
+## Trách nhiệm service
 
-Messenger dùng `OrderService` cho authorization và danh sách shipper có thể chat. Không còn
-`OrderMessagingReaderService`; ownership customer/shipper/status vẫn nằm trong Orders.
+| Service | Trách nhiệm |
+|---|---|
+| `PublicOrdersService` | Đọc Order/chi tiết và lọc dữ liệu nhạy cảm |
+| `CustomerOrdersService` | Điều phối use case của customer |
+| `MerchantOrdersService` | Danh sách và thay đổi trạng thái của merchant |
+| `AdminOrdersService` | Truy vấn quản trị, timeout và thay đổi trạng thái của admin/event |
+| `OrderCreationService` | Tính giá và tạo Order trong transaction |
+| `OrderRulesService` | State machine, pricing, quyền truy cập, điều kiện review/messaging |
+| `OrderDeliveryService` | Phần Order mà Delivery cần; không sở hữu chuyến giao |
+| `OrderAnalyticsService` | Dữ liệu Order tối thiểu cho Analytics |
+| `OrderMessagingService` | Use case Order dành cho Chat/Messenger |
+| `order-events.handler.ts` | Nhận event Payment/Delivery và gọi owner Orders |
 
-Chat dùng cùng `OrderService` qua `orders/public-api.ts` để xem đơn gần đây và tạo đơn sau xác
-nhận. Không còn `ChatOrderingService`; Chat không gửi giá tin cậy vào Orders và Orders vẫn tính
-lại giá phía server.
+## Boundary đã chốt
 
-Orders không còn đọc Review hoặc gắn `reviewInfo` vào response. Reviews gọi
-`OrderReviewRulesService` để lấy review context tối thiểu; frontend gọi review summary riêng.
+- Không dùng `forwardRef()`.
+- Orders không import Delivery, Reviews, Analytics, Notifications hoặc Communications.
+- Delivery, Reviews, Analytics và Communications chỉ dùng public API chính của Orders.
+- Delivery sở hữu `ShippingDetail`, pending assignment, shipper và trạng thái giao hàng.
+- Reviews sở hữu review và review summary.
+- Payments sở hữu checkout/gateway. Route payment tương thích của Orders delegate sang
+  `PaymentService`, không xử lý thẻ hoặc gateway trong Orders.
+- Locations sở hữu Address và cron xóa địa chỉ tạm. Orders chỉ gọi `AddressService` qua public API.
+- `ORDER_STATUS_CHANGED_EVENT` dùng Outbox cho luồng cần retry sau commit.
 
-Analytics dùng `OrderAnalyticsService` qua `orders/public-api.ts`. Service chỉ trả dữ liệu Order
-tối thiểu cần cho projection/reconciliation; không còn reader module, adapter hoặc public API riêng.
-
-## Controllers
-
-- `PublicOrdersController`: tính giá và kiểm tra quy tắc khuyến mãi không yêu cầu đăng nhập.
-- `CustomerOrdersController`: tạo, xem, xóa và thanh toán đơn hàng.
-- `MerchantOrdersController`: xem đơn của nhà hàng và cập nhật trạng thái với quyền chủ quán.
-- `AdminOrdersController`: đọc toàn bộ và cập nhật trạng thái bằng permission quản trị.
-- `OrderResolver`: subscription GraphQL cho customer và merchant.
-- Subscription `orderConfirmedForShippers` thuộc `Delivery/ShipperResolver`; Orders chỉ sở hữu kiểu
-  GraphQL và payload contract được xuất qua API hẹp hiện có.
-
-Bốn HTTP controller cùng giữ prefix `/orders`, vì vậy route bên ngoài không thay đổi.
+Entity vẫn ở `src/entities` theo quyết định hiện tại; đợt refactor này không đổi schema hoặc migration.

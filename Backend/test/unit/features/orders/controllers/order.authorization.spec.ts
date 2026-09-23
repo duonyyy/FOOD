@@ -33,6 +33,7 @@ describe('Order authorization characterization', () => {
     };
     customerController = new CustomerOrdersController(
       orderService as never,
+      orderService as never,
       paymentService as never,
     );
   });

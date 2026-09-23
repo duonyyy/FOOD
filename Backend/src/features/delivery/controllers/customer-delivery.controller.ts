@@ -7,7 +7,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { OrderTrackingReaderService } from 'src/features/orders/order-tracking-reader.public-api';
+import { OrderDeliveryService } from 'src/features/orders/public-api';
 import {
   AuthGuard,
   CurrentActor,
@@ -22,7 +22,7 @@ import type { DeliveryQuoteRequest } from '../types/delivery-integration.types';
 @UseGuards(AuthGuard)
 export class CustomerDeliveryController {
   constructor(
-    private readonly orderTrackingReader: OrderTrackingReaderService,
+    private readonly orderDelivery: OrderDeliveryService,
     private readonly deliveryIntegrationService: DeliveryIntegrationService,
   ) {}
 
@@ -32,7 +32,7 @@ export class CustomerDeliveryController {
   @ApiUnauthorizedResponse({ description: 'JWT is missing or invalid' })
   @ApiNotFoundResponse({ description: 'Delivery tracking was not found' })
   async trackOrder(@Param('orderId') orderId: string, @CurrentActor() actor: CurrentActorData) {
-    await this.orderTrackingReader.assertCustomerCanTrackOrder(orderId, actor.userId);
+    await this.orderDelivery.assertCustomerCanTrackOrder(orderId, actor.userId);
     const tracking = await this.deliveryIntegrationService.getDeliveryTracking(orderId);
     const { shipper, ...trackingResponse } = tracking;
 

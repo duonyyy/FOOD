@@ -4,11 +4,10 @@ import { Order } from 'src/entities/order.entity';
 import { Promotion, PromotionType } from 'src/entities/promotion.entity';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { User } from 'src/entities/user.entity';
-import { AdminOrdersService } from 'src/features/orders/services/admin-orders.service';
 import { CustomerOrdersService } from 'src/features/orders/services/customer-orders.service';
 import { MerchantOrdersService } from 'src/features/orders/services/merchant-orders.service';
-import { OrderCoreService } from 'src/features/orders/services/order-core.service';
-import { OrderService } from 'src/features/orders/services/order.service';
+import { OrderCreationService } from 'src/features/orders/services/order-creation.service';
+import { PublicOrdersService } from 'src/features/orders/services/public-orders.service';
 
 jest.mock('src/pubsub', () => ({ pubSub: { publish: jest.fn().mockResolvedValue(true) } }));
 
@@ -196,12 +195,12 @@ describe('Order pricing and state characterization', () => {
       ...overrides,
     };
 
-    const orderCoreService = {
+    const publicOrders = {
       getOrderById: dependencies.orderQueryService.getOrderById,
       cleanSensitiveData: jest.fn((o) => o),
-    } as unknown as OrderCoreService;
+    } as unknown as PublicOrdersService;
 
-    const customerOrdersService = new CustomerOrdersService(
+    const orderCreation = new OrderCreationService(
       dependencies.orderRepository as never,
       dependencies.orderDetailRepository as never,
       dependencies.dataSource as never,
@@ -210,12 +209,17 @@ describe('Order pricing and state characterization', () => {
       dependencies.outboxService as never,
       dependencies.systemConstraintsService as never,
       dependencies.routePort as never,
-      orderCoreService,
+      publicOrders,
       dependencies.menuReader as never,
       dependencies.locationReader as never,
-      dependencies.locationWriter as never,
       dependencies.restaurantReader as never,
       dependencies.identityReader as never,
+    );
+
+    const customerOrdersService = new CustomerOrdersService(
+      orderCreation,
+      dependencies.locationWriter as never,
+      {} as never,
     );
 
     const merchantOrdersService = {
@@ -224,18 +228,11 @@ describe('Order pricing and state characterization', () => {
       getOrdersByRestaurant: jest.fn(),
     } as unknown as MerchantOrdersService;
 
-    const adminOrdersService = {
-      markPaid: dependencies.orderCommandService.markPaid,
-      getAllOrders: jest.fn(),
-      adminUpdateOrderStatus: dependencies.orderCommandService.updateStatus,
-    } as unknown as AdminOrdersService;
-
-    const service = new OrderService(
-      customerOrdersService,
-      merchantOrdersService,
-      adminOrdersService,
-      orderCoreService,
-    );
+    const service = {
+      calculateOrder: orderCreation.calculateOrder.bind(orderCreation),
+      createOrder: customerOrdersService.createOrder.bind(customerOrdersService),
+      updateOrderStatus: merchantOrdersService.updateOrderStatus.bind(merchantOrdersService),
+    };
 
     return { service, dependencies };
   };

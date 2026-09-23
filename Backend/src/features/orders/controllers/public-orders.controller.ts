@@ -2,14 +2,14 @@ import { Body, Controller, Logger, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CalculateOrderDto, CalculateOrderWithCustomAddressDto } from '../dto/calculate-order.dto';
 import { ValidatePromotionDto } from '../dto/validate-promotion.dto';
-import { OrderService } from '../services/order.service';
+import { OrderCreationService } from '../services/order-creation.service';
 
 @Controller('orders')
 @ApiTags('orders')
 export class PublicOrdersController {
   private readonly logger = new Logger(PublicOrdersController.name);
 
-  constructor(private readonly orderService: OrderService) {}
+  constructor(private readonly orderCreation: OrderCreationService) {}
 
   @Post('calculate')
   @ApiOperation({ summary: 'Calculate order price and shipping fee with a saved address' })
@@ -31,7 +31,7 @@ export class PublicOrdersController {
       return { error: 'Missing addressId, restaurantId, or items' };
     }
 
-    return this.orderService.calculateOrder({
+    return this.orderCreation.calculateOrder({
       addressId: body.addressId,
       restaurantId: body.restaurantId,
       items: body.items,
@@ -59,7 +59,7 @@ export class PublicOrdersController {
       return { error: 'Missing address, restaurantId, or items' };
     }
 
-    return this.orderService.calculateOrderWithCustomAddress(
+    return this.orderCreation.calculateOrderWithCustomAddress(
       body.address,
       body.restaurantId,
       body.items,
@@ -86,7 +86,7 @@ export class PublicOrdersController {
       };
     }
 
-    return this.orderService.validatePromotionForOrder(
+    return this.orderCreation.validatePromotionForOrder(
       body.promotionCode,
       body.addressId,
       body.restaurantId,

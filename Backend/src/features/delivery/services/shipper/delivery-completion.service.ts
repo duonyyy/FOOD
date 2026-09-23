@@ -13,10 +13,7 @@ import {
 import { OutboxService } from 'src/common/events/outbox.service';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import {
-  OrderDeliveryCompletionReaderService,
-  type DeliveryCompletionOrder,
-} from 'src/features/orders/order-delivery-completion-reader.public-api';
+import { OrderDeliveryService, type DeliveryCompletionOrder } from 'src/features/orders/public-api';
 import { Repository } from 'typeorm';
 
 type CompletionResponse = {
@@ -43,7 +40,7 @@ export class DeliveryCompletionService {
     private readonly shippingDetailRepository: Repository<ShippingDetail>,
     @InjectRepository(ShipperProfile)
     private readonly shipperProfileRepository: Repository<ShipperProfile>,
-    private readonly orderCompletionReader: OrderDeliveryCompletionReaderService,
+    private readonly orderDelivery: OrderDeliveryService,
     private readonly outboxService: OutboxService,
   ) {}
 
@@ -63,7 +60,7 @@ export class DeliveryCompletionService {
         throw new ForbiddenException('You are not assigned to this order');
       }
 
-      const order = await this.orderCompletionReader.findForCompletion(orderId);
+      const order = await this.orderDelivery.findForCompletion(orderId);
       if (!order) {
         throw new NotFoundException('Đơn hàng không tồn tại');
       }

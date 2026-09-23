@@ -9,13 +9,7 @@ import { ShipperCertificateInfo } from '../../entities/shipperCertificateInfo.en
 import { ShipperProfile } from '../../entities/shipperProfile.entity';
 import { ShippingDetail } from '../../entities/shippingDetail.entity';
 import { AuthModule } from '../auth/auth-module.public-api';
-import { OrderDeliveryCompletionReaderModule } from '../orders/order-delivery-completion-reader.public-api';
-import { OrderDeliveryDispatchReaderModule } from '../orders/order-delivery-dispatch-reader.public-api';
-import {
-  OrderDeliveryLifecycleCommandModule,
-  OrderDeliveryShipperReaderModule,
-} from '../orders/order-delivery-shipper.public-api';
-import { OrderTrackingReaderModule } from '../orders/order-tracking-reader.public-api';
+import { OrdersModule } from '../orders/public-api';
 import { SystemConstraintsModule } from '../system-constraints/public-api';
 import { IdentityModule } from '../users/public-api';
 import { RedisPendingAssignmentStore } from './adapters/redis-pending-assignment-store.service';
@@ -69,11 +63,7 @@ const deliveryQueueModule = QueueModule.register({
     AppCacheModule,
     EventsModule,
     AuthModule,
-    OrderDeliveryDispatchReaderModule,
-    OrderDeliveryCompletionReaderModule,
-    OrderDeliveryLifecycleCommandModule,
-    OrderDeliveryShipperReaderModule,
-    OrderTrackingReaderModule,
+    OrdersModule,
     IdentityModule,
     SystemConstraintsModule,
     deliveryQueueModule,

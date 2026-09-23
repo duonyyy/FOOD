@@ -1,4 +1,4 @@
-import { OrderPricingService } from 'src/features/orders/services/order-core.service';
+import { OrderPricingService } from 'src/features/orders/services/order-rules.service';
 
 describe('OrderPricingService', () => {
   const service = new OrderPricingService();

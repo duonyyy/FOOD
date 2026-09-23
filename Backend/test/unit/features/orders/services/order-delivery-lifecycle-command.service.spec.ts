@@ -1,15 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
 import { ORDER_STATUS_CHANGED_EVENT } from 'src/common/events/order-events';
 import { Order } from 'src/entities/order.entity';
-import { OrderDeliveryLifecycleCommandService } from 'src/features/orders/services/order-delivery-lifecycle-command.service';
+import { OrderDeliveryService } from 'src/features/orders/services/order-delivery.service';
 import { pubSub } from 'src/pubsub';
 
 jest.mock('src/pubsub', () => ({ pubSub: { publish: jest.fn().mockResolvedValue(true) } }));
 
-describe('OrderDeliveryLifecycleCommandService', () => {
+describe('OrderDeliveryService lifecycle', () => {
   let order: Order;
   let repository: { manager: { transaction: jest.Mock }; save: jest.Mock; findOne: jest.Mock };
-  let service: OrderDeliveryLifecycleCommandService;
+  let service: OrderDeliveryService;
   const eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
   const outboxService = {
     enqueue: jest.fn().mockResolvedValue({ id: 'status-event-1' }),
@@ -28,7 +28,7 @@ describe('OrderDeliveryLifecycleCommandService', () => {
         ),
       },
     };
-    service = new OrderDeliveryLifecycleCommandService(
+    service = new OrderDeliveryService(
       repository as never,
       eventBus as never,
       outboxService as never,

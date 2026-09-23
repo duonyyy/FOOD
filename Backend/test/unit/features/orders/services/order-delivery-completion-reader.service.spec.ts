@@ -1,6 +1,6 @@
-import { OrderDeliveryCompletionReaderService } from 'src/features/orders/services/order-delivery-completion-reader.service';
+import { OrderDeliveryService } from 'src/features/orders/services/order-delivery.service';
 
-describe('OrderDeliveryCompletionReaderService', () => {
+describe('OrderDeliveryService completion data', () => {
   it('includes the customer snapshot required by Delivery completion events', async () => {
     const repository = {
       findOne: jest.fn().mockResolvedValue({
@@ -14,7 +14,7 @@ describe('OrderDeliveryCompletionReaderService', () => {
         shipperEarnings: null,
       }),
     };
-    const service = new OrderDeliveryCompletionReaderService(repository as never);
+    const service = new OrderDeliveryService(repository as never, {} as never, {} as never);
 
     await expect(service.findForCompletion('order-1')).resolves.toEqual({
       orderId: 'order-1',

@@ -9,10 +9,9 @@ import {
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import {
-  OrderDeliveryDispatchReaderService,
+  OrderDeliveryService,
   type DeliveryDispatchCandidate,
-} from 'src/features/orders/order-delivery-dispatch-reader.public-api';
-import { OrderDeliveryLifecycleCommandService } from 'src/features/orders/order-delivery-shipper.public-api';
+} from 'src/features/orders/public-api';
 import { QueueService } from 'src/infra/queue/public-api';
 import type {
   DeliveryAssignmentJobData,
@@ -61,7 +60,7 @@ export class DeliveryDispatchService {
   private readonly logger = new Logger(DeliveryDispatchService.name);
 
   constructor(
-    private readonly orderDispatchReader: OrderDeliveryDispatchReaderService,
+    private readonly orderDelivery: OrderDeliveryService,
     @InjectRepository(ShippingDetail)
     private readonly shippingDetailRepository: Repository<ShippingDetail>,
     private readonly queueService: QueueService,
@@ -69,7 +68,6 @@ export class DeliveryDispatchService {
     private readonly shipperService: ShipperService,
     private readonly activeShipperTracker: ActiveShipperTrackerService,
     private readonly eventBus: InProcessEventBus,
-    private readonly orderLifecycleCommand: OrderDeliveryLifecycleCommandService,
   ) {}
 
   // ==========================================
@@ -328,7 +326,7 @@ export class DeliveryDispatchService {
 
     for (const assignment of expiredAssignments) {
       try {
-        await this.orderLifecycleCommand.cancelUnassigned(assignment.orderId);
+        await this.orderDelivery.cancelUnassigned(assignment.orderId);
         await this.store.remove(assignment);
       } catch (error) {
         this.logger.error(
@@ -354,7 +352,7 @@ export class DeliveryDispatchService {
 
     let orderIds: string[];
     try {
-      orderIds = await this.orderDispatchReader.listConfirmedOrderIds(100);
+      orderIds = await this.orderDelivery.listConfirmedOrderIds(100);
     } catch (error) {
       result.failed = 1;
       this.logger.error('Failed to find confirmed orders missing assignments', error);
@@ -546,7 +544,7 @@ export class DeliveryDispatchService {
   }
 
   private async findDispatchCandidate(orderId: string): Promise<DeliveryDispatchCandidate | null> {
-    return this.orderDispatchReader.findConfirmedDispatchCandidate(orderId);
+    return this.orderDelivery.findConfirmedDispatchCandidate(orderId);
   }
 
   private async hasShippingDetail(orderId: string): Promise<boolean> {

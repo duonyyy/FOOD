@@ -13,7 +13,7 @@ import {
 } from 'src/common/events/notification-requested.event';
 import { Conversation, ConversationType } from 'src/entities/conversation.entity';
 import { Message } from 'src/entities/message.entity';
-import { OrderService } from 'src/features/orders/public-api';
+import { OrderMessagingService } from 'src/features/orders/public-api';
 import { RestaurantReaderService } from 'src/features/restaurants/public-api';
 import { IdentityUserQueryService, type UserIdentity } from 'src/features/users/public-api';
 import { pubSub } from 'src/pubsub';
@@ -31,7 +31,7 @@ export class MessengerService {
     private messageRepository: Repository<Message>,
     private readonly identityReader: IdentityUserQueryService,
     private readonly restaurantReader: RestaurantReaderService,
-    private readonly orderService: OrderService,
+    private readonly orderMessaging: OrderMessagingService,
     private readonly eventBus: InProcessEventBus,
   ) {}
 
@@ -154,7 +154,7 @@ export class MessengerService {
       throw new BadRequestException('Order ID is required for shipper conversations');
     }
 
-    await this.orderService.assertCustomerCanChatWithShipper({
+    await this.orderMessaging.assertCustomerCanChatWithShipper({
       orderId,
       customerId: userId,
       shipperId,
@@ -200,7 +200,7 @@ export class MessengerService {
     // Get shop owners from restaurants (any restaurant the user might want to contact)
     const [restaurants, orders] = await Promise.all([
       this.restaurantReader.listActiveRestaurantsForMessaging(),
-      this.orderService.listCustomerShipperChatPartners(userId),
+      this.orderMessaging.listCustomerShipperChatPartners(userId),
     ]);
 
     // Get shippers from user's orders that are assigned and in progress
@@ -270,7 +270,7 @@ export class MessengerService {
       conversation.conversationType === ConversationType.CUSTOMER_SHIPPER &&
       conversation.orderId
     ) {
-      const isOrderOpen = await this.orderService.isOrderOpenForShipperMessaging(
+      const isOrderOpen = await this.orderMessaging.isOrderOpenForShipperMessaging(
         conversation.orderId,
       );
 

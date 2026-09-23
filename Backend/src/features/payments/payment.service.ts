@@ -120,6 +120,16 @@ export class PaymentService {
     }
   }
 
+  /** Compatibility entry point for an Orders route; Payments owns the checkout and gateway. */
+  async processPaymentForOrder(
+    orderId: string,
+    actorId: string,
+    paymentDetails: Record<string, unknown>,
+  ): Promise<PaymentResult> {
+    const checkout = await this.findOwnedCheckoutByOrderId(orderId, actorId);
+    return this.processPayment(checkout.id, actorId, paymentDetails);
+  }
+
   async cancelCheckout(checkoutId: string, actorId: string): Promise<Checkout> {
     const checkout = await this.findOwnedCheckout(checkoutId, actorId);
     return this.cancelPendingCheckout(checkout);

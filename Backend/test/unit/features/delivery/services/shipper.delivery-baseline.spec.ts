@@ -73,8 +73,7 @@ describe('Shipper delivery boundary baseline', () => {
       pending as never,
       assignmentSaga as never,
       completionService as never,
-      lifecycle as never,
-      reader as never,
+      { ...lifecycle, ...reader } as never,
       {} as never,
       {} as never,
     );

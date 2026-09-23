@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { AddressService } from 'src/features/locations/public-api';
 import { FoodIntegrationService } from 'src/features/menu/public-api';
-import { OrderService, type ChatReorderOrder } from 'src/features/orders/public-api';
+import { OrderMessagingService, type ChatReorderOrder } from 'src/features/orders/public-api';
 import { ChatMetadata, ChatReply } from '../types/chat.types';
 
 @Injectable()
 export class QuickReorderFlowService {
   constructor(
-    private readonly ordering: OrderService,
+    private readonly orderMessaging: OrderMessagingService,
     private readonly locationReader: AddressService,
     private readonly catalogReader: FoodIntegrationService,
   ) {}
@@ -18,7 +18,7 @@ export class QuickReorderFlowService {
   }
 
   async start(userId: string, metadata: ChatMetadata): Promise<ChatReply> {
-    const quickOrders = await this.ordering.getRecentOrdersForReorder(userId, 3);
+    const quickOrders = await this.orderMessaging.getRecentOrdersForReorder(userId, 3);
 
     if (!quickOrders || quickOrders.length === 0) {
       return {
@@ -55,7 +55,7 @@ export class QuickReorderFlowService {
         };
       }
 
-      const currentOrder = (await this.ordering.getRecentOrdersForReorder(userId, 3)).find(
+      const currentOrder = (await this.orderMessaging.getRecentOrdersForReorder(userId, 3)).find(
         (order) => order.orderId === metadata.pendingQuickOrder?.orderId,
       );
       if (!currentOrder) {
@@ -70,7 +70,7 @@ export class QuickReorderFlowService {
     }
 
     const chosenIndex = parseInt(userMessage, 10) - 1;
-    const quickOrders = await this.ordering.getRecentOrdersForReorder(userId, 3);
+    const quickOrders = await this.orderMessaging.getRecentOrdersForReorder(userId, 3);
 
     if (isNaN(chosenIndex) || !quickOrders?.[chosenIndex]) {
       return {
@@ -153,7 +153,7 @@ export class QuickReorderFlowService {
       };
     }
 
-    const newOrder = await this.ordering.createChatOrder({
+    const newOrder = await this.orderMessaging.createChatOrder({
       customerId: userId,
       restaurantId: selectedOrder.restaurantId,
       addressId: fallbackAddressId,

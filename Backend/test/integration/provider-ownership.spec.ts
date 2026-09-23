@@ -2,7 +2,7 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConfigService } from '@nestjs/config';
 import { AuthModule } from 'src/features/auth/auth.module';
 import { WebSocketAuthGuard } from 'src/features/auth/public-api';
-import { OrderService } from 'src/features/orders/services/order.service';
+import { OrderCreationService } from 'src/features/orders/public-api';
 import { PaymentModule } from 'src/features/payments/payment.module';
 import { SystemConstraintsModule } from 'src/features/system-constraints/public-api';
 import { SystemConstraintsService } from 'src/features/system-constraints/services/system-constraints.service';
@@ -28,8 +28,8 @@ describe('provider ownership', () => {
     expect(getModuleProviders(PaymentModule)).not.toContain(SystemConstraintsService);
   });
 
-  it('does not re-provide OrderService in payment after the payment event boundary', () => {
-    expect(getModuleProviders(PaymentModule)).not.toContain(OrderService);
+  it('does not re-provide the Orders creation service in Payments', () => {
+    expect(getModuleProviders(PaymentModule)).not.toContain(OrderCreationService);
   });
 });
 

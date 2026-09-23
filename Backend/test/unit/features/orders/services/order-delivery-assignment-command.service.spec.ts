@@ -1,11 +1,11 @@
 import { Order } from 'src/entities/order.entity';
-import { OrderDeliveryAssignmentCommandService } from 'src/features/orders/services/order-delivery-assignment-command.service';
+import { OrderDeliveryService } from 'src/features/orders/services/order-delivery.service';
 import { pubSub } from 'src/pubsub';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 
 jest.mock('src/pubsub', () => ({ pubSub: { publish: jest.fn().mockResolvedValue(undefined) } }));
 
-describe('OrderDeliveryAssignmentCommandService', () => {
+describe('OrderDeliveryService assignment', () => {
   beforeEach(() => jest.clearAllMocks());
 
   const createService = (status: string) => {
@@ -22,7 +22,10 @@ describe('OrderDeliveryAssignmentCommandService', () => {
         ),
       },
     };
-    return { order, service: new OrderDeliveryAssignmentCommandService(repository as never) };
+    return {
+      order,
+      service: new OrderDeliveryService(repository as never, {} as never, {} as never),
+    };
   };
 
   it('claims a confirmed order through the Orders state machine', async () => {

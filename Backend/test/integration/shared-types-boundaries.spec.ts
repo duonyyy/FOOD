@@ -54,22 +54,22 @@ describe('shared type ownership boundaries', () => {
   });
 
   it('removes the local OrderStatus declaration while preserving the Orders public contract', () => {
-    const orderCore = source(
-      resolve(process.cwd(), 'src/features/orders/services/order-core.service.ts'),
+    const orderRules = source(
+      resolve(process.cwd(), 'src/features/orders/services/order-rules.service.ts'),
     );
     const ordersPublicApi = source(resolve(process.cwd(), 'src/features/orders/public-api.ts'));
     const sourceAndTests = [resolve(process.cwd(), 'src'), resolve(process.cwd(), 'test')]
       .flatMap(typescriptFiles)
       .map(source);
 
-    expect(orderCore).not.toMatch(/export enum OrderStatus/);
+    expect(orderRules).not.toMatch(/export enum OrderStatus/);
     expect(ordersPublicApi).toContain(
       "export { OrderStatus } from 'src/shared/types/enums/order-status.enum';",
     );
 
     for (const fileSource of sourceAndTests) {
       expect(fileSource).not.toMatch(
-        /import\s*\{[^}]*\bOrderStatus\b[^}]*\}\s*from\s*['"][^'"]*order-core\.service['"]/s,
+        /import\s*\{[^}]*\bOrderStatus\b[^}]*\}\s*from\s*['"][^'"]*order-rules\.service['"]/s,
       );
       expect(fileSource).not.toMatch(
         /from\s+['"][^'"]*features\/auth\/enums\/auth-provider\.enum['"]/,

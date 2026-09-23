@@ -23,8 +23,9 @@ import { RestaurantProfileService } from 'src/features/restaurants/public-api';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
-import { OrderActorPolicy } from '../services/order-core.service';
-import { OrderService } from '../services/order.service';
+import { MerchantOrdersService } from '../services/merchant-orders.service';
+import { OrderActorPolicy } from '../services/order-rules.service';
+import { PublicOrdersService } from '../services/public-orders.service';
 
 @Controller('orders')
 @ApiTags('orders')
@@ -33,7 +34,8 @@ export class MerchantOrdersController {
   private readonly actorPolicy = new OrderActorPolicy();
 
   constructor(
-    private readonly orderService: OrderService,
+    private readonly merchantOrders: MerchantOrdersService,
+    private readonly publicOrders: PublicOrdersService,
     private readonly restaurantService: RestaurantProfileService,
   ) {}
 
@@ -60,7 +62,7 @@ export class MerchantOrdersController {
       throw new ForbiddenException('You do not own any restaurant');
     }
 
-    return this.orderService.getOrdersByRestaurant(userRestaurant.id, page, pageSize, status);
+    return this.merchantOrders.getOrdersByRestaurant(userRestaurant.id, page, pageSize, status);
   }
 
   @Put(':id/status')
@@ -77,7 +79,7 @@ export class MerchantOrdersController {
     @CurrentActor() actor: CurrentActorData,
   ) {
     const merchantId = actor.userId;
-    const currentOrder = await this.orderService.getOrderById(orderId);
+    const currentOrder = await this.publicOrders.getOrderById(orderId);
     this.actorPolicy.assertCanManageRestaurantOrder(currentOrder, merchantId);
 
     const status = body?.status;
@@ -98,7 +100,7 @@ export class MerchantOrdersController {
       );
     }
 
-    const updatedOrder = await this.orderService.updateOrderStatus(orderId, status);
+    const updatedOrder = await this.merchantOrders.updateOrderStatus(orderId, status);
 
     this.logger.log(
       `Order ${orderId} status updated to ${status} by restaurant owner ${merchantId}. User ${updatedOrder.user?.id ?? currentOrder.user?.id ?? 'unknown'} notified.`,

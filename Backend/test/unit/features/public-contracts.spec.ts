@@ -19,13 +19,10 @@ import {
   type GetOrderableItemsRequest,
 } from 'src/features/menu/public-api';
 import {
-  OrderTrackingReaderModule,
-  OrderTrackingReaderService,
-} from 'src/features/orders/order-tracking-reader.public-api';
-import {
   OrderAnalyticsService,
-  OrderReviewRulesService,
-  OrderService,
+  OrderDeliveryService,
+  OrderMessagingService,
+  OrderRulesService,
   OrdersModule,
 } from 'src/features/orders/public-api';
 import { PaymentModule, PaymentService } from 'src/features/payments/public-api';
@@ -73,14 +70,7 @@ describe('feature public contracts', () => {
     expect(IdentityModule).toBeDefined();
   });
 
-  it('exports the narrow Phase 3 Orders tracking reader without loading OrdersModule', () => {
-    const trackingReaderExports = Reflect.getMetadata(
-      MODULE_METADATA.EXPORTS,
-      OrderTrackingReaderModule,
-    ) as unknown[];
-
-    expect(trackingReaderExports).toContain(OrderTrackingReaderService);
-
+  it('keeps Delivery on the main Orders public API', () => {
     const deliveryModule = readFileSync(
       resolve(process.cwd(), 'src/features/delivery/delivery.module.ts'),
       'utf8',
@@ -89,10 +79,12 @@ describe('feature public contracts', () => {
       resolve(process.cwd(), 'src/features/delivery/controllers/customer-delivery.controller.ts'),
       'utf8',
     );
-    expect(deliveryModule).toContain('OrderTrackingReaderModule');
-    expect(deliveryModule).not.toContain('OrdersModule');
-    expect(deliveryController).toContain('order-tracking-reader.public-api');
-    expect(deliveryController).toContain('OrderTrackingReaderService');
+    const ordersExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, OrdersModule) as unknown[];
+    expect(ordersExports).toContain(OrderDeliveryService);
+    expect(deliveryModule).toContain("from '../orders/public-api'");
+    expect(deliveryModule).toContain('OrdersModule');
+    expect(deliveryController).toContain('src/features/orders/public-api');
+    expect(deliveryController).toContain('OrderDeliveryService');
   });
 
   it('keeps Analytics on the main Orders public API', () => {
@@ -161,7 +153,12 @@ describe('feature public contracts', () => {
     const paymentExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, PaymentModule) as unknown[];
 
     expect(ordersExports).toEqual(
-      expect.arrayContaining([OrderAnalyticsService, OrderReviewRulesService, OrderService]),
+      expect.arrayContaining([
+        OrderAnalyticsService,
+        OrderDeliveryService,
+        OrderMessagingService,
+        OrderRulesService,
+      ]),
     );
     expect(deliveryExports).toContain(DeliveryIntegrationService);
     expect(profileExports).toContain(ShipperProfileService);
@@ -170,7 +167,7 @@ describe('feature public contracts', () => {
 
   it('keeps Menu consumers on FoodIntegrationService through the public API', () => {
     const consumers = [
-      'src/features/orders/services/customer-orders.service.ts',
+      'src/features/orders/services/order-creation.service.ts',
       'src/features/restaurants/services/restaurant-discovery.service.ts',
       'src/features/reviews/services/customer-reviews.service.ts',
       'src/features/communications/chat/services/chat-context.service.ts',
@@ -197,9 +194,9 @@ describe('feature public contracts', () => {
       ['src/features/menu/foods/services/customer-food.service.ts', 'MerchantCatalogService'],
       ['src/features/menu/foods/services/merchant-food.service.ts', 'MerchantCatalogService'],
       ['src/features/menu/toppings/topping-command.service.ts', 'MerchantCatalogService'],
-      ['src/features/orders/services/customer-orders.service.ts', 'AddressService'],
-      ['src/features/orders/services/customer-orders.service.ts', 'RestaurantReaderService'],
-      ['src/features/orders/services/customer-orders.service.ts', 'IdentityUserQueryService'],
+      ['src/features/orders/services/order-creation.service.ts', 'AddressService'],
+      ['src/features/orders/services/order-creation.service.ts', 'RestaurantReaderService'],
+      ['src/features/orders/services/order-creation.service.ts', 'IdentityUserQueryService'],
       ['src/features/orders/controllers/order.resolver.ts', 'RestaurantReaderService'],
       ['src/features/restaurants/services/restaurant-profile.service.ts', 'AddressService'],
       [

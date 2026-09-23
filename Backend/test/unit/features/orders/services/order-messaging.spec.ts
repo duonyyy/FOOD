@@ -1,12 +1,12 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { OrderCoreService } from 'src/features/orders/services/order-core.service';
+import { OrderRulesService } from 'src/features/orders/services/order-rules.service';
 
 describe('Order messaging authorization', () => {
   const repository = {
     findOne: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
-  const service = new OrderCoreService(repository as never);
+  const service = new OrderRulesService(repository as never);
 
   beforeEach(() => jest.clearAllMocks());
 

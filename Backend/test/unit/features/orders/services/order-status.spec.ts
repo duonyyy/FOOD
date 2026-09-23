@@ -3,7 +3,7 @@ import {
   InvalidOrderTransitionError,
   ORDER_STATUS_TRANSITIONS,
   OrderStateMachine,
-} from 'src/features/orders/services/order-core.service';
+} from 'src/features/orders/services/order-rules.service';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 
 describe('OrderStateMachine', () => {

@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Review, ReviewType } from 'src/entities/review.entity';
 import { FoodIntegrationService } from 'src/features/menu/public-api';
-import { OrderReviewRulesService } from 'src/features/orders/public-api';
+import { OrderRulesService } from 'src/features/orders/public-api';
 import { In, Repository } from 'typeorm';
 import {
   CreateFoodReviewDto,
@@ -23,7 +23,7 @@ export class CustomerReviewsService {
   constructor(
     @InjectRepository(Review)
     private readonly reviewRepository: Repository<Review>,
-    private readonly orderReviewRules: OrderReviewRulesService,
+    private readonly orderRules: OrderRulesService,
     private readonly foodReviewTargetReader: FoodIntegrationService,
   ) {}
 
@@ -31,7 +31,7 @@ export class CustomerReviewsService {
     createReviewDto: CreateFoodReviewDto,
     actorUserId: string,
   ): Promise<ReviewResponseDto> {
-    await this.orderReviewRules.assertCustomerCanReviewFood({
+    await this.orderRules.assertCustomerCanReviewFood({
       orderId: createReviewDto.orderId,
       customerId: actorUserId,
       foodId: createReviewDto.foodId,
@@ -60,7 +60,7 @@ export class CustomerReviewsService {
     createReviewDto: CreateShipperReviewDto,
     actorUserId: string,
   ): Promise<ReviewResponseDto> {
-    await this.orderReviewRules.assertCustomerCanReviewShipper({
+    await this.orderRules.assertCustomerCanReviewShipper({
       orderId: createReviewDto.orderId,
       customerId: actorUserId,
       shipperId: createReviewDto.shipperId,
@@ -89,7 +89,7 @@ export class CustomerReviewsService {
     actorUserId: string,
     actorRole?: string,
   ): Promise<OrderReviewInfo> {
-    const context = await this.orderReviewRules.getOrderReviewContext({
+    const context = await this.orderRules.getOrderReviewContext({
       orderId,
       actorId: actorUserId,
       actorRole,

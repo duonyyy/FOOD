@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { FoodIntegrationService } from 'src/features/menu/public-api';
-import { OrderService } from 'src/features/orders/public-api';
+import { OrderMessagingService } from 'src/features/orders/public-api';
 import { ChatContext, ChatMenuItem } from '../types/chat.types';
 
 @Injectable()
 export class ChatContextService {
   constructor(
     private readonly catalogReader: FoodIntegrationService,
-    private readonly ordering: OrderService,
+    private readonly orderMessaging: OrderMessagingService,
   ) {}
 
   async getContext(userId: string): Promise<ChatContext> {
     const [menu, orderHistory] = await Promise.all([
       this.catalogReader.listAvailableFoods(),
-      this.ordering.getRecentOrdersForReorder(userId, 5),
+      this.orderMessaging.getRecentOrdersForReorder(userId, 5),
     ]);
 
     const orderedFoods =

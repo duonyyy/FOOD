@@ -18,10 +18,10 @@ import {
   SHIPPER_OFFER_REQUESTED_EVENT,
   type ShipperOfferRequestedEvent,
 } from 'src/common/events/shipper-offer-requested.event';
-import { AdminOrdersService } from 'src/features/orders/services/admin-orders.service';
 import { pubSub } from 'src/pubsub';
-import { OrderCoreService } from './order-core.service';
-import { OrderDeliveryAssignmentCommandService } from './order-delivery-assignment-command.service';
+import { AdminOrdersService } from './admin-orders.service';
+import { OrderDeliveryService } from './order-delivery.service';
+import { PublicOrdersService } from './public-orders.service';
 
 @Injectable()
 export class DeliveryCompletedOrderHandler implements OnModuleInit, OnModuleDestroy {
@@ -80,7 +80,7 @@ export class DeliveryAssignmentRequestedOrderHandler implements OnModuleInit, On
 
   constructor(
     private readonly eventBus: InProcessEventBus,
-    private readonly assignmentCommands: OrderDeliveryAssignmentCommandService,
+    private readonly orderDelivery: OrderDeliveryService,
   ) {}
 
   onModuleInit(): void {
@@ -95,7 +95,7 @@ export class DeliveryAssignmentRequestedOrderHandler implements OnModuleInit, On
   }
 
   private async handle(event: DeliveryAssignmentRequestedEvent): Promise<void> {
-    const result = await this.assignmentCommands.claim(event.orderId);
+    const result = await this.orderDelivery.claim(event.orderId);
     if (result.accepted) {
       await this.eventBus.publish(DELIVERY_ASSIGNMENT_CLAIMED_EVENT, event);
       return;
@@ -115,7 +115,7 @@ export class ShipperOfferRequestedOrderHandler implements OnModuleInit, OnModule
 
   constructor(
     private readonly eventBus: InProcessEventBus,
-    private readonly orderCoreService: OrderCoreService,
+    private readonly publicOrders: PublicOrdersService,
   ) {}
 
   onModuleInit(): void {
@@ -130,7 +130,7 @@ export class ShipperOfferRequestedOrderHandler implements OnModuleInit, OnModule
   }
 
   private async handle(event: ShipperOfferRequestedEvent): Promise<void> {
-    const order = await this.orderCoreService.getOrderById(event.orderId);
+    const order = await this.publicOrders.getOrderById(event.orderId);
     if (order.status !== 'confirmed' || order.shippingDetail) {
       return;
     }

@@ -1,5 +1,9 @@
 export { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 export {
+  orderSubscriptionGraphqlType,
+  type ShipperOrderSubscriptionPayload,
+} from './contracts/order-subscription.contract';
+export {
   CalculateOrderDto,
   CalculateOrderItemDto,
   CalculateOrderToppingDto,
@@ -20,12 +24,18 @@ export { AdminOrdersService } from './services/admin-orders.service';
 export { CustomerOrdersService } from './services/customer-orders.service';
 export { MerchantOrdersService } from './services/merchant-orders.service';
 export { OrderAnalyticsService } from './services/order-analytics.service';
+export { OrderCreationService } from './services/order-creation.service';
+export {
+  OrderDeliveryService,
+  type DeliveryAssignmentClaimResult,
+} from './services/order-delivery.service';
+export { OrderMessagingService } from './services/order-messaging.service';
 export {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
   OrderActorPolicy,
-  OrderCoreService,
   OrderPricingService,
+  OrderRulesService,
   OrderStateMachine,
   createOrderItemSnapshot,
   parseOrderStatus,
@@ -36,14 +46,19 @@ export {
   type OrderPricingItem,
   type OrderPricingResult,
   type OrderPricingTopping,
-} from './services/order-core.service';
-export { OrderReviewRulesService } from './services/order-review-rules.service';
-export { OrderService } from './services/order.service';
+} from './services/order-rules.service';
+export { PublicOrdersService } from './services/public-orders.service';
 export type {
   ChatReorderOrder,
   CreateChatOrderRequest,
   CreatedChatOrder,
 } from './types/chat-ordering.types';
+export type { DeliveryCompletionOrder } from './types/delivery-completion.types';
+export type { DeliveryDispatchCandidate } from './types/delivery-dispatch.types';
+export type {
+  DeliveryOrderLifecycleState,
+  ShipperOrderView,
+} from './types/delivery-shipper-order.types';
 export type { OrderAnalyticsData, OrderAnalyticsPage } from './types/order-analytics.types';
 export type {
   AssertCustomerCanChatWithShipperRequest,

@@ -1,6 +1,6 @@
-import { OrderDeliveryDispatchReaderService } from 'src/features/orders/services/order-delivery-dispatch-reader.service';
+import { OrderDeliveryService } from 'src/features/orders/services/order-delivery.service';
 
-describe('OrderDeliveryDispatchReaderService', () => {
+describe('OrderDeliveryService dispatch data', () => {
   it('returns only dispatch data for a confirmed order', async () => {
     const repository = {
       findOne: jest.fn().mockResolvedValue({
@@ -13,7 +13,7 @@ describe('OrderDeliveryDispatchReaderService', () => {
         restaurant: { latitude: '10.77', longitude: '106.7' },
       }),
     };
-    const service = new OrderDeliveryDispatchReaderService(repository as never);
+    const service = new OrderDeliveryService(repository as never, {} as never, {} as never);
 
     await expect(service.findConfirmedDispatchCandidate('order-1')).resolves.toEqual({
       orderId: 'order-1',
@@ -34,7 +34,7 @@ describe('OrderDeliveryDispatchReaderService', () => {
     const repository = {
       find: jest.fn().mockResolvedValue([{ id: 'order-1' }, { id: 'order-2' }]),
     };
-    const service = new OrderDeliveryDispatchReaderService(repository as never);
+    const service = new OrderDeliveryService(repository as never, {} as never, {} as never);
 
     await expect(service.listConfirmedOrderIds(1_000)).resolves.toEqual(['order-1', 'order-2']);
 

@@ -3,7 +3,7 @@ import { INestApplication, NotFoundException, UnauthorizedException } from '@nes
 import { Test } from '@nestjs/testing';
 import { CustomerDeliveryController } from 'src/features/delivery/controllers/customer-delivery.controller';
 import { DeliveryIntegrationService } from 'src/features/delivery/services/integration/delivery-integration.service';
-import { OrderTrackingReaderService } from 'src/features/orders/order-tracking-reader.public-api';
+import { OrderDeliveryService } from 'src/features/orders/public-api';
 import { AuthGuard } from 'src/features/users/public-api';
 import request = require('supertest');
 
@@ -24,7 +24,7 @@ describe('Customer delivery tracking policy (e2e)', () => {
     const module = await Test.createTestingModule({
       controllers: [CustomerDeliveryController],
       providers: [
-        { provide: OrderTrackingReaderService, useValue: orderTrackingReader },
+        { provide: OrderDeliveryService, useValue: orderTrackingReader },
         { provide: DeliveryIntegrationService, useValue: deliveryIntegrationService },
       ],
     })

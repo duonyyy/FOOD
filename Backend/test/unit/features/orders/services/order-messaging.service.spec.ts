@@ -1,15 +1,13 @@
-import { OrderService } from 'src/features/orders/services/order.service';
+import { OrderMessagingService } from 'src/features/orders/services/order-messaging.service';
 
-describe('OrderService chat facade', () => {
+describe('OrderMessagingService', () => {
   const createService = () => {
     const customerOrdersService = {
       getMinimalOrderHistoryForQuickReorder: jest.fn(),
       createOrder: jest.fn(),
     };
-    const service = new OrderService(
+    const service = new OrderMessagingService(
       customerOrdersService as never,
-      {} as never,
-      {} as never,
       {} as never,
     );
 

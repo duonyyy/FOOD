@@ -8,7 +8,7 @@ import {
   ShipperProfileModule,
   ShipperProfileService,
 } from 'src/features/delivery/shipper-profile.public-api';
-import { OrderTrackingReaderModule } from 'src/features/orders/order-tracking-reader.public-api';
+import { OrdersModule } from 'src/features/orders/public-api';
 
 describe('Delivery ownership boundary', () => {
   it('registers delivery persistence under DeliveryModule', () => {
@@ -41,8 +41,8 @@ describe('Delivery ownership boundary', () => {
     );
   });
 
-  it('imports the narrow Orders tracking reader rather than OrdersModule', () => {
-    expect(Reflect.getMetadata('imports', DeliveryModule)).toContain(OrderTrackingReaderModule);
+  it('imports Orders through its single public module', () => {
+    expect(Reflect.getMetadata('imports', DeliveryModule)).toContain(OrdersModule);
   });
 
   it('registers the profile repository inside the Delivery profile module', () => {

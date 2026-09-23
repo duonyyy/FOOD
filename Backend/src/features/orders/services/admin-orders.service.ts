@@ -19,10 +19,10 @@ import { LessThan, Repository } from 'typeorm';
 import {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
-  OrderCoreService,
   OrderStateMachine,
   parseOrderStatus,
-} from './order-core.service';
+} from './order-rules.service';
+import { PublicOrdersService } from './public-orders.service';
 
 @Injectable()
 export class AdminOrdersService {
@@ -32,7 +32,7 @@ export class AdminOrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    private readonly orderCoreService: OrderCoreService,
+    private readonly publicOrders: PublicOrdersService,
     private readonly eventBus: InProcessEventBus,
     private readonly outboxService: OutboxService,
     private readonly paymentCheckoutCommands: PaymentService,
@@ -56,14 +56,14 @@ export class AdminOrdersService {
       order: { createdAt: 'DESC' },
     });
 
-    return orders.map((order) => this.orderCoreService.cleanSensitiveData(order));
+    return orders.map((order) => this.publicOrders.cleanSensitiveData(order));
   }
 
   /**
    * Admin status update with state validation
    */
   async adminUpdateOrderStatus(id: string, status: string): Promise<Order> {
-    const order = await this.orderCoreService.getOrderById(id);
+    const order = await this.publicOrders.getOrderById(id);
     const previousStatus = parseOrderStatus(order.status);
     let nextStatus: OrderStatus;
 

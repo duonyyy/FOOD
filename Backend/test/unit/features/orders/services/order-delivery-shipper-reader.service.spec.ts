@@ -1,6 +1,6 @@
-import { OrderDeliveryShipperReaderService } from 'src/features/orders/services/order-delivery-shipper-reader.service';
+import { OrderDeliveryService } from 'src/features/orders/services/order-delivery.service';
 
-describe('OrderDeliveryShipperReaderService', () => {
+describe('OrderDeliveryService shipper data', () => {
   it('returns a plain read model, not a mutable Order entity', async () => {
     const order = {
       id: 'order-1',
@@ -15,7 +15,7 @@ describe('OrderDeliveryShipperReaderService', () => {
       ],
     };
     const repository = { findOne: jest.fn().mockResolvedValue(order) };
-    const service = new OrderDeliveryShipperReaderService(repository as never);
+    const service = new OrderDeliveryService(repository as never, {} as never, {} as never);
 
     await expect(service.getShipperOrder('order-1')).resolves.toEqual({
       id: 'order-1',

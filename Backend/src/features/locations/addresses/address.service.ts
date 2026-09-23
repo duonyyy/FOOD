@@ -1,10 +1,17 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Address } from 'src/entities/address.entity';
 import { LessThan, Repository } from 'typeorm';
 import {
-  type DeliveryAddress,
   type CreateAddressPayload,
+  type DeliveryAddress,
   type TemporaryDeliveryAddress,
 } from '../types/location.types';
 import { toAddressResponse } from './address.mapper';
@@ -27,6 +34,8 @@ type AddressWriteData = Pick<
 
 @Injectable()
 export class AddressService {
+  private readonly logger = new Logger(AddressService.name);
+
   constructor(
     @InjectRepository(Address)
     private readonly addressRepository: Repository<Address>,
@@ -84,6 +93,55 @@ export class AddressService {
       createdAt: LessThan(before),
     });
     return result.affected ?? 0;
+  }
+
+  /** Creates an address used only while a customer is placing an order. */
+  async createTemporaryAddress(
+    data: Omit<CreateAddressPayload, 'isTemporary'>,
+    ownerUserId: string,
+  ): Promise<{ addressId: string }> {
+    const latitude = Number(data.latitude);
+    const longitude = Number(data.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw new BadRequestException('Temporary address coordinates are required');
+    }
+    if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      throw new BadRequestException(`Invalid coordinates: lat=${latitude}, lng=${longitude}`);
+    }
+
+    return this.writeAddress(
+      {
+        ...data,
+        latitude,
+        longitude,
+        label: data.label || 'Địa chỉ tùy chỉnh',
+        isTemporary: true,
+      },
+      ownerUserId,
+    );
+  }
+
+  /** Removes a temporary address when order creation does not complete. */
+  async removeTemporaryAddress(addressId: string): Promise<void> {
+    const address = await this.findTemporaryAddress(addressId);
+    if (address) {
+      await this.removeAddress(addressId);
+    }
+  }
+
+  /** Address cleanup belongs to Locations, which owns the Address lifecycle. */
+  @Cron(CronExpression.EVERY_HOUR)
+  async cleanupExpiredTemporaryAddresses(): Promise<void> {
+    const before = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    try {
+      const removedCount = await this.removeExpiredTemporaryAddresses(before);
+      if (removedCount > 0) {
+        this.logger.log(`Removed ${removedCount} temporary addresses older than 24 hours`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to clean up temporary addresses: ${message}`);
+    }
   }
 
   // --- Original Controller Methods ---

@@ -17,10 +17,10 @@ import { Repository } from 'typeorm';
 import {
   InvalidOrderStatusError,
   InvalidOrderTransitionError,
-  OrderCoreService,
   OrderStateMachine,
   parseOrderStatus,
-} from './order-core.service';
+} from './order-rules.service';
+import { PublicOrdersService } from './public-orders.service';
 
 @Injectable()
 export class MerchantOrdersService {
@@ -30,7 +30,7 @@ export class MerchantOrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    private readonly orderCoreService: OrderCoreService,
+    private readonly publicOrders: PublicOrdersService,
     private readonly eventBus: InProcessEventBus,
     private readonly outboxService: OutboxService,
   ) {}
@@ -65,7 +65,7 @@ export class MerchantOrdersService {
       .getManyAndCount();
 
     return {
-      items: items.map((order) => this.orderCoreService.cleanSensitiveData(order)),
+      items: items.map((order) => this.publicOrders.cleanSensitiveData(order)),
       totalItems,
       page,
       pageSize,
@@ -78,7 +78,7 @@ export class MerchantOrdersService {
    */
   async confirmOrder(orderId: string, restaurantOwnerId: string): Promise<Order> {
     this.logger.log(`Confirming order ${orderId} by restaurant owner ${restaurantOwnerId}`);
-    const order = await this.orderCoreService.getOrderById(orderId);
+    const order = await this.publicOrders.getOrderById(orderId);
     const previousStatus = parseOrderStatus(order.status);
 
     try {
@@ -102,7 +102,7 @@ export class MerchantOrdersService {
    * Update order status with state machine transition validation
    */
   async updateOrderStatus(id: string, status: string): Promise<Order> {
-    const order = await this.orderCoreService.getOrderById(id);
+    const order = await this.publicOrders.getOrderById(id);
     const previousStatus = parseOrderStatus(order.status);
     let nextStatus: OrderStatus;
 

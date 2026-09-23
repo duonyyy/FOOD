@@ -6,7 +6,11 @@ import { AdminOrdersController } from 'src/features/orders/controllers/admin-ord
 import { CustomerOrdersController } from 'src/features/orders/controllers/customer-orders.controller';
 import { MerchantOrdersController } from 'src/features/orders/controllers/merchant-orders.controller';
 import { PublicOrdersController } from 'src/features/orders/controllers/public-orders.controller';
-import { OrderService } from 'src/features/orders/services/order.service';
+import { AdminOrdersService } from 'src/features/orders/services/admin-orders.service';
+import { CustomerOrdersService } from 'src/features/orders/services/customer-orders.service';
+import { MerchantOrdersService } from 'src/features/orders/services/merchant-orders.service';
+import { OrderCreationService } from 'src/features/orders/services/order-creation.service';
+import { PublicOrdersService } from 'src/features/orders/services/public-orders.service';
 import { PaymentService } from 'src/features/payments/public-api';
 import { RestaurantProfileService } from 'src/features/restaurants/public-api';
 import request = require('supertest');
@@ -15,7 +19,7 @@ describe('Order actor policy (e2e)', () => {
   let app: INestApplication;
   let actorId = 'customer-a';
   let adminAllowed = false;
-  const orderService = {
+  const customerOrders = {
     createOrder: jest.fn().mockResolvedValue({
       id: 'order-1',
       status: 'pending',
@@ -23,6 +27,12 @@ describe('Order actor policy (e2e)', () => {
       paymentMethod: 'cod',
       createdAt: new Date('2026-08-01T00:00:00Z'),
     }),
+    getOrdersByUser: jest.fn().mockResolvedValue({ items: [] }),
+    getOrderHistory: jest.fn(),
+    deleteOrder: jest.fn().mockResolvedValue({ message: 'deleted' }),
+    processPayment: jest.fn().mockResolvedValue({ success: true }),
+  };
+  const publicOrders = {
     getOrderById: jest.fn().mockResolvedValue({
       id: 'order-1',
       status: 'pending',
@@ -30,11 +40,20 @@ describe('Order actor policy (e2e)', () => {
       restaurant: { owner: { id: 'merchant-a' } },
       shippingDetail: { shipper: { id: 'shipper-a' } },
     }),
-    updateOrderStatus: jest.fn().mockResolvedValue({ id: 'order-1', status: 'confirmed' }),
-    getOrdersByUser: jest.fn().mockResolvedValue({ items: [] }),
     getOrderDetails: jest.fn().mockResolvedValue([]),
-    deleteOrder: jest.fn().mockResolvedValue({ message: 'deleted' }),
-    processPayment: jest.fn().mockResolvedValue({ success: true }),
+  };
+  const merchantOrders = {
+    updateOrderStatus: jest.fn().mockResolvedValue({ id: 'order-1', status: 'confirmed' }),
+    getOrdersByRestaurant: jest.fn(),
+  };
+  const adminOrders = {
+    getAllOrders: jest.fn(),
+    adminUpdateOrderStatus: jest.fn().mockResolvedValue({ id: 'order-1', status: 'canceled' }),
+  };
+  const orderCreation = {
+    calculateOrder: jest.fn(),
+    calculateOrderWithCustomAddress: jest.fn(),
+    validatePromotionForOrder: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -46,13 +65,15 @@ describe('Order actor policy (e2e)', () => {
         AdminOrdersController,
       ],
       providers: [
-        { provide: OrderService, useValue: orderService },
+        { provide: CustomerOrdersService, useValue: customerOrders },
+        { provide: PublicOrdersService, useValue: publicOrders },
+        { provide: MerchantOrdersService, useValue: merchantOrders },
+        { provide: AdminOrdersService, useValue: adminOrders },
+        { provide: OrderCreationService, useValue: orderCreation },
         { provide: PaymentService, useValue: { createCheckout: jest.fn() } },
         { provide: RestaurantProfileService, useValue: { findByOwnerId: jest.fn() } },
       ],
     })
-      .overrideProvider(OrderService)
-      .useValue(orderService)
       .overrideGuard(AuthGuard)
       .useValue({
         canActivate: (context: { switchToHttp: () => { getRequest: () => { user: unknown } } }) => {
@@ -94,7 +115,7 @@ describe('Order actor policy (e2e)', () => {
       })
       .expect(201);
 
-    expect(orderService.createOrder).toHaveBeenCalledWith(
+    expect(customerOrders.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'customer-a' }),
     );
   });
@@ -115,7 +136,7 @@ describe('Order actor policy (e2e)', () => {
       .send({ status: 'confirmed' })
       .expect(200);
 
-    expect(orderService.updateOrderStatus).toHaveBeenCalledWith('order-1', 'confirmed');
+    expect(merchantOrders.updateOrderStatus).toHaveBeenCalledWith('order-1', 'confirmed');
 
     actorId = 'customer-a';
     await request(app.getHttpServer())
@@ -136,6 +157,6 @@ describe('Order actor policy (e2e)', () => {
       .send({ status: 'canceled' })
       .expect(200);
 
-    expect(orderService.updateOrderStatus).toHaveBeenCalledWith('order-1', 'canceled');
+    expect(adminOrders.adminUpdateOrderStatus).toHaveBeenCalledWith('order-1', 'canceled');
   });
 });

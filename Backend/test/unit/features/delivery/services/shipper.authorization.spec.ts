@@ -38,8 +38,12 @@ function createService(
     pending as never,
     { assign: jest.fn() } as never,
     completion as never,
-    { startDelivery: jest.fn(), cancelDelivery: jest.fn() } as never,
-    { getShipperOrder: jest.fn(), getShipperOrders: jest.fn() } as never,
+    {
+      startDelivery: jest.fn(),
+      cancelDelivery: jest.fn(),
+      getShipperOrder: jest.fn(),
+      getShipperOrders: jest.fn(),
+    } as never,
     {} as never,
     {} as never,
   );

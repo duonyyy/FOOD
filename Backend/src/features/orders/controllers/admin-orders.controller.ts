@@ -13,14 +13,14 @@ import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { Permission } from 'src/shared/types/enums/permission.enum';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
-import { OrderService } from '../services/order.service';
+import { AdminOrdersService } from '../services/admin-orders.service';
 
 @Controller('orders')
 @ApiTags('orders')
 export class AdminOrdersController {
   private readonly logger = new Logger(AdminOrdersController.name);
 
-  constructor(private readonly orderService: OrderService) {}
+  constructor(private readonly adminOrders: AdminOrdersService) {}
 
   @Get()
   @UseGuards(RolesGuard)
@@ -30,7 +30,7 @@ export class AdminOrdersController {
   @ApiResponse({ status: 200, description: 'List of all orders' })
   @ApiResponse({ status: 403, description: 'Forbidden if actor lacks ORDER.READ capability' })
   getAllOrders() {
-    return this.orderService.getAllOrders();
+    return this.adminOrders.getAllOrders();
   }
 
   @Put('admin/:id/status')
@@ -52,6 +52,6 @@ export class AdminOrdersController {
     }
 
     this.logger.log(`Admin ${actor.userId} updating order ${orderId} status to ${body.status}`);
-    return this.orderService.updateOrderStatus(orderId, body.status);
+    return this.adminOrders.adminUpdateOrderStatus(orderId, body.status);
   }
 }

@@ -2,10 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import {
-  OrderDeliveryLifecycleCommandService,
-  OrderDeliveryShipperReaderService,
-} from 'src/features/orders/order-delivery-shipper.public-api';
+import { OrderDeliveryService } from 'src/features/orders/public-api';
 import { Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
 import { DeliveryDispatchService } from '../dispatch/delivery-dispatch.service';
@@ -34,8 +31,7 @@ export class ShipperService extends ShipperDeliveryService {
     pendingAssignmentService: DeliveryDispatchService,
     deliveryAssignmentSagaService: DeliveryAssignmentSagaService,
     deliveryCompletionService: DeliveryCompletionService,
-    orderLifecycleCommand: OrderDeliveryLifecycleCommandService,
-    orderShipperReader: OrderDeliveryShipperReaderService,
+    orderDelivery: OrderDeliveryService,
     private readonly reportService: DeliveryReportService,
     private readonly profileService: ShipperProfileService,
   ) {
@@ -45,8 +41,7 @@ export class ShipperService extends ShipperDeliveryService {
       pendingAssignmentService,
       deliveryAssignmentSagaService,
       deliveryCompletionService,
-      orderLifecycleCommand,
-      orderShipperReader,
+      orderDelivery,
     );
   }
 

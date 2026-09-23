@@ -1,4 +1,4 @@
-import { createOrderItemSnapshot } from 'src/features/orders/services/order-core.service';
+import { createOrderItemSnapshot } from 'src/features/orders/services/order-rules.service';
 
 describe('OrderItemSnapshot', () => {
   it('keeps the original food and topping values when the live catalog changes', () => {

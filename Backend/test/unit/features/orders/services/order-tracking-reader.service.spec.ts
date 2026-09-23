@@ -1,9 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
-import { OrderTrackingReaderService } from 'src/features/orders/services/order-tracking-reader.service';
+import { OrderDeliveryService } from 'src/features/orders/services/order-delivery.service';
 
-describe('OrderTrackingReaderService', () => {
+describe('OrderDeliveryService tracking policy', () => {
   const orderRepository = { findOne: jest.fn() };
-  const service = new OrderTrackingReaderService(orderRepository as never);
+  const service = new OrderDeliveryService(orderRepository as never, {} as never, {} as never);
 
   beforeEach(() => jest.clearAllMocks());
 

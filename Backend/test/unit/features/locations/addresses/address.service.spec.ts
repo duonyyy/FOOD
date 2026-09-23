@@ -84,6 +84,42 @@ describe('AddressService', () => {
     expect(snapshot).not.toBe(entity);
   });
 
+  it('owns creation and scheduled cleanup of temporary order addresses', async () => {
+    const repository = {
+      create: jest.fn((value: unknown) => value),
+      save: jest.fn((value: Record<string, unknown>) =>
+        Promise.resolve({ id: 'temporary-address', ...value }),
+      ),
+      delete: jest.fn().mockResolvedValue({ affected: 2 }),
+    };
+    const service = new AddressService(repository as never);
+
+    await expect(
+      service.createTemporaryAddress(
+        {
+          street: '1 Main Street',
+          ward: 'Ward 1',
+          district: 'District 1',
+          city: 'HCM',
+          latitude: 10.7,
+          longitude: 106.6,
+        },
+        'customer-a',
+      ),
+    ).resolves.toEqual({ addressId: 'temporary-address' });
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isTemporary: true,
+        user: { id: 'customer-a' },
+      }),
+    );
+
+    await service.cleanupExpiredTemporaryAddresses();
+    expect(repository.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ isTemporary: true, createdAt: expect.anything() }) as unknown,
+    );
+  });
+
   it('returns null for a missing location snapshot', async () => {
     const repository = { findOne: jest.fn().mockResolvedValue(null) };
     const service = new AddressService(repository as never);

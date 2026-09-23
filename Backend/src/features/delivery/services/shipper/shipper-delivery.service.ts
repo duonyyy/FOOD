@@ -9,10 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import {
-  OrderDeliveryLifecycleCommandService,
-  OrderDeliveryShipperReaderService,
-} from 'src/features/orders/order-delivery-shipper.public-api';
+import { OrderDeliveryService } from 'src/features/orders/public-api';
 import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
 import { DeliveryAssignmentPolicy } from '../../contracts/delivery-dispatch.policy';
@@ -41,8 +38,7 @@ export class ShipperDeliveryService {
     protected pendingAssignmentService: DeliveryDispatchService,
     protected readonly deliveryAssignmentSagaService: DeliveryAssignmentSagaService,
     protected readonly deliveryCompletionService: DeliveryCompletionService,
-    protected readonly orderLifecycleCommand: OrderDeliveryLifecycleCommandService,
-    protected readonly orderShipperReader: OrderDeliveryShipperReaderService,
+    protected readonly orderDelivery: OrderDeliveryService,
   ) {}
 
   /**
@@ -214,7 +210,7 @@ export class ShipperDeliveryService {
     this.logger.log(`Order ${orderId} found for shipper ${shipperId}`);
 
     this.logger.log(`Order ${orderId} successfully retrieved for shipper ${shipperId}`);
-    return this.orderShipperReader.getShipperOrder(orderId);
+    return this.orderDelivery.getShipperOrder(orderId);
   }
 
   async startOrder(orderId: string, shipperId: string) {
@@ -224,7 +220,7 @@ export class ShipperDeliveryService {
     if (!shippingDetail) {
       throw new NotFoundException('Shipping detail not found for this order and shipper');
     }
-    return this.orderLifecycleCommand.startDelivery(orderId);
+    return this.orderDelivery.startDelivery(orderId);
   }
 
   async getPendingAssignmentForShipper(shipperId: string) {
@@ -253,7 +249,7 @@ export class ShipperDeliveryService {
       .map((detail) => (detail as unknown as { order: string | { id: string } }).order)
       .map((order) => (typeof order === 'string' ? order : order?.id))
       .filter((orderId): orderId is string => Boolean(orderId));
-    const orders = await this.orderShipperReader.getShipperOrders(orderIds);
+    const orders = await this.orderDelivery.getShipperOrders(orderIds);
 
     return completedDetails.flatMap((detail) => {
       const relation = (detail as unknown as { order: string | { id: string } }).order;
@@ -301,7 +297,7 @@ export class ShipperDeliveryService {
       throw new ForbiddenException('You are not the shipper for this order');
     }
 
-    const order = await this.orderLifecycleCommand.cancelDelivery(orderId);
+    const order = await this.orderDelivery.cancelDelivery(orderId);
     shippingDetail.status = ShippingStatus.CANCELLED;
     await this.shippingDetailRepository.save(shippingDetail);
 

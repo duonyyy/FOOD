@@ -28,8 +28,9 @@ import { pubSub } from 'src/pubsub';
 import { CreateOrderRequestDto } from '../dto/create-order-request.dto';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentDto } from '../dto/payment.dto';
-import { OrderActorPolicy } from '../services/order-core.service';
-import { OrderService } from '../services/order.service';
+import { CustomerOrdersService } from '../services/customer-orders.service';
+import { OrderActorPolicy } from '../services/order-rules.service';
+import { PublicOrdersService } from '../services/public-orders.service';
 
 @Controller('orders')
 @ApiTags('orders')
@@ -38,7 +39,8 @@ export class CustomerOrdersController {
   private readonly actorPolicy = new OrderActorPolicy();
 
   constructor(
-    private readonly orderService: OrderService,
+    private readonly customerOrders: CustomerOrdersService,
+    private readonly publicOrders: PublicOrdersService,
     private readonly paymentService: PaymentService,
   ) {}
 
@@ -81,7 +83,7 @@ export class CustomerOrdersController {
         actorId: userId,
       });
 
-      addressId = await this.orderService.createTemporaryAddress(body.address, userId);
+      addressId = await this.customerOrders.createTemporaryAddress(body.address, userId);
       isTemporaryAddress = true;
       this.logger.log(`Temporary address created with ID: ${addressId}`);
     }
@@ -110,7 +112,7 @@ export class CustomerOrdersController {
     });
 
     try {
-      const order = await this.orderService.createOrder(createOrderDto);
+      const order = await this.customerOrders.createOrder(createOrderDto);
       this.logger.log(`Order created with ID: ${order.id}`);
 
       let paymentUrl: string | undefined;
@@ -136,7 +138,7 @@ export class CustomerOrdersController {
       }
 
       if (body.paymentMethod === 'cod') {
-        const updatedOrder = await this.orderService.getOrderById(order.id);
+        const updatedOrder = await this.publicOrders.getOrderById(order.id);
         await pubSub.publish('orderCreated', {
           orderCreated: updatedOrder,
         });
@@ -159,7 +161,7 @@ export class CustomerOrdersController {
     } catch (error) {
       if (isTemporaryAddress && addressId) {
         try {
-          await this.orderService.deleteTemporaryAddress(addressId);
+          await this.customerOrders.deleteTemporaryAddress(addressId);
           this.logger.log(`Cleaned up temporary address ${addressId} after order creation failure`);
         } catch (cleanupError: unknown) {
           this.logger.error(
@@ -185,7 +187,7 @@ export class CustomerOrdersController {
     @Query('pageSize') pageSize: number = 10,
     @Query('status') status?: string,
   ) {
-    return this.orderService.getOrdersByUser(actor.userId, page, pageSize, status);
+    return this.customerOrders.getOrdersByUser(actor.userId, page, pageSize, status);
   }
 
   @Get(':id')
@@ -193,15 +195,10 @@ export class CustomerOrdersController {
   @ApiBearerAuth('bearer')
   @ApiOperation({ summary: 'Get order details by order ID' })
   @ApiParam({ name: 'id', description: 'Order UUID' })
-  @ApiQuery({ name: 'review', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'Order details' })
   @ApiResponse({ status: 403, description: 'Forbidden if actor cannot access this order' })
-  async getOrderById(
-    @Param('id') id: string,
-    @CurrentActor() actor: CurrentActorData,
-    @Query('review') review?: boolean,
-  ) {
-    return this.getOrderForActor(id, actor.userId, actor.role, review);
+  async getOrderById(@Param('id') id: string, @CurrentActor() actor: CurrentActorData) {
+    return this.getOrderForActor(id, actor.userId, actor.role);
   }
 
   @Get('user/:userId')
@@ -213,7 +210,7 @@ export class CustomerOrdersController {
   @ApiResponse({ status: 403, description: 'Forbidden if actor is not the target user or admin' })
   getOrdersByUser(@Param('userId') userId: string, @CurrentActor() actor: CurrentActorData) {
     this.actorPolicy.assertCanReadUserOrders(userId, actor.userId, actor.role);
-    return this.orderService.getOrdersByUser(userId);
+    return this.customerOrders.getOrdersByUser(userId);
   }
 
   @Get(':id/details')
@@ -225,7 +222,7 @@ export class CustomerOrdersController {
   @ApiResponse({ status: 403, description: 'Forbidden if actor cannot access this order' })
   async getOrderDetails(@Param('id') id: string, @CurrentActor() actor: CurrentActorData) {
     await this.getOrderForActor(id, actor.userId, actor.role);
-    return this.orderService.getOrderDetails(id);
+    return this.publicOrders.getOrderDetails(id);
   }
 
   @Delete(':id')
@@ -236,9 +233,9 @@ export class CustomerOrdersController {
   @ApiResponse({ status: 200, description: 'Order deleted successfully' })
   @ApiResponse({ status: 403, description: 'Only order owner can delete order' })
   async deleteOrder(@Param('id') id: string, @CurrentActor() actor: CurrentActorData) {
-    const order = await this.orderService.getOrderById(id);
+    const order = await this.publicOrders.getOrderById(id);
     this.actorPolicy.assertCanDelete(order, actor.userId);
-    return this.orderService.deleteOrder(id);
+    return this.customerOrders.deleteOrder(id);
   }
 
   @Post(':id/payment')
@@ -253,18 +250,17 @@ export class CustomerOrdersController {
     @Body() paymentData: PaymentDto,
     @CurrentActor() actor: CurrentActorData,
   ) {
-    const order = await this.orderService.getOrderById(id);
+    const order = await this.publicOrders.getOrderById(id);
     this.actorPolicy.assertCanPay(order, actor.userId);
-    return this.orderService.processPayment(id, paymentData);
+    return this.customerOrders.processPayment(id, actor.userId, paymentData);
   }
 
   private async getOrderForActor(
     orderId: string,
     actorId: string,
     actorRole?: string,
-    includeReviewInfo: boolean = false,
   ): Promise<Order> {
-    const order = await this.orderService.getOrderById(orderId, includeReviewInfo);
+    const order = await this.publicOrders.getOrderById(orderId);
     this.actorPolicy.assertCanRead(order, actorId, actorRole);
     return order;
   }

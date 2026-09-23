@@ -19,7 +19,6 @@ describe('DeliveryDispatchService missing assignment restore', () => {
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
   );
 
   beforeEach(() => {

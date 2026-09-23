@@ -21,16 +21,17 @@ import { AdminOrdersService } from './services/admin-orders.service';
 import { CustomerOrdersService } from './services/customer-orders.service';
 import { MerchantOrdersService } from './services/merchant-orders.service';
 import { OrderAnalyticsService } from './services/order-analytics.service';
-import { OrderCoreService } from './services/order-core.service';
-import { OrderDeliveryAssignmentCommandService } from './services/order-delivery-assignment-command.service';
+import { OrderCreationService } from './services/order-creation.service';
+import { OrderDeliveryService } from './services/order-delivery.service';
 import {
   DeliveryAssignmentRequestedOrderHandler,
   DeliveryCompletedOrderHandler,
   PaymentSucceededOrderHandler,
   ShipperOfferRequestedOrderHandler,
 } from './services/order-events.handler';
-import { OrderReviewRulesService } from './services/order-review-rules.service';
-import { OrderService } from './services/order.service';
+import { OrderMessagingService } from './services/order-messaging.service';
+import { OrderRulesService } from './services/order-rules.service';
+import { PublicOrdersService } from './services/public-orders.service';
 
 /** Owns order HTTP/GraphQL APIs, role services, commands, queries and order persistence wiring. */
 @Module({
@@ -54,27 +55,30 @@ import { OrderService } from './services/order.service';
     AdminOrdersController,
   ],
   providers: [
-    OrderService,
     CustomerOrdersService,
     MerchantOrdersService,
     AdminOrdersService,
-    OrderCoreService,
-    OrderReviewRulesService,
+    OrderCreationService,
+    OrderRulesService,
+    PublicOrdersService,
+    OrderMessagingService,
     OrderResolver,
     PaymentSucceededOrderHandler,
     DeliveryCompletedOrderHandler,
     DeliveryAssignmentRequestedOrderHandler,
-    OrderDeliveryAssignmentCommandService,
+    OrderDeliveryService,
     ShipperOfferRequestedOrderHandler,
     OrderAnalyticsService,
   ],
   exports: [
-    OrderService,
     CustomerOrdersService,
     MerchantOrdersService,
     AdminOrdersService,
-    OrderCoreService,
-    OrderReviewRulesService,
+    OrderCreationService,
+    OrderRulesService,
+    PublicOrdersService,
+    OrderMessagingService,
+    OrderDeliveryService,
     OrderAnalyticsService,
   ],
 })

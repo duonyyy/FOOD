@@ -8,7 +8,7 @@ import {
 import {
   orderSubscriptionGraphqlType,
   type ShipperOrderSubscriptionPayload,
-} from 'src/features/orders/order-delivery-shipper.public-api';
+} from 'src/features/orders/public-api';
 import { pubSub } from 'src/pubsub';
 import { ShipperLocation } from '../dto/shipper-location.type';
 import { ActiveShipperTrackerService } from '../services/dispatch/active-shipper-tracker.service';

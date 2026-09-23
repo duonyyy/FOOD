@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { OrderActorPolicy } from 'src/features/orders/services/order-core.service';
+import { OrderActorPolicy } from 'src/features/orders/services/order-rules.service';
 
 describe('OrderActorPolicy', () => {
   const policy = new OrderActorPolicy();

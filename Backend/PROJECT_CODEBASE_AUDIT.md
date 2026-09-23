@@ -2,9 +2,9 @@
 
 > Repository kiểm tra: `foodee-be/Backend`
 >
-> Ngày cập nhật: 2026-09-21
+> Ngày cập nhật: 2026-09-23
 >
-> Loại kiểm tra: đọc code, kiểm tra Git, chạy build/test/lint
+> Loại kiểm tra: đọc code, kiểm tra Git, chạy build/scoped lint/unit/integration/E2E liên quan
 >
 > Chuẩn cấu trúc hiện hành: `src/features/README.md`
 
@@ -12,15 +12,18 @@
 
 Foodee Backend đang chạy được và các quality gate quan trọng về build, unit test, integration test và boundary test đều xanh. Các refactor đã commit từ Phase 1 đến Phase 5 đã loại bỏ phần lớn application port, deep import chéo feature, `forwardRef()` và phụ thuộc ngược từ infra vào business feature.
 
-Tuy nhiên, code hiện tại **chưa đạt cấu trúc đích mới** là mỗi feature có một module chính, một `public-api.ts`, controller/service chia theo role thật sự. Một số feature vẫn giữ nhiều module đọc hẹp và nhiều public API để tránh vòng phụ thuộc cũ. `orders` và `users` là hai khu vực phức tạp nhất.
+Code hiện tại **chưa đạt cấu trúc đích mới ở toàn bộ feature**. Riêng `orders` đã đạt một module,
+một `public-api.ts`, controller/service theo role và không còn các module Reader/Command phụ.
+`users`, `delivery`, `locations`, `menu`, `restaurants` và `reviews` vẫn còn cấu trúc cần gộp.
 
 Đánh giá hiện tại:
 
 | Hạng mục | Kết luận |
 | --- | --- |
 | Build | Đạt |
-| Unit test | Đạt |
-| Integration và boundary test | Đạt, có 1 suite/2 test được skip |
+| Unit test liên quan Orders/Delivery/Analytics/Reviews/Locations/Payment | Đạt |
+| Integration và boundary test | 26 suite đạt, 1 suite/2 test skip |
+| E2E Orders và Delivery tracking | 2 suite, 8 test đạt |
 | Không có runtime `forwardRef()` | Đạt |
 | Không deep import chéo feature | Đạt theo scan hiện tại |
 | Infra không import ngược feature | Đạt theo scan hiện tại |
@@ -29,7 +32,7 @@ Tuy nhiên, code hiện tại **chưa đạt cấu trúc đích mới** là mỗ
 | Một public API cho mỗi feature | Chưa đạt |
 | Controller/service chia theo role | Đạt một phần |
 | Entity đặt tập trung tại `src/entities` | Chấp nhận theo quyết định hiện tại |
-| Lint | Chưa đạt |
+| Scoped lint trên file refactor | Đạt |
 
 Không có bằng chứng cho thấy cần chuyển sang microservice, monorepo hoặc viết lại toàn bộ. Modular monolith hiện tại vẫn có thể cải thiện theo từng feature.
 
@@ -38,54 +41,45 @@ Không có bằng chứng cho thấy cần chuyển sang microservice, monorepo 
 Báo cáo này ưu tiên theo thứ tự:
 
 1. Code hiện tại.
-2. Kết quả lệnh chạy thực tế gần nhất, gồm lần chạy lại sau refactor Promotions ngày 2026-09-21.
+2. Kết quả lệnh chạy thực tế gần nhất sau refactor Orders ngày 2026-09-23.
 3. Git status và git log hiện tại.
 4. Tài liệu kiến trúc.
 5. Báo cáo lịch sử.
 
-Báo cáo không coi số liệu hoặc kết luận cũ là sự thật nếu chưa kiểm chứng lại. Lần cập nhật này không chạy E2E và không kết nối PostgreSQL, Redis, MinIO, Mapbox, MoMo hoặc VNPay thật.
+Báo cáo không coi số liệu hoặc kết luận cũ là sự thật nếu chưa kiểm chứng lại. Lần cập nhật này đã
+chạy E2E Orders/Delivery tracking nhưng không kết nối PostgreSQL, Redis, MinIO, Mapbox, MoMo hoặc
+VNPay thật.
 
 ## 3. Trạng thái Git
 
 ### 3.1. Các refactor đã commit
 
-HEAD hiện tại:
+Các commit boundary và Orders gần nhất trước lần hoàn thiện này:
 
 ```text
-20b0543 refactor(promotions): organize feature by actor role
+1c664ee refactor(orders): decouple reviews and simplify analytics
+2f5d943 refactor(chat): use the main orders service
+6bb53e0 refactor(messenger): use the main orders service
+3a574a7 refactor(notifications): consume recipient snapshots from events
+2cf2a85 fix(delivery): restore missing order assignments
+c183f88 refactor(orders): decouple delivery with durable status events
 ```
 
-Các commit liên quan trực tiếp đến boundary gần nhất:
-
-```text
-20b0543 refactor(promotions): organize feature by actor role
-3456708 fix(backend): correct promotion access and redact order logs
-191d21b refactor(infra): colocate provider type declarations
-d07f574 docs(backend): align feature architecture guidance
-c35e2ee refactor(backend): complete phase 5 boundary cleanup
-08794b4 refactor(backend): complete infrastructure boundary cleanup
-bf5402a refactor(backend): narrow analytics order reader
-8179117 refactor(backend): complete order delivery boundary
-9334831 refactor(backend): decouple delivery dispatch and completion
-f2799b4 refactor(backend): clarify feature read models
-1536de9 refactor(backend): simplify feature contracts
-```
-
-Những commit này đã đưa code đến trạng thái hiện tại:
+Refactor hoàn thiện Orders được đóng gói trong cùng commit với tài liệu này. Trạng thái sau refactor:
 
 - application port trong business feature đã được loại bỏ;
 - feature gọi nhau qua các file `*public-api.ts`;
 - Orders giữ quyền cập nhật trạng thái Order;
 - Delivery không dùng trực tiếp repository Order;
-- Analytics đọc Orders qua reader hẹp;
+- Analytics đọc Orders qua public API hẹp;
 - queue/cache/map/storage nằm trong `src/infra`;
 - không còn runtime `forwardRef()`;
 - boundary test đã được bổ sung;
-- Promotions đã trở thành feature mẫu với controller/service theo role, một module và một public API.
+- Orders và Promotions dùng controller/service theo role, một module và một public API.
 
-### 3.2. Working tree chưa commit
+### 3.2. Thay đổi ngoài phạm vi được giữ nguyên
 
-Sau các commit trên, thay đổi chưa commit duy nhất trong Backend là:
+File Backend không thuộc refactor Orders và không được đưa vào commit này:
 
 ```text
 M  docker/docker-compose.yml
@@ -96,7 +90,7 @@ Hai ambient declaration đã được commit về đúng hạ tầng sở hữu:
 - Mapbox: `src/types/mapbox-directions.d.ts` → `src/infra/mapbox/mapbox-directions.d.ts`;
 - Nodemailer: `src/types/nodemailer.d.ts` → `src/infra/mail/nodemailer.d.ts`.
 
-Ngoài Backend còn có thay đổi và thư mục chưa tracked ở các project cùng repository. Chúng không thuộc phạm vi báo cáo này và không được sửa.
+Ngoài Backend còn có thay đổi và thư mục chưa tracked ở các project cùng repository. Chúng không thuộc phạm vi báo cáo này, không được sửa và không được stage cùng refactor Orders.
 
 ## 4. Kiểm kê code hiện tại
 
@@ -185,7 +179,7 @@ Số liệu dưới đây tính các file `*.module.ts` và `*public-api.ts` n�
 | locations | 13 | 3 | 2 | 1 | 1 | Cần gộp module/public API |
 | menu | 30 | 3 | 1 | 4 | 8 | Cần gộp module |
 | notifications | 10 | 1 | 1 | 1 | 2 | Gần đạt |
-| orders | 45 | 8 | 7 | 1 | 12 | Chưa đạt, ưu tiên cao |
+| orders | 31 | 1 | 1 | 5 | 10 | Đạt về cấu trúc và boundary |
 | payments | 11 | 1 | 1 | 2 | 2 | Gần đạt |
 | promotions | 11 | 1 | 1 | 2 | 3 | Đạt, feature mẫu đã hoàn thành |
 | restaurants | 21 | 2 | 2 | 3 | 5 | Cần gộp module/public API |
@@ -248,48 +242,46 @@ Trạng thái: **Đạt theo test hiện tại**.
 
 ## 9. Vấn đề kiến trúc còn lại
 
-### 9.1. Orders còn quá lớn
+### 9.1. Orders đã đạt cấu trúc đích, nhưng creation vẫn là hotspot
 
 Bằng chứng hiện tại:
 
 | File | Số dòng |
 | --- | ---: |
-| `services/customer-orders.service.ts` | 946 |
-| `services/order-core.service.ts` | 413 |
+| `services/order-creation.service.ts` | 797 |
+| `services/order-rules.service.ts` | 399 |
+| `services/order-delivery.service.ts` | 292 |
 | `services/admin-orders.service.ts` | 256 |
-| `services/order.service.ts` | 240 |
 | `services/merchant-orders.service.ts` | 184 |
-| `controllers/order.resolver.ts` | 82 |
 | `services/order-events.handler.ts` | 153 |
-| `controllers/merchant-orders.controller.ts` | 109 |
+| `services/public-orders.service.ts` | 100 |
+| `services/order-messaging.service.ts` | 75 |
 | `services/order-analytics.service.ts` | 54 |
-| `controllers/public-orders.controller.ts` | 96 |
-| `controllers/admin-orders.controller.ts` | 57 |
+| `services/customer-orders.service.ts` | 61 |
 
-`order.controller.ts` đã được tách thành `public-orders.controller.ts`,
-`customer-orders.controller.ts` (275 dòng), `merchant-orders.controller.ts` và
-`admin-orders.controller.ts` mà không đổi route.
+Controller đã chia thành public/customer/merchant/admin và resolver mà không đổi prefix route.
+Feature hiện có đúng một `orders.module.ts`, một `public-api.ts` và 10 file service đã thống nhất.
 
-Ngoài module chính, Orders vẫn còn các module reader/command hẹp cho Delivery. Module/public API
-Analytics riêng đã được xóa; Analytics dùng `OrderAnalyticsService` qua public API chính.
+Các module/public API Reader/Command cũ cho Delivery, Tracking và Analytics đã được xóa. Delivery,
+Reviews, Analytics và Communications đều import public API chính.
 
-`orders/public-api.ts` cũng đang export quá rộng: nhiều DTO, role service, core service, state machine, policy, adapter và helper. Đây chưa phải public API hẹp.
+`OrderCreationService` còn dài vì chứa pricing, route fallback và transaction tạo Order. Đây là
+hotspot cần theo dõi, nhưng chưa có bằng chứng nên tách transaction này thành thêm nhiều file.
 
-Trạng thái: **Chưa đạt**. Ưu tiên P1 về maintainability.
+Trạng thái: **Đạt về cấu trúc/boundary; còn nợ giảm độ dài có điều kiện**.
 
-### 9.2. Không thể gộp module Orders một cách máy móc
+### 9.2. Hướng phụ thuộc Orders đã được sửa trước khi gộp module
 
-Orders không còn import `DeliveryModule` hoặc inject `DeliveryDispatchService`. Orders phát event thay
-đổi trạng thái; Delivery sở hữu việc tạo/xóa pending assignment. Delivery vẫn dùng reader/lifecycle
-command hẹp của Orders. Nếu xóa các module hẹp và cho Delivery import trực tiếp `OrdersModule`, vòng
-phụ thuộc có thể quay lại.
+Orders không import `DeliveryModule` hoặc inject `DeliveryDispatchService`. Orders phát event thay
+đổi trạng thái; Delivery sở hữu pending assignment và dùng `OrderDeliveryService` qua public API
+chính. Vì chiều `Orders -> Delivery` đã được xóa, `DeliveryModule -> OrdersModule` không tạo cycle.
 
-Muốn đạt một module mà vẫn không dùng `forwardRef()`, cần sửa hướng giao tiếp trước:
+Các bước đã hoàn thành:
 
-- chuyển thông báo sau thay đổi sang EventBus/Outbox;
-- giữ query đồng bộ theo một chiều;
-- bỏ dependency ngược không cần thiết;
-- sau khi dependency graph một chiều mới gộp module/public API.
+- thông báo sau thay đổi đi qua EventBus/Outbox;
+- query đồng bộ chỉ đi một chiều từ consumer đến Orders;
+- bỏ dependency ngược Orders đến Delivery/Reviews/Analytics/Communications;
+- sau đó mới gộp về một module/public API mà không dùng `forwardRef()`.
 
 ### 9.3. Users/Auth còn ranh giới khó hiểu
 
@@ -475,7 +467,7 @@ Vì vậy báo cáo không kết luận production-ready.
 - infra không import feature;
 - application port không quay lại.
 
-### Bước 3 — Refactor Orders theo hai nhịp — Đang thực hiện
+### Bước 3 — Refactor Orders — Đã hoàn thành về cấu trúc/boundary
 
 Dependency graph chi tiết và thứ tự gỡ cycle được ghi tại
 [`ORDERS_DEPENDENCY_GRAPH.md`](./ORDERS_DEPENDENCY_GRAPH.md).
@@ -483,9 +475,9 @@ Dependency graph chi tiết và thứ tự gỡ cycle được ghi tại
 Nhịp 1:
 
 - [x] chia `order.controller.ts` theo customer/merchant/admin;
-- giảm `customer-orders.service.ts` bằng service nghiệp vụ có tên rõ;
-- thu hẹp export của `orders/public-api.ts`;
-- bỏ facade chuyển tiếp nếu không có logic.
+- [x] giảm `customer-orders.service.ts` về role orchestration;
+- [x] chỉ giữ một `orders/public-api.ts`;
+- [x] xóa `OrderService` facade và `OrderCoreService`.
 
 Nhịp 2:
 
@@ -497,13 +489,16 @@ Nhịp 2:
 - [x] xóa `OrdersModule -> DeliveryModule`;
 - [x] chuyển notification một chiều sang event có `customerId` snapshot và xóa
   `NotificationsModule -> OrdersModule`;
-- [x] xóa `OrderMessagingReaderService`; Messenger dùng `OrderService` mà không tạo module/API phụ;
-- [x] xóa `ChatOrderingService`; Chat dùng `OrderService` qua public API chính, vẫn xác nhận trước
+- [x] xóa `OrderMessagingReaderService`; Messenger dùng `OrderMessagingService`;
+- [x] xóa `ChatOrderingService`; Chat dùng `OrderMessagingService`, vẫn xác nhận trước
   khi tạo đơn và để Orders tính lại giá;
 - [x] chuyển review summary sang Reviews, cập nhật frontend gọi API riêng và xóa hoàn toàn chiều
   `Orders -> Reviews` cùng `OrderReviewReaderModule`;
 - [x] làm dependency Orders–Reviews một chiều;
-- chỉ sau đó mới gộp các reader module/public API phụ.
+- [x] Analytics dùng `OrderAnalyticsService` qua public API chính;
+- [x] Delivery dùng `OrderDeliveryService`; xóa toàn bộ reader/command module phụ;
+- [x] cron địa chỉ tạm chuyển về Locations và payment route cũ delegate sang Payments;
+- [x] còn đúng một module, một public API và 10 service trong Orders.
 
 ### Bước 4 — Users/Auth
 
@@ -540,4 +535,8 @@ Một feature chỉ được xem là hoàn thành migration khi:
 
 Codebase không cần viết lại. Boundary runtime hiện tại tốt hơn báo cáo cũ mô tả: build và test xanh, không có `forwardRef`, không có deep import chéo feature và infra không phụ thuộc business feature.
 
-Nợ chính bây giờ là **độ phức tạp cấu trúc**, không phải hệ thống mất kiểm soát runtime. Promotions đã chứng minh cấu trúc role-based có thể áp dụng mà không đổi route hoặc phá test. Orders đã hoàn thành tách controller, gỡ dependency ngược sang Delivery và Reviews, harden status event bằng Outbox, phục hồi assignment bị thiếu, tách Notifications và xóa các service trung gian riêng cho Messenger/Chat. Bước tiếp theo là đánh giá Analytics boundary và dọn tên/file adapter còn mơ hồ, không gộp read model vào write service một cách máy móc.
+Nợ chính bây giờ là **độ phức tạp cấu trúc ở các feature còn lại**, không phải hệ thống mất kiểm
+soát runtime. Promotions và Orders đã chứng minh cấu trúc role-based có thể áp dụng mà không cần
+port trung gian, `forwardRef()` hoặc deep import. Orders đã hoàn thành một module/public API,
+ownership Delivery/Reviews/Payments/Locations rõ hơn và Outbox vẫn được giữ cho luồng cần retry.
+Bước tiếp theo nên là inventory Users/Auth hoặc Delivery; không tách tiếp Orders chỉ vì số dòng.

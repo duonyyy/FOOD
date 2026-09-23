@@ -93,6 +93,16 @@ describe('Payment checkout ownership', () => {
     expect(checkoutRepository.save).not.toHaveBeenCalled();
   });
 
+  it('processes an order payment through its customer-owned checkout', async () => {
+    await service.processPaymentForOrder('order-a', 'customer-a', { token: 'payment-token' });
+
+    expect(checkoutRepository.findOne).toHaveBeenNthCalledWith(1, {
+      where: { orderId: 'order-a' },
+    });
+    expect(checkoutRepository.findOne).toHaveBeenNthCalledWith(2, { where: { id: 'checkout-a' } });
+    expect(gateway.confirmPaymentIntent).toHaveBeenCalledWith('intent-a');
+  });
+
   it('rejects cancelling another customer checkout before calling the provider', async () => {
     await expect(service.cancelCheckout('checkout-a', 'customer-b')).rejects.toBeInstanceOf(
       NotFoundException,
