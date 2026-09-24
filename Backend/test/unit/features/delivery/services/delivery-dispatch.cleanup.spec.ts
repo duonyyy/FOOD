@@ -17,6 +17,7 @@ describe('DeliveryDispatchService expired assignment cleanup', () => {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   );
 
   beforeEach(() => {

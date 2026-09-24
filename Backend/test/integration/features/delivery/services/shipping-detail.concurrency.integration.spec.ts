@@ -1,14 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
+import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
+import { OutboxService } from 'src/common/events/outbox.service';
 import AppDataSource from 'src/config/typeorm.data-source';
-import { Order } from 'src/entities/order.entity';
-import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import { User } from 'src/entities/user.entity';
-import { DeliveryDispatchService } from 'src/features/delivery/public-api';
-import { DeliveryAssignmentCommandService } from 'src/features/delivery/services/dispatch/delivery-assignment-command.service';
-import { ShipperService } from 'src/features/delivery/services/shipper/shipper.service';
+import { DeliveryAssignmentSagaService } from 'src/features/delivery/services/shipper/delivery-assignment-saga.service';
 import { DataSource } from 'typeorm';
 
 jest.setTimeout(30_000);
@@ -97,7 +95,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
     }
   });
 
-  it('allows only one concurrent accept through the Delivery application service', async () => {
+  it('allows only one concurrent reservation through the Delivery assignment saga', async () => {
     const [shipperRole] = await dataSource.query<Array<{ id: string }>>(
       `SELECT id FROM roles WHERE name = 'shipper' LIMIT 1`,
     );
@@ -108,25 +106,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
       randomUUID().replaceAll('-', '').slice(0, 28),
       randomUUID().replaceAll('-', '').slice(0, 28),
     ];
-    const assignmentIds = [randomUUID(), randomUUID()];
     const usernames = shipperIds.map((shipperId) => `phase4-${shipperId}`);
-    const assignments = new Map(
-      shipperIds.map((shipperId, index) => [
-        shipperId,
-        {
-          assignmentId: assignmentIds[index],
-          orderId,
-          shipperId,
-          expiresAt: new Date(Date.now() + 120_000),
-        },
-      ]),
-    );
-    const pendingAssignmentService = {
-      getPendingAssignmentForShipper: jest.fn((shipperId: string) =>
-        Promise.resolve(assignments.get(shipperId) ?? null),
-      ),
-      removePendingAssignment: jest.fn().mockResolvedValue(undefined),
-    } as unknown as DeliveryDispatchService;
 
     let applicationModule: TestingModule | undefined;
     try {
@@ -149,7 +129,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
           ],
         );
         await dataSource.query(
-          `INSERT INTO "shipperCertificateInfos" (user_id, status)
+          `INSERT INTO shipper_profiles (user_id, certificate_status)
            VALUES ($1, 'APPROVED')`,
           [shipperIds[index]],
         );
@@ -157,30 +137,29 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
 
       applicationModule = await Test.createTestingModule({
         providers: [
-          DeliveryAssignmentCommandService,
-          ShipperService,
-          { provide: getRepositoryToken(Order), useValue: dataSource.getRepository(Order) },
+          DeliveryAssignmentSagaService,
           {
             provide: getRepositoryToken(ShippingDetail),
             useValue: dataSource.getRepository(ShippingDetail),
           },
-          { provide: getRepositoryToken(User), useValue: dataSource.getRepository(User) },
           {
-            provide: getRepositoryToken(ShipperCertificateInfo),
-            useValue: dataSource.getRepository(ShipperCertificateInfo),
+            provide: getRepositoryToken(ShipperProfile),
+            useValue: dataSource.getRepository(ShipperProfile),
           },
-          { provide: DeliveryDispatchService, useValue: pendingAssignmentService },
+          {
+            provide: OutboxService,
+            useValue: {
+              enqueue: jest.fn().mockResolvedValue({ id: randomUUID() }),
+              dispatchAfterCommit: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+          { provide: InProcessEventBus, useValue: { subscribe: jest.fn() } },
         ],
       }).compile();
 
-      const deliveryApplication = applicationModule.get(DeliveryAssignmentCommandService);
+      const deliveryApplication = applicationModule.get(DeliveryAssignmentSagaService);
       const results = await Promise.allSettled(
-        shipperIds.map((shipperId, index) =>
-          deliveryApplication.acceptDelivery({
-            assignmentId: assignmentIds[index],
-            actorId: shipperId,
-          }),
-        ),
+        shipperIds.map((shipperId) => deliveryApplication.assign(orderId, shipperId, 30)),
       );
 
       const fulfilled = results.filter((result) => result.status === 'fulfilled');
@@ -190,7 +169,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
           result.reason instanceof Error ? result.reason.message : String(result.reason),
         );
         throw new Error(
-          `Expected one accepted and one rejected application command; ` +
+          `Expected one reserved and one rejected assignment; ` +
             `fulfilled=${fulfilled.length}, rejected=${rejected.length}, ` +
             `reasons=${reasons.join('; ')}`,
         );
@@ -202,20 +181,19 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
       );
       expect(rows).toHaveLength(1);
       expect(shipperIds).toContain(rows[0].user_id);
-      expect(rows[0].status).toBe('SHIPPING');
+      expect(rows[0].status).toBe('PENDING');
 
       const [updatedOrder] = await dataSource.query<Array<{ status: string }>>(
         `SELECT status FROM orders WHERE id = $1`,
         [orderId],
       );
-      expect(updatedOrder.status).toBe('shipper_received');
+      expect(updatedOrder.status).toBe('confirmed');
     } finally {
       await applicationModule?.close();
       await dataSource.query(`DELETE FROM "shippingDetails" WHERE order_id = $1`, [orderId]);
-      await dataSource.query(
-        `DELETE FROM "shipperCertificateInfos" WHERE user_id = ANY($1::varchar[])`,
-        [shipperIds],
-      );
+      await dataSource.query(`DELETE FROM shipper_profiles WHERE user_id = ANY($1::varchar[])`, [
+        shipperIds,
+      ]);
       await dataSource.query(`DELETE FROM users WHERE id = ANY($1::varchar[])`, [shipperIds]);
       await dataSource.query(`DELETE FROM orders WHERE id = $1`, [orderId]);
     }

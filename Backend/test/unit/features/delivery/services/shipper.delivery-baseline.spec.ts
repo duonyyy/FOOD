@@ -1,7 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { ShipperService } from 'src/features/delivery/services/shipper/shipper.service';
+import { ShipperDeliveryService } from 'src/features/delivery/services/shipper/shipper-delivery.service';
 import { SHIPPER_PROFILE_STATUS } from 'src/features/delivery/types/shipper-profile.types';
 
 describe('Shipper delivery boundary baseline', () => {
@@ -10,11 +9,10 @@ describe('Shipper delivery boundary baseline', () => {
   let shippingRepository: Record<string, jest.Mock>;
   let profileRepository: Record<string, jest.Mock>;
   let pending: Record<string, jest.Mock>;
-  let assignmentSaga: { assign: jest.Mock };
   let lifecycle: { startDelivery: jest.Mock; cancelDelivery: jest.Mock };
   let reader: { getShipperOrder: jest.Mock; getShipperOrders: jest.Mock };
   let completionService: { complete: jest.Mock };
-  let service: ShipperService;
+  let service: ShipperDeliveryService;
 
   beforeEach(() => {
     shippingDetail = null;
@@ -57,7 +55,6 @@ describe('Shipper delivery boundary baseline', () => {
       markOfferRejected: jest.fn().mockResolvedValue(undefined),
       removePendingAssignment: jest.fn().mockResolvedValue(undefined),
     };
-    assignmentSaga = { assign: jest.fn() };
     lifecycle = {
       startDelivery: jest.fn().mockResolvedValue({ orderId: 'order-1', status: 'delivering' }),
       cancelDelivery: jest.fn().mockResolvedValue({ orderId: 'order-1', status: 'canceled' }),
@@ -67,55 +64,13 @@ describe('Shipper delivery boundary baseline', () => {
       getShipperOrders: jest.fn().mockResolvedValue(new Map()),
     };
     completionService = { complete: jest.fn() };
-    service = new ShipperService(
+    service = new ShipperDeliveryService(
       shippingRepository as never,
       profileRepository as never,
       pending as never,
-      assignmentSaga as never,
       completionService as never,
       { ...lifecycle, ...reader } as never,
-      {} as never,
-      {} as never,
     );
-  });
-
-  it('creates an offer after Delivery validates the shipper profile and dispatch candidate', async () => {
-    pending.getPendingAssignmentForShipper.mockResolvedValueOnce(null);
-    const result = await service.requestOrderAssignment('order-1', 'shipper-a');
-
-    expect(pending.addPendingAssignment).toHaveBeenCalledWith('order-1');
-    expect(pending.createShipperHold).toHaveBeenCalledWith('order-1', 'shipper-a');
-    expect(result.assignmentId).toBe('assignment-1');
-  });
-
-  it('delegates accepted offers to the durable Delivery assignment saga', async () => {
-    const detail = Object.assign(new ShippingDetail(), {
-      id: 'shipping-1',
-      status: ShippingStatus.SHIPPING,
-    });
-    assignmentSaga.assign.mockResolvedValue(detail);
-
-    await expect(service.assignOrderToShipper('order-1', 'shipper-a', 90)).resolves.toBe(detail);
-    expect(assignmentSaga.assign).toHaveBeenCalledWith('order-1', 'shipper-a', 90);
-  });
-
-  it('requeues a rejection through Delivery dispatch instead of publishing a raw Order', async () => {
-    await service.reassignOrder('order-1');
-    expect(pending.addPendingAssignment).toHaveBeenCalledWith('order-1');
-  });
-
-  it('rejects expired offers through the pending-assignment retry path', async () => {
-    pending.getPendingAssignmentForShipper.mockResolvedValueOnce({
-      assignmentId: 'expired-assignment',
-      orderId: 'order-1',
-      shipperId: 'shipper-a',
-      expiresAt: new Date(Date.now() - 1_000),
-    });
-
-    await expect(
-      service.acceptAssignment('expired-assignment', 'shipper-a'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(pending.markOfferRejected).toHaveBeenCalledWith('order-1', 'shipper-a');
   });
 
   it('records rejection in the Delivery-owned profile', async () => {

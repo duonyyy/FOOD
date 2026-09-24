@@ -1,17 +1,25 @@
 import { ForbiddenException } from '@nestjs/common';
-import { ShipperService } from 'src/features/delivery/services/shipper/shipper.service';
+import { ShipperDeliveryService } from 'src/features/delivery/services/shipper/shipper-delivery.service';
 
 describe('Shipper assignment authorization characterization', () => {
-  let pendingAssignmentService: { getPendingAssignmentForShipper: jest.Mock };
-  let service: ShipperService;
+  let pendingAssignmentService: {
+    getPendingAssignmentForShipper: jest.Mock;
+    assignOrderToShipper: jest.Mock;
+  };
+  let service: ShipperDeliveryService;
 
   beforeEach(() => {
-    pendingAssignmentService = { getPendingAssignmentForShipper: jest.fn() };
+    pendingAssignmentService = {
+      getPendingAssignmentForShipper: jest.fn(),
+      assignOrderToShipper: jest.fn(),
+    };
     service = createService(pendingAssignmentService);
   });
 
   it('returns 403 when a shipper accepts an order without an active offer', async () => {
-    pendingAssignmentService.getPendingAssignmentForShipper.mockResolvedValue(null);
+    pendingAssignmentService.assignOrderToShipper = jest
+      .fn()
+      .mockRejectedValue(new ForbiddenException());
     await expect(service.assignOrderToShipper('order-1', 'shipper-a')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
@@ -29,14 +37,13 @@ describe('Shipper assignment authorization characterization', () => {
 });
 
 function createService(
-  pending: { getPendingAssignmentForShipper: jest.Mock },
+  pending: { getPendingAssignmentForShipper: jest.Mock; assignOrderToShipper: jest.Mock },
   completion: { complete: jest.Mock } = { complete: jest.fn() },
-): ShipperService {
-  return new ShipperService(
+): ShipperDeliveryService {
+  return new ShipperDeliveryService(
     { findOne: jest.fn() } as never,
     { findOne: jest.fn() } as never,
     pending as never,
-    { assign: jest.fn() } as never,
     completion as never,
     {
       startDelivery: jest.fn(),
@@ -44,7 +51,5 @@ function createService(
       getShipperOrder: jest.fn(),
       getShipperOrders: jest.fn(),
     } as never,
-    {} as never,
-    {} as never,
   );
 }

@@ -29,7 +29,6 @@ export {
   ActiveShipperTrackerService,
   type ActiveShipperState,
 } from './services/dispatch/active-shipper-tracker.service';
-export { DeliveryAssignmentCommandService } from './services/dispatch/delivery-assignment-command.service';
 export { DeliveryDispatchService } from './services/dispatch/delivery-dispatch.service';
 export { DeliveryIntegrationService } from './services/integration/delivery-integration.service';
 export {
@@ -39,7 +38,6 @@ export {
 export { DeliveryReportService } from './services/shipper/delivery-report.service';
 export { ShipperDeliveryService } from './services/shipper/shipper-delivery.service';
 export { ShipperProfileService } from './services/shipper/shipper-profile.service';
-export { ShipperService } from './services/shipper/shipper.service';
 export type {
   Coordinates,
   DeliveryQuote,

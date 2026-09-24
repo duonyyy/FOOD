@@ -203,18 +203,16 @@ describe('feature ownership boundaries', () => {
   });
 
   it('keeps Delivery assignment state changes out of the legacy Order transaction', () => {
+    const dispatch = source('src/features/delivery/services/dispatch/delivery-dispatch.service.ts');
     const shipperDelivery = source(
       'src/features/delivery/services/shipper/shipper-delivery.service.ts',
     );
     const assignmentSaga = source(
       'src/features/delivery/services/shipper/delivery-assignment-saga.service.ts',
     );
-    const assignmentMethod = shipperDelivery.match(
-      /async assignOrderToShipper[\s\S]*?(?=\n\s{2}async getOrder)/,
-    )?.[0];
-
-    expect(assignmentMethod).toContain('deliveryAssignmentSagaService.assign');
-    expect(assignmentMethod).not.toContain('orderRepository');
+    expect(dispatch).toContain('deliveryAssignmentSagaService.assign');
+    expect(dispatch).not.toContain('orderRepository');
+    expect(shipperDelivery).toContain('pendingAssignmentService.assignOrderToShipper');
     expect(assignmentSaga).not.toContain('entities/order.entity');
     expect(assignmentSaga).toContain('DELIVERY_ASSIGNMENT_REQUESTED_EVENT');
   });

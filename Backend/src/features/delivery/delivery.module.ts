@@ -33,7 +33,6 @@ import { DeliveryCompletionService } from './services/shipper/delivery-completio
 import { DeliveryEarningsService } from './services/shipper/delivery-earnings.service';
 import { DeliveryReportService } from './services/shipper/delivery-report.service';
 import { ShipperDeliveryService } from './services/shipper/shipper-delivery.service';
-import { ShipperService } from './services/shipper/shipper.service';
 import { DeliverySubscriptionAccessService } from './services/subscription/delivery-subscription-access.service';
 import { ShipperProfileModule } from './shipper-profile.module';
 
@@ -89,7 +88,6 @@ const deliveryQueueModule = QueueModule.register({
     ShipperDeliveryService,
     DeliveryReportService,
     AdminDeliveryService,
-    ShipperService,
     ShipperResolver,
     RedisPendingAssignmentStore,
   ],
@@ -101,7 +99,6 @@ const deliveryQueueModule = QueueModule.register({
     DeliveryReportService,
     AdminDeliveryService,
     DeliveryIntegrationService,
-    ShipperService,
     ShipperProfileModule,
   ],
 })

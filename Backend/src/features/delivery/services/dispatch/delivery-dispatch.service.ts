@@ -1,4 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
@@ -7,12 +13,14 @@ import {
   type ShipperOfferRequestedEvent,
 } from 'src/common/events/shipper-offer-requested.event';
 import { haversineDistance } from 'src/common/utils/geo.util';
-import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { ShipperProfile } from 'src/entities/shipperProfile.entity';
+import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import {
   OrderDeliveryService,
   type DeliveryDispatchCandidate,
 } from 'src/features/orders/public-api';
 import { QueueService } from 'src/infra/queue/public-api';
+import { pubSub } from 'src/pubsub';
 import type {
   DeliveryAssignmentJobData,
   PendingAssignmentState,
@@ -30,7 +38,8 @@ import {
   DeliveryDispatchPolicy,
 } from '../../contracts/delivery-dispatch.policy';
 import { DELIVERY_ASSIGNMENT_QUEUE } from '../../queue/delivery-queue.constants';
-import { ShipperService } from '../shipper/shipper.service';
+import { SHIPPER_PROFILE_STATUS } from '../../types/shipper-profile.types';
+import { DeliveryAssignmentSagaService } from '../shipper/delivery-assignment-saga.service';
 import { ActiveShipperTrackerService } from './active-shipper-tracker.service';
 
 interface ActiveShipper {
@@ -65,9 +74,11 @@ export class DeliveryDispatchService {
     private readonly shippingDetailRepository: Repository<ShippingDetail>,
     private readonly queueService: QueueService,
     private readonly store: RedisPendingAssignmentStore,
-    private readonly shipperService: ShipperService,
+    @InjectRepository(ShipperProfile)
+    private readonly shipperProfileRepository: Repository<ShipperProfile>,
     private readonly activeShipperTracker: ActiveShipperTrackerService,
     private readonly eventBus: InProcessEventBus,
+    private readonly deliveryAssignmentSagaService: DeliveryAssignmentSagaService,
   ) {}
 
   // ==========================================
@@ -77,41 +88,139 @@ export class DeliveryDispatchService {
   async offerDelivery(command: OfferDeliveryCommand) {
     DeliveryDispatchPolicy.assertCommandActor(command.actorId);
     DeliveryDispatchPolicy.assertOrderId(command.orderId);
-    return this.shipperService.requestOrderAssignment(command.orderId, command.actorId);
+    return this.requestOrderAssignment(command.orderId, command.actorId);
   }
 
   async acceptDelivery(command: AcceptDeliveryCommand) {
     DeliveryDispatchPolicy.assertCommandActor(command.actorId);
-    const assignment = await this.shipperService.getPendingAssignmentForShipper(command.actorId);
+    const assignment = await this.getPendingAssignmentForShipper(command.actorId);
     if (!assignment) {
       DeliveryDispatchPolicy.assertOwnership(assignment, command.assignmentId, command.actorId);
       return null;
     }
     DeliveryDispatchPolicy.assertOwnership(assignment, command.assignmentId, command.actorId);
-    DeliveryDispatchPolicy.assertAcceptable(new Date(assignment.expiresAt));
-    return this.shipperService.acceptAssignment(command.assignmentId, command.actorId);
+    return this.acceptAssignment(command.assignmentId, command.actorId);
   }
 
   async rejectDelivery(command: RejectDeliveryCommand) {
     DeliveryDispatchPolicy.assertCommandActor(command.actorId);
-    const assignment = await this.shipperService.getPendingAssignmentForShipper(command.actorId);
+    const assignment = await this.getPendingAssignmentForShipper(command.actorId);
     if (!assignment) {
       DeliveryDispatchPolicy.assertOwnership(assignment, command.assignmentId, command.actorId);
       return null;
     }
     DeliveryDispatchPolicy.assertOwnership(assignment, command.assignmentId, command.actorId);
-    return this.shipperService.rejectAssignment(command.assignmentId, command.actorId);
+    return this.rejectAssignment(command.assignmentId, command.actorId);
   }
 
   async reassignDelivery(command: ReassignDeliveryCommand) {
     DeliveryDispatchPolicy.assertCommandActor(command.actorId);
-    const assignment = await this.shipperService.getPendingAssignmentForOrder(command.orderId);
+    const assignment = await this.getPendingAssignmentForOrder(command.orderId);
     DeliveryDispatchPolicy.assertCanReassign(
       command.actorId,
       assignment?.shipperId ?? null,
       command.actorRole,
     );
-    return this.shipperService.reassignOrder(command.orderId);
+    return this.reassignOrder(command.orderId);
+  }
+
+  async requestOrderAssignment(orderId: string, shipperId: string) {
+    const existingAssignment = await this.getPendingAssignmentForShipper(shipperId);
+    if (existingAssignment?.orderId === orderId) {
+      throw new ConflictException('You already have a pending assignment for this order');
+    }
+    if (await this.getActiveHoldForOrder(orderId)) {
+      throw new ConflictException('Order is currently being considered by another shipper');
+    }
+
+    const profile = await this.shipperProfileRepository.findOne({ where: { userId: shipperId } });
+    if (!profile || profile.certificateStatus !== SHIPPER_PROFILE_STATUS.APPROVED) {
+      throw new BadRequestException('Invalid or unapproved shipper');
+    }
+    if (!profile.isAvailable || profile.activeDeliveries >= profile.maxActiveDeliveries) {
+      throw new ConflictException('Shipper is not available for another delivery');
+    }
+
+    await this.addPendingAssignment(orderId);
+    const hold = await this.createShipperHold(orderId, shipperId);
+    this.logger.log(`Temporary assignment created for order ${orderId} to shipper ${shipperId}`);
+    return {
+      assignmentId: hold.assignmentId,
+      expiresAt: hold.expiresAt,
+      message: 'You have 2 minutes to accept this order',
+    };
+  }
+
+  async acceptAssignment(assignmentId: string, shipperId: string) {
+    const assignment = await this.getPendingAssignmentForShipper(shipperId);
+    if (!assignment) {
+      throw new BadRequestException('Assignment not found or already processed');
+    }
+    DeliveryDispatchPolicy.assertOwnership(assignment, assignmentId, shipperId);
+    if (assignment.expiresAt < new Date()) {
+      await this.markOfferRejected(assignment.orderId, shipperId);
+      DeliveryDispatchPolicy.assertAcceptable(assignment.expiresAt);
+    }
+
+    const result = await this.assignOrderToShipper(assignment.orderId, shipperId);
+    if (result.status === ShippingStatus.SHIPPING) {
+      await pubSub.publish('orderAssignedToShipper', {
+        orderAssignedToShipper: { orderId: assignment.orderId, shipperId },
+      });
+      this.logger.log(`Order ${assignment.orderId} accepted by shipper ${shipperId}`);
+    } else {
+      this.logger.warn(`Order ${assignment.orderId} assignment is pending Outbox processing`);
+    }
+    return result;
+  }
+
+  async rejectAssignment(assignmentId: string, shipperId: string) {
+    const assignment = await this.getPendingAssignmentForShipper(shipperId);
+    if (!assignment) {
+      throw new BadRequestException('Assignment not found or already processed');
+    }
+    DeliveryDispatchPolicy.assertOwnership(assignment, assignmentId, shipperId);
+    await this.markOfferRejected(assignment.orderId, shipperId);
+    this.logger.log(`Order ${assignment.orderId} rejected by shipper ${shipperId}`);
+    return { message: 'Order rejected successfully' };
+  }
+
+  async reassignOrder(orderId: string) {
+    const activeHold = await this.getPendingAssignmentForOrder(orderId);
+    if (activeHold) {
+      await this.markOfferRejected(orderId, activeHold.shipperId);
+    }
+    await this.addPendingAssignment(orderId);
+    return { message: 'Order queued for reassignment' };
+  }
+
+  async assignOrderToShipper(orderId: string, shipperId: string, responseTimeSeconds = 120) {
+    const pendingAssignment = await this.getPendingAssignmentForShipper(shipperId);
+    if (!pendingAssignment || pendingAssignment.orderId !== orderId) {
+      throw new ForbiddenException('This order is not currently offered to this shipper');
+    }
+
+    const shippingDetail = await this.deliveryAssignmentSagaService.assign(
+      orderId,
+      shipperId,
+      responseTimeSeconds,
+    );
+    if (shippingDetail.status === ShippingStatus.CANCELLED) {
+      await this.removePendingAssignment(orderId);
+      throw new ConflictException('Order is no longer available for assignment');
+    }
+    try {
+      await this.removePendingAssignment(orderId);
+      this.logger.log(
+        `Removed order ${orderId} from pending assignments after assignment to shipper`,
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to remove order ${orderId} from pending assignments: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    this.logger.log(`Order ${orderId} assigned to shipper ${shipperId}`);
+    return shippingDetail;
   }
 
   // ==========================================
