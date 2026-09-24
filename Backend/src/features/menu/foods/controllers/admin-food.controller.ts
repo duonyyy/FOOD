@@ -13,10 +13,10 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
-import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
-import { AdminFoodService } from '../services/admin-food.service';
-import { CustomerFoodService } from '../services/customer-food.service';
+import { Permission } from 'src/shared/types/enums/permission.enum';
+import { FoodAdminService } from '../services/food-admin.service';
+import { FoodCustomerService } from '../services/food-customer.service';
 
 @Controller('foods')
 @ApiTags('admin-foods')
@@ -25,8 +25,8 @@ export class AdminFoodController {
   private readonly logger = new Logger(AdminFoodController.name);
 
   constructor(
-    private readonly adminFoodService: AdminFoodService,
-    private readonly customerFoodService: CustomerFoodService,
+    private readonly adminFoodService: FoodAdminService,
+    private readonly customerFoodService: FoodCustomerService,
   ) {}
 
   @Get('all')

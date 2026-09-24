@@ -9,8 +9,11 @@ import { Category } from 'src/entities/category.entity';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 import { type CategorySummary } from '../types/category.types';
-import { toCategoryResponse } from './category.mapper';
-import { CategoryListResponseDto, CategoryResponseDto } from './dto/category-response.dto';
+import {
+  CategoryFoodResponseDto,
+  CategoryListResponseDto,
+  CategoryResponseDto,
+} from './dto/category-response.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
@@ -34,7 +37,7 @@ export class CategoryService {
       });
       const savedCategory = await this.categoryRepository.save(category);
       await this.clearCategoryCache();
-      return toCategoryResponse(savedCategory);
+      return this.toCategoryResponse(savedCategory);
     } catch (error) {
       if (error instanceof ConflictException || isUniqueViolation(error)) {
         throw new ConflictException('A category with this name already exists');
@@ -58,7 +61,7 @@ export class CategoryService {
         .getManyAndCount();
 
       const response = new CategoryListResponseDto();
-      response.items = categories.map(toCategoryResponse);
+      response.items = categories.map((category) => this.toCategoryResponse(category));
       response.totalItems = totalItems;
       response.page = page;
       response.pageSize = pageSize;
@@ -118,7 +121,7 @@ export class CategoryService {
       throw error;
     }
     await this.clearCategoryCache();
-    return toCategoryResponse(updatedCategory);
+    return this.toCategoryResponse(updatedCategory);
   }
 
   async remove(categoryId: string): Promise<void> {
@@ -146,7 +149,7 @@ export class CategoryService {
         relations: ['foods'],
       });
 
-      return category ? toCategoryResponse(category) : null;
+      return category ? this.toCategoryResponse(category) : null;
     });
   }
 
@@ -161,6 +164,32 @@ export class CategoryService {
     if (existing) {
       throw new ConflictException('A category with this name already exists');
     }
+  }
+
+  private toCategoryResponse(category: Category & { foodCount?: number }): CategoryResponseDto {
+    const response = new CategoryResponseDto();
+    response.id = category.id;
+    response.name = category.name ?? null;
+    response.image = category.image ?? null;
+    response.foodCount = category.foodCount ?? category.foods?.length ?? 0;
+    if (category.foods) {
+      response.foods = category.foods.map((food) => {
+        const item = new CategoryFoodResponseDto();
+        item.id = food.id;
+        item.name = food.name ?? null;
+        item.image = food.image ?? null;
+        item.imageUrls = food.imageUrls ?? null;
+        item.description = food.description ?? null;
+        item.price = food.price ?? null;
+        item.discountPercent = food.discountPercent ?? null;
+        item.status = food.status ?? null;
+        item.tag = food.tag ?? null;
+        item.rating = food.rating ?? null;
+        item.preparationTime = food.preparationTime ?? null;
+        return item;
+      });
+    }
+    return response;
   }
 }
 

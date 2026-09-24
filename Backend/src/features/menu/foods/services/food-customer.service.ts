@@ -70,8 +70,8 @@ export interface FoodPaginationResult {
  * - Lọc món hot, món mới, món giảm giá, phân loại theo quán & danh mục
  */
 @Injectable()
-export class CustomerFoodService {
-  private readonly logger = new Logger(CustomerFoodService.name);
+export class FoodCustomerService {
+  private readonly logger = new Logger(FoodCustomerService.name);
 
   constructor(
     @InjectRepository(Food)
@@ -814,7 +814,7 @@ export class CustomerFoodService {
   };
 
   applySortingToQueryBuilder(queryBuilder: SelectQueryBuilder<Food>, sortBy?: FoodSortType): void {
-    const strategy = sortBy ? CustomerFoodService.SORT_STRATEGIES[sortBy] : undefined;
+    const strategy = sortBy ? FoodCustomerService.SORT_STRATEGIES[sortBy] : undefined;
     if (strategy) {
       strategy(queryBuilder);
     } else {

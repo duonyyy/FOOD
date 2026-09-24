@@ -296,7 +296,17 @@ cả đọc/ghi. `UserProfileService` xử lý cập nhật hồ sơ cho hai act
 khẩu; `AdminUsersService` xử lý tạo/xóa, `UsersService` phục vụ Auth và đăng ký shipper.
 Route, DTO và response giữ nguyên.
 
-### 9.4. Tên file chưa thống nhất
+### 9.4. Menu sau refactor Food/Category/Topping (2026-09-24)
+
+`MenuModule` là module duy nhất của Menu: đăng ký `CategoryController`, ba Food controller, `CategoryService`, `FoodCustomerService`, `FoodMerchantService`, `FoodAdminService`, `FoodToppingService` và `FoodIntegrationService` mỗi loại một lần. Module có TypeORM repository Food/Category/Topping, `AuthModule` và `MerchantCatalogModule` qua `restaurants/merchant-catalog.public-api.ts`. Entity vẫn ở `src/entities`; không đổi schema.
+
+`CategoryModule`, `ToppingModule` và mapper Category đã bị xóa; mapping response gồm `foodCount`, danh sách Food DTO và null nằm trong `CategoryService`. Topping thuộc `foods/`, với service `FoodToppingService` và DTO dưới `foods/dto/toppings/`. Food controller giữ nguyên route, guard, DTO và Swagger. `FoodIntegrationService` tiếp tục phục vụ Orders, Restaurants, Reviews và Chat qua `menu/public-api.ts`.
+
+`FoodQueryService`/`FoodCommandService` tương thích cũ không có consumer runtime và đã bị bỏ. Các phương thức snapshot cũ của query trùng triển khai với `FoodIntegrationService`; `getMenuForUser` là phương thức kế thừa từ `FoodCustomerService`; `searchFoodsForStore` có biến thể sort nhưng không có consumer runtime, trong khi admin dùng `FoodAdminService.searchFoodsForStore`. Lệnh `delete` cũ cùng đường truy vấn, dọn ảnh và cache như `FoodAdminService.deleteByAdmin`; controller admin đã dùng phương thức sau. Test đã chuyển sang service sở hữu hành vi. Xem `src/features/menu/README.md` để xem cây thư mục hiện tại.
+
+Kiểm chứng trong phiên: `npm run build` đạt; scoped ESLint khi tắt rule Prettier có 0 lỗi và 7 cảnh báo `any` trong FoodCustomerService đã có từ trước. E2E Category đạt 2/2 với service giả lập. Unit/boundary/provider/consumer liên quan và các test bổ sung snapshot đạt sau khi chạy lại test theo tên file mới. Chưa kiểm chứng với PostgreSQL thật; repo không có E2E riêng cho Food merchant/admin.
+
+### 9.5. Tên file chưa thống nhất
 
 Các tên `reader`, `command`, `adapter`, `integration`, `core`, `facade` không sai tự thân, nhưng hiện được dùng nhiều hơn mức cần thiết.
 
@@ -309,7 +319,7 @@ Quy tắc đổi tên:
 - `integration` → đổi thành tên nghiệp vụ cụ thể;
 - `core` → đổi thành trách nhiệm rõ như `state-machine`, `pricing`, `policy`.
 
-### 9.5. `shared/types` cần đánh giá lại từng file
+### 9.6. `shared/types` cần đánh giá lại từng file
 
 Hiện có năm file:
 
@@ -535,7 +545,7 @@ Chi tiết và lệnh kiểm thử nằm ở [`DELIVERY_REFACTORING_PLAN.md`](./
 
 Sau lần gom service và dọn tên test, build, 111 suite/392 unit test, 26 suite/76 integration test và 10 suite/32 E2E test đạt; 2 suite/3 test PostgreSQL skip. Integration/E2E chạy trước khi đổi tên file unit test, không có runtime code đổi sau đó. PostgreSQL thật chưa được kiểm chứng; báo cáo thu nhập còn join Order và hủy chuyến còn khoảng hở nhiều lần ghi. Không gọi Delivery hoàn tất production; trạng thái commit/push kiểm tra bằng Git.
 
-Các feature tiếp theo cần kiểm tra riêng: Users/Auth, Locations, Menu, Restaurants và Communications. Không trộn Docker, migration, formatting toàn repository hoặc thay đổi API behavior vào refactor Delivery.
+Các feature tiếp theo cần kiểm tra riêng theo source hiện tại: Restaurants và Communications. Không trộn Docker, migration, formatting toàn repository hoặc thay đổi API behavior vào refactor Delivery.
 
 ## 14. Exit gate cho mỗi feature
 

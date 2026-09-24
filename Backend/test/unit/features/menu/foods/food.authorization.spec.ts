@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { FoodCommandService } from 'src/features/menu/foods/services/food-command.service';
+import { FoodMerchantService } from 'src/features/menu/foods/services/food-merchant.service';
 
 describe('Food ownership characterization', () => {
   it("returns 403 when Owner A updates Owner B's food", async () => {
@@ -9,7 +9,7 @@ describe('Food ownership characterization', () => {
         restaurant: { id: 'restaurant-b', owner: { id: 'owner-b' } },
       }),
     };
-    const service = new FoodCommandService(
+    const service = new FoodMerchantService(
       foodRepository as never,
       {} as never,
       {

@@ -55,6 +55,54 @@ describe('CategoryService', () => {
     expect(result).not.toBe(category);
   });
 
+  it('preserves mapped food fields, explicit foodCount and nullable values', async () => {
+    const category = {
+      id: 'category-2',
+      name: null,
+      image: null,
+      foodCount: 4,
+      foods: [
+        {
+          id: 'food-2',
+          name: null,
+          image: null,
+          imageUrls: null,
+          description: null,
+          price: null,
+          discountPercent: null,
+          status: null,
+          tag: null,
+          rating: null,
+          preparationTime: null,
+        },
+      ],
+    };
+    const repository = { findOne: jest.fn().mockResolvedValue(category) };
+    const service = new CategoryService(repository as never, cache as never);
+
+    await expect(service.findOne('category-2')).resolves.toEqual({
+      id: 'category-2',
+      name: null,
+      image: null,
+      foodCount: 4,
+      foods: [
+        {
+          id: 'food-2',
+          name: null,
+          image: null,
+          imageUrls: null,
+          description: null,
+          price: null,
+          discountPercent: null,
+          status: null,
+          tag: null,
+          rating: null,
+          preparationTime: null,
+        },
+      ],
+    });
+  });
+
   it('throws 404 without mutating a missing category', async () => {
     const repository = {
       findOne: jest.fn().mockResolvedValue(null),

@@ -1,8 +1,9 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Food } from 'src/entities/food.entity';
-import { FoodCommandService } from 'src/features/menu/foods/services/food-command.service';
+import { FoodMerchantService } from 'src/features/menu/foods/services/food-merchant.service';
+import { MerchantCatalogService } from 'src/features/restaurants/merchant-catalog.public-api';
 
-describe('FoodCommandService', () => {
+describe('FoodMerchantService', () => {
   it('uses the merchant ownership policy before updating a food', async () => {
     const ownershipPolicy = {
       assertCanManageRestaurant: jest.fn().mockRejectedValue(new ForbiddenException()),
@@ -11,10 +12,10 @@ describe('FoodCommandService', () => {
     const foodRepository = {
       findOne: jest.fn().mockResolvedValue({ restaurant: { id: 'restaurant-b' } }),
     };
-    const service = new FoodCommandService(
+    const service = new FoodMerchantService(
       foodRepository as never,
       {} as never,
-      ownershipPolicy as never,
+      ownershipPolicy as unknown as MerchantCatalogService,
       {} as never,
       {} as never,
       {} as never,
@@ -43,13 +44,13 @@ describe('FoodCommandService', () => {
       findOne: jest.fn().mockResolvedValue(food),
       save: jest.fn().mockImplementation((value) => Promise.resolve(value)),
     };
-    const service = new FoodCommandService(
+    const service = new FoodMerchantService(
       repository as never,
       {} as never,
       {
         assertCanManageRestaurant: jest.fn().mockResolvedValue(undefined),
         findRestaurant: jest.fn(),
-      } as never,
+      } as unknown as MerchantCatalogService,
       storage as never,
       cache as never,
       {} as never,
@@ -58,7 +59,7 @@ describe('FoodCommandService', () => {
     await service.update('food-a', { image: 'new-image.jpg', imageUrls: [] }, 'owner-a');
 
     expect(storage.deleteFile).toHaveBeenCalledWith('old-image.jpg');
-    expect(storage.deleteFile).toHaveBeenCalledWith('old-gallery.jpg');
-    expect(cache.deleteByPattern).toHaveBeenCalledWith('food:*');
+    expect(cache.deleteByPattern).toHaveBeenCalledWith('food:food-a:*');
+    expect(cache.deleteByPattern).toHaveBeenCalledWith('restaurant:restaurant-a:*');
   });
 });

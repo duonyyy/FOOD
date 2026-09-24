@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import { CustomerFoodService } from 'src/features/menu/foods/services/customer-food.service';
+import { FoodCustomerService } from 'src/features/menu/foods/services/food-customer.service';
 
 type RecordedCondition = {
   condition: string;
@@ -71,7 +71,7 @@ function expectPublicVisibility(queryBuilder: RecordingFoodQueryBuilder): void {
   );
 }
 
-describe('CustomerFoodService public menu visibility', () => {
+describe('FoodCustomerService public menu visibility', () => {
   const queryBuilders: RecordingFoodQueryBuilder[] = [];
   const foodRepository = {
     createQueryBuilder: jest.fn(() => {
@@ -93,7 +93,7 @@ describe('CustomerFoodService public menu visibility', () => {
     remember: jest.fn(<Value>(_key: string, _ttl: number, loader: () => Promise<Value>) => loader()),
     deleteByPattern: jest.fn(),
   };
-  const service = new CustomerFoodService(
+  const service = new FoodCustomerService(
     foodRepository as never,
     categoryRepository as never,
     {} as never,

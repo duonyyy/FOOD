@@ -10,14 +10,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CustomerFoodService } from '../services/customer-food.service';
+import { FoodCustomerService } from '../services/food-customer.service';
 
 @Controller('foods')
 @ApiTags('foods')
 export class CustomerFoodController {
   private readonly logger = new Logger(CustomerFoodController.name);
 
-  constructor(private readonly foodService: CustomerFoodService) {}
+  constructor(private readonly foodService: FoodCustomerService) {}
 
   @Get()
   async findAll(

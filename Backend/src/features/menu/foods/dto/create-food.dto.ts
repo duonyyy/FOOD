@@ -7,7 +7,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { CreateToppingDto } from '../../toppings/dto/create-topping.dto';
+import { CreateToppingDto } from './toppings/create-topping.dto';
 
 export class CreateFoodDto {
   @IsString()

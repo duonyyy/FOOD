@@ -16,19 +16,19 @@ import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { AuthGuard } from 'src/features/auth/public-api';
-import { CreateToppingDto } from '../../toppings/dto/create-topping.dto';
-import { UpdateToppingDto } from '../../toppings/dto/update-topping.dto';
-import { ToppingCommandService } from '../../toppings/topping-command.service';
 import { CreateFoodDto } from '../dto/create-food.dto';
+import { CreateToppingDto } from '../dto/toppings/create-topping.dto';
+import { UpdateToppingDto } from '../dto/toppings/update-topping.dto';
 import { UpdateFoodDto } from '../dto/update-food.dto';
-import { MerchantFoodService } from '../services/merchant-food.service';
+import { FoodMerchantService } from '../services/food-merchant.service';
+import { FoodToppingService } from '../services/food-topping.service';
 
 @Controller('foods')
 @ApiTags('merchant-foods')
 export class MerchantFoodController {
   constructor(
-    private readonly foodService: MerchantFoodService,
-    private readonly toppingCommandService: ToppingCommandService,
+    private readonly foodService: FoodMerchantService,
+    private readonly foodToppingService: FoodToppingService,
   ) {}
 
   @Post()
@@ -100,7 +100,7 @@ export class MerchantFoodController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 
-    return await this.toppingCommandService.create(foodId, createToppingDto, userId);
+    return await this.foodToppingService.create(foodId, createToppingDto, userId);
   }
 
   @Put('toppings/:toppingId')
@@ -114,7 +114,7 @@ export class MerchantFoodController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 
-    return await this.toppingCommandService.update(toppingId, updateToppingDto, userId);
+    return await this.foodToppingService.update(toppingId, updateToppingDto, userId);
   }
 
   @Delete('toppings/:toppingId')
@@ -127,6 +127,6 @@ export class MerchantFoodController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
 
-    return await this.toppingCommandService.remove(toppingId, userId);
+    return await this.foodToppingService.remove(toppingId, userId);
   }
 }

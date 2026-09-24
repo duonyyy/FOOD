@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
-import { FoodQueryService } from 'src/features/menu/foods/services/food-query.service';
+import { FoodIntegrationService } from 'src/features/menu/foods/services/food-integration.service';
 
-describe('FoodQueryService orderable menu snapshot', () => {
+describe('FoodIntegrationService orderable menu snapshot', () => {
   it('returns an immutable plain snapshot with food and selected topping values', async () => {
     const foodRepository = {
       findOne: jest.fn().mockResolvedValue({
@@ -13,14 +13,7 @@ describe('FoodQueryService orderable menu snapshot', () => {
         toppings: [{ id: 'topping-1', name: 'Trứng', price: '10000', isAvailable: true }],
       }),
     };
-    const service = new FoodQueryService(
-      foodRepository as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-    );
+    const service = new FoodIntegrationService(foodRepository as never);
 
     const result = await service.getOrderableItems({
       items: [{ foodId: 'food-1', toppingIds: ['topping-1'] }],
@@ -52,14 +45,7 @@ describe('FoodQueryService orderable menu snapshot', () => {
       toppings: [{ id: 'topping-1', name: 'Old topping', price: 2, isAvailable: true }],
     };
     const repository = { findOne: jest.fn().mockResolvedValue(food) };
-    const service = new FoodQueryService(
-      repository as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-    );
+    const service = new FoodIntegrationService(repository as never);
 
     const snapshot = (
       await service.getOrderableItems({
@@ -83,14 +69,7 @@ describe('FoodQueryService orderable menu snapshot', () => {
         toppings: [{ id: 'topping-1', name: 'Trứng', price: 10, isAvailable: true }],
       }),
     };
-    const service = new FoodQueryService(
-      repository as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-    );
+    const service = new FoodIntegrationService(repository as never);
 
     await expect(
       service.getOrderableItems({
@@ -112,14 +91,7 @@ describe('FoodQueryService orderable menu snapshot', () => {
           toppings: [],
         }),
       };
-      const service = new FoodQueryService(
-        repository as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-      );
+      const service = new FoodIntegrationService(repository as never);
 
       const [snapshot] = await service.getOrderableItems({
         items: [{ foodId: 'food-1', toppingIds: [] }],

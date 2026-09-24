@@ -1,7 +1,7 @@
 import { Food } from 'src/entities/food.entity';
-import { AdminFoodService } from 'src/features/menu/foods/services/admin-food.service';
+import { FoodAdminService } from 'src/features/menu/foods/services/food-admin.service';
 
-describe('AdminFoodService', () => {
+describe('FoodAdminService', () => {
   it('deletes food, removes media and invalidates cache on admin override', async () => {
     const food = Object.assign(new Food(), {
       id: 'food-violation',
@@ -18,7 +18,7 @@ describe('AdminFoodService', () => {
     const storage = { deleteFile: jest.fn().mockResolvedValue(undefined) };
     const cache = { deleteByPattern: jest.fn().mockResolvedValue(1) };
 
-    const service = new AdminFoodService(foodRepository as never, storage as never, cache as never);
+    const service = new FoodAdminService(foodRepository as never, storage as never, cache as never);
 
     await service.deleteByAdmin('food-violation');
 

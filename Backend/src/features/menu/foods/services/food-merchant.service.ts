@@ -6,22 +6,22 @@ import { MerchantCatalogService } from 'src/features/restaurants/merchant-catalo
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { StorageService } from 'src/infra/minio/public-api';
 import { Repository } from 'typeorm';
-import { ToppingCommandService } from '../../toppings/topping-command.service';
 import { CreateFoodDto } from '../dto/create-food.dto';
 import { UpdateFoodDto } from '../dto/update-food.dto';
+import { FoodToppingService } from './food-topping.service';
 
 /**
  * Service phục vụ cho Chủ quán (Merchant): Thêm món, sửa món, đổi trạng thái, quản lý topping
  */
 @Injectable()
-export class MerchantFoodService {
+export class FoodMerchantService {
   constructor(
     @InjectRepository(Food) protected readonly foodRepository: Repository<Food>,
     @InjectRepository(Category) protected readonly categoryRepository: Repository<Category>,
     protected readonly merchantCatalog: MerchantCatalogService,
     protected readonly storage: StorageService,
     protected readonly cache: AppCacheService,
-    protected readonly toppingCommand: ToppingCommandService,
+    protected readonly foodTopping: FoodToppingService,
   ) {}
 
   async create(dto: CreateFoodDto, actorId: string): Promise<Food> {
@@ -54,7 +54,7 @@ export class MerchantFoodService {
 
     if (dto.toppings?.length) {
       for (const item of dto.toppings) {
-        await this.toppingCommand.create(savedFood.id, item, actorId);
+        await this.foodTopping.create(savedFood.id, item, actorId);
       }
     }
 

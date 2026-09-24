@@ -5,7 +5,7 @@ import { Food } from 'src/entities/food.entity';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { StorageService } from 'src/infra/minio/public-api';
 import { Repository } from 'typeorm';
-import { FoodPaginationResult, FoodSortType } from './customer-food.service';
+import { FoodPaginationResult, FoodSortType } from './food-customer.service';
 
 /**
  * Service phục vụ cho Quản trị viên (Admin):
@@ -13,8 +13,8 @@ import { FoodPaginationResult, FoodSortType } from './customer-food.service';
  * - Cưỡng chế xóa món vi phạm chính sách (deleteByAdmin)
  */
 @Injectable()
-export class AdminFoodService {
-  private readonly logger = new Logger(AdminFoodService.name);
+export class FoodAdminService {
+  private readonly logger = new Logger(FoodAdminService.name);
 
   constructor(
     @InjectRepository(Food) private readonly foodRepository: Repository<Food>,

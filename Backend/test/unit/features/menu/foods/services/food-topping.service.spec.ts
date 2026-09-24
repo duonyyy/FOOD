@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { ToppingCommandService } from 'src/features/menu/toppings/topping-command.service';
+import { FoodToppingService } from 'src/features/menu/foods/services/food-topping.service';
 
-describe('ToppingCommandService', () => {
+describe('FoodToppingService', () => {
   const food = { id: 'food-1', restaurant: { id: 'restaurant-1' } };
 
   function createService(overrides: Record<string, unknown> = {}) {
@@ -30,7 +30,7 @@ describe('ToppingCommandService', () => {
       remove: jest.fn(),
     };
     const cache = { deleteByPattern: jest.fn().mockResolvedValue(0) };
-    const service = new ToppingCommandService(
+    const service = new FoodToppingService(
       foodRepository as never,
       toppingRepository as never,
       ownership as never,

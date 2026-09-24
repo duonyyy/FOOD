@@ -8,10 +8,13 @@ import {
   ShipperProfileService,
 } from 'src/features/delivery/shipper-profile.public-api';
 import { AddressService, LocationsModule } from 'src/features/locations/public-api';
-import { CategoryModule } from 'src/features/menu/categories/category.module';
 import {
   CategoryService,
+  FoodAdminService,
+  FoodCustomerService,
   FoodIntegrationService,
+  FoodMerchantService,
+  FoodToppingService,
   MenuModule,
   type CatalogChatFood,
   type CategorySummary,
@@ -35,8 +38,23 @@ import {
 import { IdentityModule, IdentityUserQueryService } from 'src/features/users/public-api';
 
 describe('feature public contracts', () => {
+  it('registers each Menu provider once in MenuModule', () => {
+    const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, MenuModule) as unknown[];
+    const expected = [
+      CategoryService,
+      FoodCustomerService,
+      FoodMerchantService,
+      FoodAdminService,
+      FoodToppingService,
+      FoodIntegrationService,
+    ];
+
+    expect(new Set(providers)).toEqual(new Set(expected));
+    expect(new Set(providers).size).toBe(providers.length);
+  });
+
   it('exports CategoryService as the Menu public concrete service', () => {
-    const exports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, CategoryModule) as unknown[];
+    const exports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, MenuModule) as unknown[];
 
     expect(exports).toContain(CategoryService);
   });
@@ -194,9 +212,9 @@ describe('feature public contracts', () => {
 
   it('keeps Phase 2 consumers on owner public APIs and concrete services', () => {
     const consumers = [
-      ['src/features/menu/foods/services/customer-food.service.ts', 'MerchantCatalogService'],
-      ['src/features/menu/foods/services/merchant-food.service.ts', 'MerchantCatalogService'],
-      ['src/features/menu/toppings/topping-command.service.ts', 'MerchantCatalogService'],
+      ['src/features/menu/foods/services/food-customer.service.ts', 'MerchantCatalogService'],
+      ['src/features/menu/foods/services/food-merchant.service.ts', 'MerchantCatalogService'],
+      ['src/features/menu/foods/services/food-topping.service.ts', 'MerchantCatalogService'],
       ['src/features/orders/services/order-creation.service.ts', 'AddressService'],
       ['src/features/orders/services/order-creation.service.ts', 'RestaurantReaderService'],
       ['src/features/orders/services/order-creation.service.ts', 'IdentityUserQueryService'],

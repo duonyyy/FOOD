@@ -4,13 +4,13 @@ import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
-import { MerchantCatalogService } from '../../restaurants/merchant-catalog.public-api';
-import { CreateToppingDto } from './dto/create-topping.dto';
-import { UpdateToppingDto } from './dto/update-topping.dto';
+import { MerchantCatalogService } from '../../../restaurants/merchant-catalog.public-api';
+import { CreateToppingDto } from '../dto/toppings/create-topping.dto';
+import { UpdateToppingDto } from '../dto/toppings/update-topping.dto';
 
 /** Catalog write boundary for toppings. Every mutation verifies the owning restaurant. */
 @Injectable()
-export class ToppingCommandService {
+export class FoodToppingService {
   constructor(
     @InjectRepository(Food) private readonly foodRepository: Repository<Food>,
     @InjectRepository(Topping) private readonly toppingRepository: Repository<Topping>,

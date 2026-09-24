@@ -78,10 +78,9 @@ describe('architecture boundary lint rules', () => {
   it('keeps Catalog consumers off the broad Restaurants public barrel', () => {
     const catalogConsumers = [
       'src/features/menu/menu.module.ts',
-      'src/features/menu/foods/services/customer-food.service.ts',
-      'src/features/menu/foods/services/merchant-food.service.ts',
-      'src/features/menu/toppings/topping.module.ts',
-      'src/features/menu/toppings/topping-command.service.ts',
+      'src/features/menu/foods/services/food-customer.service.ts',
+      'src/features/menu/foods/services/food-merchant.service.ts',
+      'src/features/menu/foods/services/food-topping.service.ts',
     ];
 
     for (const file of catalogConsumers) {
