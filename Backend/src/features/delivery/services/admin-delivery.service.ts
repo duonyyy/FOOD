@@ -11,11 +11,11 @@ import {
   type UserIdentity,
 } from 'src/features/users/public-api';
 import { Repository } from 'typeorm';
-import { ShipperProfileService } from '../shipper/shipper-profile.service';
+import { ShipperProfileService } from './shipper/shipper-profile.service';
 import {
   SHIPPER_PROFILE_STATUS,
   type ShipperProfileStatus,
-} from '../../types/shipper-profile.types';
+} from '../types/shipper-profile.types';
 
 /**
  * AdminDeliveryService handles administrative operations for delivery management:

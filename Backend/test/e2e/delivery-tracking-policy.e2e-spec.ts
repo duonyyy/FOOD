@@ -2,8 +2,7 @@
 import { INestApplication, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { CustomerDeliveryController } from 'src/features/delivery/controllers/customer-delivery.controller';
-import { DeliveryIntegrationService } from 'src/features/delivery/services/integration/delivery-integration.service';
-import { OrderDeliveryService } from 'src/features/orders/public-api';
+import { CustomerDeliveryService } from 'src/features/delivery/services/customer-delivery.service';
 import { AuthGuard } from 'src/features/users/public-api';
 import request = require('supertest');
 
@@ -11,22 +10,14 @@ describe('Customer delivery tracking policy (e2e)', () => {
   let app: INestApplication;
   let authenticated = true;
   let actorId = 'customer-a';
-  const assertCustomerCanTrackOrder = jest.fn();
-
-  const orderTrackingReader = {
-    assertCustomerCanTrackOrder,
-  };
-  const deliveryIntegrationService = {
+  const customerDeliveryService = {
     getDeliveryTracking: jest.fn(),
   };
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       controllers: [CustomerDeliveryController],
-      providers: [
-        { provide: OrderDeliveryService, useValue: orderTrackingReader },
-        { provide: DeliveryIntegrationService, useValue: deliveryIntegrationService },
-      ],
+      providers: [{ provide: CustomerDeliveryService, useValue: customerDeliveryService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({
@@ -56,8 +47,7 @@ describe('Customer delivery tracking policy (e2e)', () => {
   afterAll(async () => app?.close());
 
   it('allows the owner and never returns the shipper phone number', async () => {
-    assertCustomerCanTrackOrder.mockResolvedValue(undefined);
-    deliveryIntegrationService.getDeliveryTracking.mockResolvedValue({
+    customerDeliveryService.getDeliveryTracking.mockResolvedValue({
       orderId: 'order-a',
       trackingStatus: 'SHIPPING',
       shipper: { id: 'shipper-a', name: 'Shipper A', phone: '0900000000', rating: 4.8 },
@@ -71,24 +61,30 @@ describe('Customer delivery tracking policy (e2e)', () => {
       shipper: { id: string; name: string; rating: number };
     };
 
-    expect(assertCustomerCanTrackOrder).toHaveBeenCalledWith('order-a', 'customer-a');
+    expect(customerDeliveryService.getDeliveryTracking).toHaveBeenCalledWith(
+      'order-a',
+      'customer-a',
+    );
     expect(responseBody.shipper).toEqual({ id: 'shipper-a', name: 'Shipper A', rating: 4.8 });
     expect(responseBody.shipper).not.toHaveProperty('phone');
   });
 
   it('returns 404 and does not load tracking details when a different customer supplies the ID', async () => {
     actorId = 'customer-b';
-    assertCustomerCanTrackOrder.mockRejectedValue(
+    customerDeliveryService.getDeliveryTracking.mockRejectedValue(
       new NotFoundException('Delivery tracking not found'),
     );
 
     await request(app.getHttpServer()).get('/customer/deliveries/orders/order-a/track').expect(404);
 
-    expect(deliveryIntegrationService.getDeliveryTracking).not.toHaveBeenCalled();
+    expect(customerDeliveryService.getDeliveryTracking).toHaveBeenCalledWith(
+      'order-a',
+      'customer-b',
+    );
   });
 
   it('returns the same 404 for an unknown order', async () => {
-    assertCustomerCanTrackOrder.mockRejectedValue(
+    customerDeliveryService.getDeliveryTracking.mockRejectedValue(
       new NotFoundException('Delivery tracking not found'),
     );
 
@@ -102,6 +98,6 @@ describe('Customer delivery tracking policy (e2e)', () => {
 
     await request(app.getHttpServer()).get('/customer/deliveries/orders/order-a/track').expect(401);
 
-    expect(assertCustomerCanTrackOrder).not.toHaveBeenCalled();
+    expect(customerDeliveryService.getDeliveryTracking).not.toHaveBeenCalled();
   });
 });

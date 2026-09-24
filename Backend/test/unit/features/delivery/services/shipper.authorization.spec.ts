@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { ShipperDeliveryService } from 'src/features/delivery/services/shipper/shipper-delivery.service';
+import { ShipperDeliveryService } from 'src/features/delivery/services/shipper-delivery.service';
 
 describe('Shipper assignment authorization characterization', () => {
   let pendingAssignmentService: {

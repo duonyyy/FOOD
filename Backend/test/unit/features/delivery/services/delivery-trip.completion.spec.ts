@@ -1,8 +1,8 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { DeliveryCompletionService } from 'src/features/delivery/services/shipper/delivery-completion.service';
+import { DeliveryTripService } from 'src/features/delivery/services/delivery-trip.service';
 
-describe('DeliveryCompletionService', () => {
+describe('DeliveryTripService - completion', () => {
   let shippingDetail: ShippingDetail;
   let shipper: { id: string };
   let shippingRepository: Record<string, jest.Mock | { transaction: jest.Mock }>;
@@ -57,9 +57,10 @@ describe('DeliveryCompletionService', () => {
       }),
     };
     return {
-      service: new DeliveryCompletionService(
+      service: new DeliveryTripService(
         shippingRepository as never,
         shipperProfileRepository as never,
+        undefined as never,
         orderReader as never,
         outbox as never,
       ),

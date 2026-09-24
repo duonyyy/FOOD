@@ -4,9 +4,11 @@ import { randomUUID } from 'node:crypto';
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import { OutboxService } from 'src/common/events/outbox.service';
 import AppDataSource from 'src/config/typeorm.data-source';
+import { DeliveryEarningsEvent } from 'src/entities/deliveryEarningsEvent.entity';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
-import { DeliveryAssignmentSagaService } from 'src/features/delivery/services/shipper/delivery-assignment-saga.service';
+import { DeliveryTripService } from 'src/features/delivery/services/delivery-trip.service';
+import { OrderDeliveryService } from 'src/features/orders/public-api';
 import { DataSource } from 'typeorm';
 
 jest.setTimeout(30_000);
@@ -137,7 +139,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
 
       applicationModule = await Test.createTestingModule({
         providers: [
-          DeliveryAssignmentSagaService,
+          DeliveryTripService,
           {
             provide: getRepositoryToken(ShippingDetail),
             useValue: dataSource.getRepository(ShippingDetail),
@@ -146,6 +148,11 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
             provide: getRepositoryToken(ShipperProfile),
             useValue: dataSource.getRepository(ShipperProfile),
           },
+          {
+            provide: getRepositoryToken(DeliveryEarningsEvent),
+            useValue: dataSource.getRepository(DeliveryEarningsEvent),
+          },
+          { provide: OrderDeliveryService, useValue: {} },
           {
             provide: OutboxService,
             useValue: {
@@ -157,7 +164,7 @@ postgresIntegration('ShippingDetail PostgreSQL concurrency contract', () => {
         ],
       }).compile();
 
-      const deliveryApplication = applicationModule.get(DeliveryAssignmentSagaService);
+      const deliveryApplication = applicationModule.get(DeliveryTripService);
       const results = await Promise.allSettled(
         shipperIds.map((shipperId) => deliveryApplication.assign(orderId, shipperId, 30)),
       );

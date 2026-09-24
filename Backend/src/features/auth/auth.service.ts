@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import bcrypt from 'bcryptjs';
+import { compare } from 'bcryptjs';
 import { ShipperProfileService } from 'src/features/delivery/shipper-profile.public-api';
 import {
   CreateUserDto,
@@ -41,9 +41,7 @@ export class AuthService {
     private readonly passwordResetService: PasswordResetService,
     private readonly socialAuthService: SocialAuthService,
 
-    private readonly shipperProfileReader: ShipperProfileService,
-
-    private readonly shipperProfileCommands: ShipperProfileService,
+    private readonly shipperProfiles: ShipperProfileService,
   ) {}
 
   /**
@@ -109,7 +107,7 @@ export class AuthService {
       }
 
       // Kiểm tra mật khẩu
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      const isPasswordValid = await compare(password, user.password);
       if (!isPasswordValid) {
         throw new BadRequestException('Invalid email or password');
       }
@@ -172,14 +170,16 @@ export class AuthService {
    */
   async registerDriver(dto: CreateShipperDto) {
     // Kiểm tra username (số điện thoại) đã tồn tại chưa
-    let user: Awaited<ReturnType<UsersService['createShipperAccount']>>;
+    let registration: { userId: string };
     try {
-      user = await this.usersService.createShipperAccount({
+      registration = await this.shipperProfiles.registerPending({
         username: dto.username,
         password: dto.password,
         name: dto.name,
         phone: dto.phone,
         birthday: new Date(dto.birthday),
+        cccd: dto.cccd,
+        driverLicense: dto.driverLicense,
       });
     } catch (error) {
       if ((error as Error).message === 'USERNAME_ALREADY_EXISTS') {
@@ -191,16 +191,9 @@ export class AuthService {
       throw error;
     }
 
-    // Delivery sở hữu hồ sơ/chứng chỉ; Auth chỉ tạo account và gọi public command.
-    await this.shipperProfileCommands.createPending({
-      userId: user.id,
-      cccd: dto.cccd,
-      driverLicense: dto.driverLicense,
-    });
-
     return {
       message: 'Đăng ký tài xế thành công. Vui lòng chờ duyệt.',
-      userId: user.id,
+      userId: registration.userId,
     };
   }
 
@@ -226,7 +219,7 @@ export class AuthService {
       return false;
     }
 
-    return Boolean(await this.shipperProfileReader.findByUserId(user.id));
+    return Boolean(await this.shipperProfiles.findByUserId(user.id));
   }
 
   /**
@@ -244,7 +237,7 @@ export class AuthService {
       return { exists: false };
     }
 
-    const profile = await this.shipperProfileReader.findByUserId(user.id);
+    const profile = await this.shipperProfiles.findByUserId(user.id);
     if (!profile) {
       return { exists: false };
     }
@@ -273,12 +266,12 @@ export class AuthService {
     }
 
     // Kiểm tra mật khẩu
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const shipperProfile = await this.shipperProfileReader.findByUserId(user.id);
+    const shipperProfile = await this.shipperProfiles.findByUserId(user.id);
     if (!shipperProfile) {
       throw new UnauthorizedException('You are not registered as a driver');
     }

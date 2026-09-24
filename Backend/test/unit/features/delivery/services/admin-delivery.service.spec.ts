@@ -1,5 +1,5 @@
 import { CertificateStatus } from 'src/entities/shipperCertificateInfo.entity';
-import { AdminDeliveryService } from 'src/features/delivery/services/admin/admin-delivery.service';
+import { AdminDeliveryService } from 'src/features/delivery/services/admin-delivery.service';
 
 describe('AdminDeliveryService unit tests', () => {
   let certRepo: { findOne: jest.Mock; save: jest.Mock };

@@ -2,20 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
+import { OrderDeliveryService } from 'src/features/orders/public-api';
 import { Repository } from 'typeorm';
-import type {
-  DeliveryQuoteRequest,
-  DeliveryQuote,
-} from '../../types/delivery-integration.types';
+import type { DeliveryQuote, DeliveryQuoteRequest } from '../types/delivery-integration.types';
 
-/**
- * Delivery integration service used by Orders and Customer app through the Delivery public API.
- */
+/** Customer-facing quote, tracking and live-location access policy. */
 @Injectable()
-export class DeliveryIntegrationService {
+export class CustomerDeliveryService {
   constructor(
     @InjectRepository(ShippingDetail)
     private readonly shippingDetailRepository: Repository<ShippingDetail>,
+    private readonly orderDelivery: OrderDeliveryService,
   ) {}
 
   async quoteDelivery(request: DeliveryQuoteRequest): Promise<DeliveryQuote> {
@@ -38,7 +35,8 @@ export class DeliveryIntegrationService {
     };
   }
 
-  async getDeliveryTracking(orderId: string) {
+  async getDeliveryTracking(orderId: string, customerId: string) {
+    await this.orderDelivery.assertCustomerCanTrackOrder(orderId, customerId);
     const shippingDetail = await this.shippingDetailRepository.findOne({
       where: { order: { id: orderId } },
       relations: ['shipper'],
@@ -69,5 +67,19 @@ export class DeliveryIntegrationService {
           }
         : null,
     };
+  }
+
+  async canAccessShipperLocation(actorId: string, shipperId: string): Promise<boolean> {
+    if (!actorId || !shipperId) return false;
+    if (actorId === shipperId) return true;
+
+    const activeDelivery = await this.shippingDetailRepository.findOne({
+      where: {
+        shipper: { id: shipperId },
+        order: { user: { id: actorId } },
+        status: ShippingStatus.SHIPPING,
+      },
+    });
+    return Boolean(activeDelivery);
   }
 }

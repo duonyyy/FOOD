@@ -1,7 +1,8 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { DeliveryIntegrationService, DeliveryModule } from 'src/features/delivery/public-api';
+import { CustomerDeliveryService, DeliveryModule } from 'src/features/delivery/public-api';
+import { DeliveryDispatchService } from 'src/features/delivery/services/delivery-dispatch.service';
 import {
   ShipperProfileModule,
   ShipperProfileService,
@@ -75,16 +76,16 @@ describe('feature public contracts', () => {
       resolve(process.cwd(), 'src/features/delivery/delivery.module.ts'),
       'utf8',
     );
-    const deliveryController = readFileSync(
-      resolve(process.cwd(), 'src/features/delivery/controllers/customer-delivery.controller.ts'),
+    const customerDeliveryService = readFileSync(
+      resolve(process.cwd(), 'src/features/delivery/services/customer-delivery.service.ts'),
       'utf8',
     );
     const ordersExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, OrdersModule) as unknown[];
     expect(ordersExports).toContain(OrderDeliveryService);
     expect(deliveryModule).toContain("from '../orders/public-api'");
     expect(deliveryModule).toContain('OrdersModule');
-    expect(deliveryController).toContain('src/features/orders/public-api');
-    expect(deliveryController).toContain('OrderDeliveryService');
+    expect(customerDeliveryService).toContain('src/features/orders/public-api');
+    expect(customerDeliveryService).toContain('OrderDeliveryService');
   });
 
   it('keeps Analytics on the main Orders public API', () => {
@@ -160,7 +161,8 @@ describe('feature public contracts', () => {
         OrderRulesService,
       ]),
     );
-    expect(deliveryExports).toContain(DeliveryIntegrationService);
+    expect(deliveryExports).toContain(CustomerDeliveryService);
+    expect(deliveryExports).toEqual([CustomerDeliveryService, DeliveryDispatchService]);
     expect(profileExports).toContain(ShipperProfileService);
     expect(paymentExports).toContain(PaymentService);
   });
@@ -204,7 +206,7 @@ describe('feature public contracts', () => {
         'IdentityUserQueryService',
       ],
       [
-        'src/features/delivery/services/admin/admin-delivery.service.ts',
+        'src/features/delivery/services/admin-delivery.service.ts',
         'IdentityUserQueryService',
       ],
       ['src/features/communications/messenger/messenger.service.ts', 'RestaurantReaderService'],

@@ -36,4 +36,37 @@ describe('UsersService', () => {
       relations: ['role'],
     });
   });
+
+  it('uses only repositories from the supplied transaction for shipper account creation', async () => {
+    const role = { id: 'shipper-role', name: 'shipper' };
+    const usersInTransaction = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((value: unknown) => value),
+      save: jest.fn(async (value: unknown) => value),
+    };
+    const rolesInTransaction = { findOne: jest.fn().mockResolvedValue(role) };
+    const manager = {
+      getRepository: jest.fn((entity: unknown) =>
+        entity === User ? usersInTransaction : rolesInTransaction,
+      ),
+    };
+
+    const user = await service.createShipperAccount(
+      {
+        username: '0901234567',
+        password: 'password123',
+        name: 'Shipper',
+        phone: '0901234567',
+        birthday: new Date('1999-01-01'),
+      },
+      manager as never,
+    );
+
+    expect(manager.getRepository).toHaveBeenCalledWith(User);
+    expect(manager.getRepository).toHaveBeenCalledWith(Role);
+    expect(usersInTransaction.save).toHaveBeenCalledTimes(1);
+    expect(user).toMatchObject({ username: '0901234567', role });
+    expect(user.password).not.toBe('password123');
+    expect(userRepository.findOne).not.toHaveBeenCalled();
+  });
 });

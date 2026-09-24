@@ -1,5 +1,5 @@
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
-import { DeliveryReportService } from 'src/features/delivery/services/shipper/delivery-report.service';
+import { DeliveryReportService } from 'src/features/delivery/services/delivery-report.service';
 
 describe('DeliveryReportService unit tests', () => {
   let shippingDetailRepository: { count: jest.Mock; createQueryBuilder: jest.Mock };

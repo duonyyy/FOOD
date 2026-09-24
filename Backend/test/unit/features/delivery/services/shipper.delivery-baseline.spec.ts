@@ -1,6 +1,6 @@
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { ShipperDeliveryService } from 'src/features/delivery/services/shipper/shipper-delivery.service';
+import { ShipperDeliveryService } from 'src/features/delivery/services/shipper-delivery.service';
 import { SHIPPER_PROFILE_STATUS } from 'src/features/delivery/types/shipper-profile.types';
 
 describe('Shipper delivery boundary baseline', () => {

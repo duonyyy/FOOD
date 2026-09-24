@@ -12,9 +12,9 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
 import { AuthGuard } from 'src/features/auth/public-api';
-import { DeliveryDispatchService } from '../services/dispatch/delivery-dispatch.service';
-import { DeliveryReportService } from '../services/shipper/delivery-report.service';
-import { ShipperDeliveryService } from '../services/shipper/shipper-delivery.service';
+import { DeliveryDispatchService } from '../services/delivery-dispatch.service';
+import { DeliveryReportService } from '../services/delivery-report.service';
+import { ShipperDeliveryService } from '../services/shipper-delivery.service';
 import { ShipperProfileService } from '../services/shipper/shipper-profile.service';
 
 @Controller('shippers')

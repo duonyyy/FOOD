@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
+import { UsersService } from 'src/features/users/identity-auth.public-api';
 import { IdentityUserProfileService } from 'src/features/users/identity-user-profile.public-api';
 import { pubSub } from 'src/pubsub';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { DataSource, EntityManager, FindOptionsWhere, Repository } from 'typeorm';
 import { UpdateDriverProfileDto } from '../../dto/update-driver-dto';
 import {
   SHIPPER_PROFILE_STATUS,
@@ -22,7 +23,38 @@ export class ShipperProfileService {
     @InjectRepository(ShipperProfile)
     private readonly profileRepository: Repository<ShipperProfile>,
     private readonly identityUserProfile: IdentityUserProfileService,
+    private readonly usersService: UsersService,
+    private readonly dataSource: DataSource,
   ) {}
+
+  /** User and Delivery profile are committed together or not at all. */
+  async registerPending(command: {
+    username: string;
+    password: string;
+    name: string;
+    phone: string;
+    birthday: Date;
+    cccd?: string;
+    driverLicense?: string;
+  }): Promise<{ userId: string }> {
+    return this.dataSource.transaction(async (manager) => {
+      const user = await this.usersService.createShipperAccount(
+        {
+          username: command.username,
+          password: command.password,
+          name: command.name,
+          phone: command.phone,
+          birthday: command.birthday,
+        },
+        manager,
+      );
+      await this.createPending(
+        { userId: user.id, cccd: command.cccd, driverLicense: command.driverLicense },
+        manager,
+      );
+      return { userId: user.id };
+    });
+  }
 
   async findByUserId(userId: string): Promise<ShipperProfileView | null> {
     const profile = await this.profileRepository.findOne({ where: { userId } });
@@ -45,11 +77,15 @@ export class ShipperProfileService {
     return profiles.map((profile) => this.toProfileView(profile));
   }
 
-  async createPending(command: CreateShipperProfileCommand): Promise<ShipperProfileView> {
-    const existing = await this.profileRepository.findOne({
+  async createPending(
+    command: CreateShipperProfileCommand,
+    manager?: EntityManager,
+  ): Promise<ShipperProfileView> {
+    const profiles = manager?.getRepository(ShipperProfile) ?? this.profileRepository;
+    const existing = await profiles.findOne({
       where: { userId: command.userId },
     });
-    const profile = existing ?? this.profileRepository.create({ userId: command.userId });
+    const profile = existing ?? profiles.create({ userId: command.userId });
 
     if (command.cccd !== undefined) {
       profile.cccd = command.cccd;
@@ -61,7 +97,7 @@ export class ShipperProfileService {
       profile.certificateStatus = SHIPPER_PROFILE_STATUS.PENDING;
     }
 
-    return this.toProfileView(await this.profileRepository.save(profile));
+    return this.toProfileView(await profiles.save(profile));
   }
 
   async updateCertificateStatus(

@@ -1,4 +1,4 @@
-import { DeliveryDispatchService } from 'src/features/delivery/services/dispatch/delivery-dispatch.service';
+import { DeliveryDispatchService } from 'src/features/delivery/services/delivery-dispatch.service';
 
 describe('DeliveryDispatchService missing assignment restore', () => {
   const previousQueueProcessorEnabled = process.env.QUEUE_PROCESSOR_ENABLED;

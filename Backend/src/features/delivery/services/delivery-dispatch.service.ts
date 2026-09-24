@@ -26,21 +26,21 @@ import type {
   PendingAssignmentState,
 } from 'src/shared/types/delivery/delivery-assignment.types';
 import { Repository } from 'typeorm';
-import { RedisPendingAssignmentStore } from '../../adapters/redis-pending-assignment-store.service';
+import { RedisPendingAssignmentStore } from '../adapters/redis-pending-assignment-store.service';
 import {
   AcceptDeliveryCommand,
   OfferDeliveryCommand,
   ReassignDeliveryCommand,
   RejectDeliveryCommand,
-} from '../../contracts/delivery-dispatch.commands';
+} from '../contracts/delivery-dispatch.commands';
 import {
   DELIVERY_DISPATCH_POLICY,
   DeliveryDispatchPolicy,
-} from '../../contracts/delivery-dispatch.policy';
-import { DELIVERY_ASSIGNMENT_QUEUE } from '../../queue/delivery-queue.constants';
-import { SHIPPER_PROFILE_STATUS } from '../../types/shipper-profile.types';
-import { DeliveryAssignmentSagaService } from '../shipper/delivery-assignment-saga.service';
-import { ActiveShipperTrackerService } from './active-shipper-tracker.service';
+} from '../contracts/delivery-dispatch.policy';
+import { DELIVERY_ASSIGNMENT_QUEUE } from '../queue/delivery-queue.constants';
+import { SHIPPER_PROFILE_STATUS } from '../types/shipper-profile.types';
+import { DeliveryTripService } from './delivery-trip.service';
+import { ActiveShipperTrackerService } from './dispatch/active-shipper-tracker.service';
 
 interface ActiveShipper {
   shipperId: string;
@@ -78,7 +78,7 @@ export class DeliveryDispatchService {
     private readonly shipperProfileRepository: Repository<ShipperProfile>,
     private readonly activeShipperTracker: ActiveShipperTrackerService,
     private readonly eventBus: InProcessEventBus,
-    private readonly deliveryAssignmentSagaService: DeliveryAssignmentSagaService,
+    private readonly deliveryTripService: DeliveryTripService,
   ) {}
 
   // ==========================================
@@ -200,7 +200,7 @@ export class DeliveryDispatchService {
       throw new ForbiddenException('This order is not currently offered to this shipper');
     }
 
-    const shippingDetail = await this.deliveryAssignmentSagaService.assign(
+    const shippingDetail = await this.deliveryTripService.assign(
       orderId,
       shipperId,
       responseTimeSeconds,

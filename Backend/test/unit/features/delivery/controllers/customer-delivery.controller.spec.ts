@@ -8,22 +8,15 @@ import {
 } from 'src/features/users/public-api';
 
 describe('CustomerDeliveryController', () => {
-  const orderTrackingReader = {
-    assertCustomerCanTrackOrder: jest.fn(),
-  };
-  const deliveryIntegrationService = {
+  const customerDeliveryService = {
     getDeliveryTracking: jest.fn(),
   };
-  const controller = new CustomerDeliveryController(
-    orderTrackingReader as never,
-    deliveryIntegrationService as never,
-  );
+  const controller = new CustomerDeliveryController(customerDeliveryService as never);
 
   beforeEach(() => jest.clearAllMocks());
 
   it('allows the JWT customer to track their order and removes shipper phone', async () => {
-    orderTrackingReader.assertCustomerCanTrackOrder.mockResolvedValue(undefined);
-    deliveryIntegrationService.getDeliveryTracking.mockResolvedValue({
+    customerDeliveryService.getDeliveryTracking.mockResolvedValue({
       orderId: 'order-a',
       trackingStatus: 'SHIPPING',
       shipper: { id: 'shipper-a', name: 'Shipper A', phone: '0900000000', rating: 4.8 },
@@ -32,11 +25,10 @@ describe('CustomerDeliveryController', () => {
 
     const result = await controller.trackOrder('order-a', actor);
 
-    expect(orderTrackingReader.assertCustomerCanTrackOrder).toHaveBeenCalledWith(
+    expect(customerDeliveryService.getDeliveryTracking).toHaveBeenCalledWith(
       'order-a',
       'customer-a',
     );
-    expect(deliveryIntegrationService.getDeliveryTracking).toHaveBeenCalledWith('order-a');
     expect(result).toMatchObject({
       orderId: 'order-a',
       shipper: { id: 'shipper-a', name: 'Shipper A', rating: 4.8 },
@@ -45,7 +37,7 @@ describe('CustomerDeliveryController', () => {
   });
 
   it('returns the same 404 for another customer and does not load tracking details', async () => {
-    orderTrackingReader.assertCustomerCanTrackOrder.mockRejectedValue(
+    customerDeliveryService.getDeliveryTracking.mockRejectedValue(
       new NotFoundException('Delivery tracking not found'),
     );
 
@@ -53,11 +45,10 @@ describe('CustomerDeliveryController', () => {
       NotFoundException,
     );
 
-    expect(orderTrackingReader.assertCustomerCanTrackOrder).toHaveBeenCalledWith(
+    expect(customerDeliveryService.getDeliveryTracking).toHaveBeenCalledWith(
       'order-a',
       'customer-b',
     );
-    expect(deliveryIntegrationService.getDeliveryTracking).not.toHaveBeenCalled();
   });
 
   it('requires authenticated access and derives the actor through CurrentActor', () => {

@@ -1,11 +1,27 @@
+import { NotFoundException } from '@nestjs/common';
 import { ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { DeliverySubscriptionAccessService } from 'src/features/delivery/services/subscription/delivery-subscription-access.service';
+import { CustomerDeliveryService } from 'src/features/delivery/services/customer-delivery.service';
 
-describe('DeliverySubscriptionAccessService', () => {
+describe('CustomerDeliveryService - tracking and subscription access', () => {
   const shippingDetailRepository = { findOne: jest.fn() };
-  const service = new DeliverySubscriptionAccessService(shippingDetailRepository as never);
+  const orderDelivery = { assertCustomerCanTrackOrder: jest.fn() };
+  const service = new CustomerDeliveryService(
+    shippingDetailRepository as never,
+    orderDelivery as never,
+  );
 
   beforeEach(() => jest.clearAllMocks());
+
+  it('checks order ownership before loading tracking or shipper data', async () => {
+    orderDelivery.assertCustomerCanTrackOrder.mockRejectedValueOnce(
+      new NotFoundException('Delivery tracking not found'),
+    );
+    await expect(service.getDeliveryTracking('order-a', 'customer-b')).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(orderDelivery.assertCustomerCanTrackOrder).toHaveBeenCalledWith('order-a', 'customer-b');
+    expect(shippingDetailRepository.findOne).not.toHaveBeenCalled();
+  });
 
   it('allows a shipper to subscribe only to their own location', async () => {
     await expect(service.canAccessShipperLocation('shipper-a', 'shipper-a')).resolves.toBe(true);

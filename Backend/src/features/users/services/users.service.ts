@@ -8,7 +8,7 @@ import { User } from 'src/entities/user.entity';
 import { AddressService } from 'src/features/locations/address-write.public-api';
 import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
 import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { CreateUserDto } from '../dto/create-users.dto';
 import { UpdateUserDto } from '../dto/update-users.dto';
 import { UserResponse } from '../interfaces/user-response.interface';
@@ -96,19 +96,21 @@ export class UsersService {
     name: string;
     phone: string;
     birthday: Date;
-  }): Promise<User> {
-    const existing = await this.usersRepository.findOne({ where: { username: data.username } });
+  }, manager?: EntityManager): Promise<User> {
+    const users = manager?.getRepository(User) ?? this.usersRepository;
+    const roles = manager?.getRepository(Role) ?? this.rolesRepository;
+    const existing = await users.findOne({ where: { username: data.username } });
     if (existing) {
       throw new Error('USERNAME_ALREADY_EXISTS');
     }
 
-    const role = await this.rolesRepository.findOne({ where: { name: DefaultRole.SHIPPER } });
+    const role = await roles.findOne({ where: { name: DefaultRole.SHIPPER } });
     if (!role) {
       throw new Error('SHIPPER_ROLE_NOT_FOUND');
     }
 
-    return this.usersRepository.save(
-      this.usersRepository.create({
+    return users.save(
+      users.create({
         ...data,
         id: randomUUID().substring(0, 28),
         password: await bcrypt.hash(data.password, 10),

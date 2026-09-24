@@ -2,37 +2,36 @@
 
 > Repository kiểm tra: `foodee-be/Backend`
 >
-> Ngày cập nhật: 2026-09-23
+> Ngày cập nhật: 2026-09-24
 >
-> Loại kiểm tra: đọc code, kiểm tra Git, chạy build/scoped lint/unit/integration/E2E liên quan
+> Loại kiểm tra: đọc code, kiểm tra Git, chạy build/full unit/full integration/full E2E/lint
 >
 > Chuẩn cấu trúc hiện hành: `src/features/README.md`
 
 ## 1. Kết luận ngắn
 
-Foodee Backend đang chạy được và các quality gate quan trọng về build, unit test, integration test và boundary test đều xanh. Các refactor đã commit từ Phase 1 đến Phase 5 đã loại bỏ phần lớn application port, deep import chéo feature, `forwardRef()` và phụ thuộc ngược từ infra vào business feature.
+Foodee Backend build được; full unit, integration có skip, E2E và boundary test đều qua trong lần chạy 2026-09-24 sau khi gom service Delivery. Full lint **chưa xanh** vì CRLF/Prettier diện rộng và sáu lỗi `unbound-method` ở test ngoài Delivery (kết quả full lint trước lần gom; scoped lint sau lần gom đạt khi tắt quy tắc Prettier). Các refactor đã commit từ Phase 1 đến Phase 5 đã loại bỏ phần lớn application port, deep import chéo feature, `forwardRef()` và phụ thuộc ngược từ infra vào business feature. Trạng thái commit của Delivery sau ngày lập báo cáo cần đối chiếu `git log`, không suy ra từ tài liệu này.
 
 Code hiện tại **chưa đạt cấu trúc đích mới ở toàn bộ feature**. Riêng `orders` đã đạt một module,
 một `public-api.ts`, controller/service theo role và không còn các module Reader/Command phụ.
-`users`, `delivery`, `locations`, `menu`, `restaurants` và `reviews` vẫn còn cấu trúc cần gộp.
+`delivery` có chủ đích giữ hai module/hai public API vì Auth chỉ được phụ thuộc module hồ sơ shipper hẹp; ép về một module sẽ tạo vòng Auth–Delivery. Các feature khác cần đánh giá từng cái, không lấy số module làm mục tiêu độc lập.
 
 Đánh giá hiện tại:
 
 | Hạng mục | Kết luận |
 | --- | --- |
 | Build | Đạt |
-| Unit test liên quan Orders/Delivery/Analytics/Reviews/Locations/Payment | Đạt |
-| Integration và boundary test | 26 suite đạt, 1 suite/2 test skip |
-| E2E Orders và Delivery tracking | 2 suite, 8 test đạt |
+| Full unit test | 111 suite/392 test đạt sau dọn test Delivery |
+| Full integration và boundary test | 26 suite/76 test đạt; 2 suite/3 test PostgreSQL skip |
+| Full E2E | 10 suite/32 test đạt |
 | Không có runtime `forwardRef()` | Đạt |
 | Không deep import chéo feature | Đạt theo scan hiện tại |
 | Infra không import ngược feature | Đạt theo scan hiện tại |
 | Không dùng application port nội bộ | Đạt |
-| Một module chính cho mỗi feature | Chưa đạt |
-| Một public API cho mỗi feature | Chưa đạt |
+| Một module/API cho mỗi feature | Không phải gate tuyệt đối; Delivery giữ ngoại lệ hẹp có lý do |
 | Controller/service chia theo role | Đạt một phần |
 | Entity đặt tập trung tại `src/entities` | Chấp nhận theo quyết định hiện tại |
-| Scoped lint trên file refactor | Đạt |
+| Full lint | Chưa đạt: CRLF/Prettier và 6 lỗi test ngoài Delivery |
 
 Không có bằng chứng cho thấy cần chuyển sang microservice, monorepo hoặc viết lại toàn bộ. Modular monolith hiện tại vẫn có thể cải thiện theo từng feature.
 
@@ -41,22 +40,22 @@ Không có bằng chứng cho thấy cần chuyển sang microservice, monorepo 
 Báo cáo này ưu tiên theo thứ tự:
 
 1. Code hiện tại.
-2. Kết quả lệnh chạy thực tế gần nhất sau refactor Orders ngày 2026-09-23.
+2. Kết quả lệnh chạy thực tế ngày 2026-09-24 sau Delivery nhịp 4.
 3. Git status và git log hiện tại.
 4. Tài liệu kiến trúc.
 5. Báo cáo lịch sử.
 
-Báo cáo không coi số liệu hoặc kết luận cũ là sự thật nếu chưa kiểm chứng lại. Lần cập nhật này đã
-chạy E2E Orders/Delivery tracking nhưng không kết nối PostgreSQL, Redis, MinIO, Mapbox, MoMo hoặc
-VNPay thật.
+Báo cáo không coi số liệu hoặc kết luận cũ là sự thật nếu chưa kiểm chứng lại. Lần cập nhật này đã chạy full unit/integration/E2E, nhưng không xác nhận hành vi với PostgreSQL, Redis, MinIO, Mapbox, MoMo hoặc VNPay thật. Các test PostgreSQL có điều kiện vẫn skip.
 
 ## 3. Trạng thái Git
 
 ### 3.1. Các refactor đã commit
 
-Các commit boundary và Orders gần nhất trước lần hoàn thiện này:
+Các commit gần nhất ở HEAD trước các thay đổi Delivery hiện hành:
 
 ```text
+28beed2 refactor(delivery): remove dispatch provider cycle
+e85da77 refactor(orders): finish role based structure
 1c664ee refactor(orders): decouple reviews and simplify analytics
 2f5d943 refactor(chat): use the main orders service
 6bb53e0 refactor(messenger): use the main orders service
@@ -65,27 +64,25 @@ Các commit boundary và Orders gần nhất trước lần hoàn thiện này:
 c183f88 refactor(orders): decouple delivery with durable status events
 ```
 
-Refactor hoàn thiện Orders được đóng gói trong cùng commit với tài liệu này. Trạng thái sau refactor:
+Các commit trên đã có trong `main`; `main` đang đồng bộ `origin/main` tại thời điểm kiểm tra trước đợt commit Delivery này. Snapshot working tree Delivery lúc đó gồm:
 
-- application port trong business feature đã được loại bỏ;
-- feature gọi nhau qua các file `*public-api.ts`;
-- Orders giữ quyền cập nhật trạng thái Order;
-- Delivery không dùng trực tiếp repository Order;
-- Analytics đọc Orders qua public API hẹp;
-- queue/cache/map/storage nằm trong `src/infra`;
-- không còn runtime `forwardRef()`;
-- boundary test đã được bổ sung;
-- Orders và Promotions dùng controller/service theo role, một module và một public API.
+- gỡ vòng provider dispatch/shipper và gom event subscriber;
+- gom tracking về customer service, assignment/completion/earnings về trip service;
+- đăng ký shipper trong cùng transaction manager qua Auth/Users/Delivery;
+- Worker chỉ đăng ký một `FindShipperProcessor`;
+- bổ sung boundary, ownership, DI và behavior test.
 
-### 3.2. Thay đổi ngoài phạm vi được giữ nguyên
+### 3.2. Working tree và thay đổi ngoài phạm vi
 
-File Backend không thuộc refactor Orders và không được đưa vào commit này:
+Nhóm Delivery trong working tree **tại thời điểm audit trước commit**: `DELIVERY_REFACTORING_PLAN.md`, `src/features/delivery/**`, `src/features/auth/auth.service.ts`, `src/features/users/services/users.service.ts`, `src/worker.module.ts`, các test Delivery/Auth/Users/boundary liên quan và báo cáo này. Muốn biết nhóm này đã được push hay chưa, kiểm tra Git hiện tại.
+
+File Backend ngoài phạm vi, được giữ nguyên:
 
 ```text
 M  docker/docker-compose.yml
 ```
 
-Hai ambient declaration đã được commit về đúng hạ tầng sở hữu:
+Hai ambient declaration đã được commit về đúng hạ tầng sở hữu trong lịch sử:
 
 - Mapbox: `src/types/mapbox-directions.d.ts` → `src/infra/mapbox/mapbox-directions.d.ts`;
 - Nodemailer: `src/types/nodemailer.d.ts` → `src/infra/mail/nodemailer.d.ts`.
@@ -98,16 +95,16 @@ Số liệu lấy trực tiếp từ checkout hiện tại:
 
 | Thành phần | Số lượng |
 | --- | ---: |
-| File tracked toàn repository | 605 |
-| File tracked trong `src` | 436 |
-| File tracked trong `test` | 139 |
+| File tracked toàn repository `foodee-be` | 662 |
+| File tracked trong `Backend/src` | 418 |
+| File tracked trong `Backend/test` | 148 |
 | Business feature trong `src/features` | 14 |
 | File entity trong `src/entities` | 27 |
 | Migration TypeScript | 37 |
-| REST controller | 30 |
+| REST controller | 33 |
 | GraphQL resolver | 5 |
-| Unit test suite | 101 |
-| Integration test suite | 26 |
+| Unit test suite | 111 |
+| Integration test suite | 28 (gồm 2 suite có điều kiện) |
 | E2E suite | 10 |
 
 14 feature hiện tại:
@@ -168,22 +165,22 @@ Quy tắc:
 
 ## 7. Mức độ phù hợp của từng feature
 
-Số liệu dưới đây tính các file `*.module.ts` và `*public-api.ts` nằm trong từng feature.
+Số liệu dưới đây tính file TypeScript trong checkout hiện tại, kể cả file chưa commit; cột service chỉ tính `*.service.ts`, không cộng handler hoặc resolver. Các module/API hẹp có thể là ranh giới cần giữ, không tự động coi là lỗi.
 
 | Feature | TS files | Module | Public API | Controller | Service | So với cấu trúc đích |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | analytics | 8 | 1 | 1 | 1 | 4 | Gần đạt |
 | auth | 21 | 1 | 2 | 1 | 4 | Cần gộp public API |
 | communications | 20 | 3 | 1 | 2 | 8 | Cần gộp module |
-| delivery | 31 | 2 | 2 | 4 | 14 | Cần gộp module/public API |
+| delivery | 27 | 2 | 2 | 4 | 9 | Sáu service chính + profile/tracker + adapter Redis |
 | locations | 13 | 3 | 2 | 1 | 1 | Cần gộp module/public API |
 | menu | 30 | 3 | 1 | 4 | 8 | Cần gộp module |
 | notifications | 10 | 1 | 1 | 1 | 2 | Gần đạt |
-| orders | 31 | 1 | 1 | 5 | 10 | Đạt về cấu trúc và boundary |
+| orders | 31 | 1 | 1 | 4 | 9 | Đạt về cấu trúc và boundary; thêm 1 resolver/1 handler ngoài hai cột này |
 | payments | 11 | 1 | 1 | 2 | 2 | Gần đạt |
 | promotions | 11 | 1 | 1 | 2 | 3 | Đạt, feature mẫu đã hoàn thành |
 | restaurants | 21 | 2 | 2 | 3 | 5 | Cần gộp module/public API |
-| reviews | 12 | 2 | 2 | 2 | 2 | Cần gộp module/public API |
+| reviews | 9 | 1 | 1 | 2 | 1 | Gần đạt theo cấu trúc hiện tại |
 | system-constraints | 3 | 1 | 1 | 0 | 1 | Đạt về cấu trúc |
 | users | 35 | 6 | 4 | 4 | 5 | Chưa đạt, ưu tiên cao |
 
@@ -203,7 +200,7 @@ Scan import hiện tại không phát hiện feature A import trực tiếp `ser
 
 Trạng thái: **Đạt theo code hiện tại**.
 
-Điểm còn nợ: nhiều feature đang có nhiều public API hẹp, nên đạt boundary cũ nhưng chưa đạt quy ước mới “một public API”.
+Điểm còn nợ: một số feature vẫn có nhiều public API; với Delivery, `shipper-profile.public-api.ts` là ngoại lệ hẹp có consumer thật từ Auth, không phải lý do để gộp bằng `forwardRef()`.
 
 ### 8.3. Infra import ngược feature
 
@@ -230,15 +227,16 @@ Trạng thái: **Đạt**.
 
 ### 8.5. Ownership
 
-Boundary test hiện tại xác nhận các nguyên tắc chính:
+Boundary test và scan source hiện tại xác nhận các nguyên tắc chính ở mức static:
 
-- Orders sở hữu cập nhật trạng thái Order;
+- Chỉ Orders import/inject repository của entity `Order`; các chỗ `order.status = ...` trong demo payment sửa `DummyOrder` ở Map bộ nhớ, không phải Order lưu DB;
 - Delivery sở hữu dispatch, shipper profile và trạng thái giao hàng;
+- Entity giao hàng/shipper chỉ được import bởi Delivery trong các business feature; registry của hạ tầng chỉ khai báo entity cho TypeORM;
 - Analytics dùng projection/read model;
-- Reviews kiểm tra rules qua `OrderReviewRulesService` trong public API chính của Orders;
+- Reviews kiểm tra rules qua `OrderRulesService` trong public API chính của Orders;
 - queue không phụ thuộc Delivery hoặc feature business.
 
-Trạng thái: **Đạt theo test hiện tại**.
+Trạng thái: **Đạt ở mức source/boundary test**. `DeliveryReportService.getIncomeReport()` vẫn join quan hệ sang Order để đọc số liệu; đây là phụ thuộc đọc dữ liệu còn nợ, không phải quyền ghi Order. Test static không thay thế xác minh DB thật.
 
 ## 9. Vấn đề kiến trúc còn lại
 
@@ -260,7 +258,7 @@ Bằng chứng hiện tại:
 | `services/customer-orders.service.ts` | 61 |
 
 Controller đã chia thành public/customer/merchant/admin và resolver mà không đổi prefix route.
-Feature hiện có đúng một `orders.module.ts`, một `public-api.ts` và 10 file service đã thống nhất.
+Feature hiện có đúng một `orders.module.ts`, một `public-api.ts`, 9 file `*.service.ts` và một `order-events.handler.ts` trong thư mục services.
 
 Các module/public API Reader/Command cũ cho Delivery, Tracking và Analytics đã được xóa. Delivery,
 Reviews, Analytics và Communications đều import public API chính.
@@ -354,24 +352,22 @@ Không nên tự động đổi toàn bộ 403 thành 404. Cần quyết định
 
 ### P2 — Lint chưa xanh
 
-Lần chạy full lint ngày 2026-09-18 cho kết quả:
+Lần chạy full lint ngày 2026-09-24 cho kết quả:
 
 ```text
-23220 problems
-23120 errors
-100 warnings
+15468 problems
+15351 errors
+117 warnings
 ```
 
-Phần lớn lỗi là Prettier yêu cầu xóa CRLF. Khi chạy ESLint với rule Prettier tắt trên
-toàn repository tại cùng baseline:
+Phần lớn lỗi là Prettier yêu cầu xóa CRLF. Khi chạy ESLint với riêng rule Prettier tắt trên toàn repository tại cùng checkout và chỉ hiện lỗi:
 
 ```text
-104 problems
-4 errors
-100 warnings
+6 errors
+0 warnings được hiển thị do --quiet
 ```
 
-Bốn lỗi thật hiện nằm trong `test/unit/common/paginate.spec.ts` do rule `@typescript-eslint/unbound-method`. Các warning chủ yếu là `any`, unsafe access và async không có `await` trong test hoặc một số service.
+Bốn lỗi nằm trong `test/unit/common/paginate.spec.ts`, hai lỗi trong `test/unit/features/promotions/promotion-controller.contract.spec.ts`, đều thuộc rule `@typescript-eslint/unbound-method`. Chúng không nằm trong phần Delivery vừa sửa. Full lint không pass; không gộp sửa lint/CRLF toàn repository vào nhịp Delivery.
 
 Không nên chạy `lint:fix` trên toàn repository trong cùng commit refactor kiến trúc vì sẽ tạo diff CRLF rất lớn.
 
@@ -390,9 +386,9 @@ Exit code: 0
 ```text
 Lệnh: npm run test:unit
 Kết quả: PASS
-Test Suites: 101 passed, 101 total
-Tests: 345 passed, 345 total
-Thời gian Jest: 125.362 s
+Test Suites: 111 passed, 111 total
+Tests: 391 passed, 391 total
+Thời gian Jest: 233.72 s
 ```
 
 ### Integration và boundary test
@@ -400,12 +396,26 @@ Thời gian Jest: 125.362 s
 ```text
 Lệnh: npm run test:integration
 Kết quả: PASS có skip
-Test Suites: 25 passed, 1 skipped, 26 total
-Tests: 64 passed, 2 skipped, 66 total
-Thời gian Jest: 65.393 s
+Test Suites: 26 passed, 2 skipped, 28 total
+Tests: 76 passed, 3 skipped, 79 total
+Thời gian Jest: 31.023 s
 ```
 
-Các log mức `ERROR` trong test queue, payment gateway và notification là tình huống lỗi được test chủ động; Jest vẫn kết luận pass.
+Hai suite/ba test skip là concurrency ShippingDetail và rollback đăng ký shipper trên PostgreSQL; chưa được tính là pass. Các log mức `ERROR` trong test queue, payment gateway và notification là tình huống lỗi được test chủ động; Jest vẫn kết luận pass.
+
+### E2E
+
+```text
+Lệnh: npm run test:e2e -- --silent
+Kết quả: PASS
+Test Suites: 10 passed, 10 total
+Tests: 32 passed, 32 total
+Thời gian Jest: 89.159 s
+```
+
+Các E2E hiện tại dùng Nest TestingModule/mock, không chứng minh backend chạy với PostgreSQL/Redis thật.
+
+Full unit/integration/E2E ở trên chạy trước chỉnh sửa metadata cuối của `WorkerModule`. Sau chỉnh sửa đó, `npm run build` và scoped ESLint đạt; ba suite boundary/composition/ownership đạt 27 test và test ownership riêng với `QUEUE_PROCESSOR_ENABLED=true` đạt 6 test. Chưa chạy lại full suite trên đúng trạng thái cuối.
 
 ### Lint
 
@@ -416,14 +426,13 @@ Nguyên nhân chính: CRLF/Prettier
 ```
 
 ```text
-Lệnh: npx eslint "{src,test}/**/*.ts" --rule "prettier/prettier: off"
+Lệnh: npx eslint "{src,test}/**/*.ts" --rule "prettier/prettier: off" --quiet
 Kết quả: FAIL
-4 errors, 100 warnings
+6 errors được hiển thị, ở hai file test ngoài Delivery
 ```
 
 ### Chưa chạy
 
-- `npm run test:e2e`;
 - test với database/Redis/MinIO thật;
 - smoke test HTTP/GraphQL trên ứng dụng đang chạy;
 - kiểm thử frontend compatibility.
@@ -438,10 +447,10 @@ Vì vậy báo cáo không kết luận production-ready.
 | Tạo `src/common/contracts` làm nguồn chuẩn cho mọi contract | Đã bỏ. Contract nghiệp vụ ở feature owner; shared chỉ dành cho type trung lập |
 | Feature phải dùng port/Symbol để giao tiếp | Đã cũ. Application port đã bỏ, dùng concrete service qua public API |
 | Có hơn 25 port application | Đã cũ. Không còn port file trong feature |
-| Unit test còn fail | Đã cũ. 101/101 suite pass trong lần chạy này |
-| Integration test còn fail | Đã cũ. 25 pass, 1 skip, không có suite fail |
+| Unit test còn fail | Đã cũ. 111/111 suite pass trong lần chạy này |
+| Integration test còn fail | Đã cũ. 26 pass, 2 skip, không có suite fail |
 | Có 28 entity | Số file hiện tại là 27 |
-| Có 85 unit suite và 22 integration suite | Hiện tại là 101 và 26 |
+| Có 85 unit suite và 22 integration suite | Hiện tại là 111 và 28 suite (gồm 2 suite PostgreSQL skip) |
 | Di chuyển entity là Phase tiếp theo | Không còn trong kiến trúc mục tiêu |
 | Gộp Orders/Delivery bằng direct import hai chiều | Không được phép vì sẽ tạo cycle; phải sửa hướng dependency trước |
 
@@ -507,16 +516,19 @@ Nhịp 2:
 - hợp nhất các identity module/API sau khi xác nhận không tạo cycle;
 - giữ role/permission ownership rõ tại Users, authentication tại Auth.
 
-### Bước 5 — Các feature còn lại
+### Bước 5 — Delivery — Đã triển khai nhịp 0–4 và gom service, đạt có điều kiện
 
-Thực hiện lần lượt Delivery, Locations, Menu, Restaurants, Reviews và Communications. Mỗi feature một commit, không trộn Docker, migration, formatting toàn repository hoặc thay đổi API behavior.
+Chi tiết và lệnh kiểm thử nằm ở [`DELIVERY_REFACTORING_PLAN.md`](./DELIVERY_REFACTORING_PLAN.md). Đã gỡ vòng provider dispatch/shipper, gom tracking về customer service, giữ transaction/Outbox, gom bốn subscriber vào một handler, dùng cùng transaction manager cho account/profile shipper và thêm boundary test cho entity owner. Sau nhịp 4, assignment/completion/earnings được gom vào `DeliveryTripService` với các transaction riêng; sáu service chính nằm trực tiếp dưới `services/`. `ShipperProfileService` và `ActiveShipperTrackerService` vẫn tách vì module hồ sơ hẹp và timer/trạng thái riêng. Worker chỉ đăng ký `FindShipperProcessor` một lần với cả cấu hình cờ tắt/bật. Giữ module/API hồ sơ shipper hẹp vì Auth cần nó; không dùng `forwardRef()` để đạt chỉ tiêu một module.
+
+Sau lần gom service và dọn tên test, build, 111 suite/392 unit test, 26 suite/76 integration test và 10 suite/32 E2E test đạt; 2 suite/3 test PostgreSQL skip. Integration/E2E chạy trước khi đổi tên file unit test, không có runtime code đổi sau đó. PostgreSQL thật chưa được kiểm chứng; báo cáo thu nhập còn join Order và hủy chuyến còn khoảng hở nhiều lần ghi. Không gọi Delivery hoàn tất production; trạng thái commit/push kiểm tra bằng Git.
+
+Các feature tiếp theo cần kiểm tra riêng: Users/Auth, Locations, Menu, Restaurants và Communications. Không trộn Docker, migration, formatting toàn repository hoặc thay đổi API behavior vào refactor Delivery.
 
 ## 14. Exit gate cho mỗi feature
 
 Một feature chỉ được xem là hoàn thành migration khi:
 
-- [ ] Có đúng một module chính.
-- [ ] Có đúng một `public-api.ts`.
+- [ ] Có một module/API chính; mọi module/API hẹp thêm vào phải có consumer, hướng phụ thuộc một chiều và test chứng minh (Delivery là ngoại lệ đã ghi rõ).
 - [ ] Controller/service phản ánh role thật sự.
 - [ ] Không có controller/service rỗng để đủ mẫu.
 - [ ] Không có `forwardRef()`.
@@ -529,14 +541,10 @@ Một feature chỉ được xem là hoàn thành migration khi:
 - [ ] `npm run build` pass.
 - [ ] Unit test liên quan pass.
 - [ ] Integration/boundary test pass.
-- [ ] README feature đúng với code đã commit.
+- [ ] README feature đúng với code hiện tại và trạng thái commit/working tree được ghi rõ.
 
 ## 15. Kết luận cuối
 
-Codebase không cần viết lại. Boundary runtime hiện tại tốt hơn báo cáo cũ mô tả: build và test xanh, không có `forwardRef`, không có deep import chéo feature và infra không phụ thuộc business feature.
+Codebase không cần viết lại. Build, full unit, full E2E và các integration test chạy được đều qua; PostgreSQL có điều kiện chưa chạy và full lint chưa xanh. Scan source/test cho thấy không có `forwardRef`, deep import chéo feature hoặc infra phụ thuộc ngược business feature trong phạm vi đã kiểm tra.
 
-Nợ chính bây giờ là **độ phức tạp cấu trúc ở các feature còn lại**, không phải hệ thống mất kiểm
-soát runtime. Promotions và Orders đã chứng minh cấu trúc role-based có thể áp dụng mà không cần
-port trung gian, `forwardRef()` hoặc deep import. Orders đã hoàn thành một module/public API,
-ownership Delivery/Reviews/Payments/Locations rõ hơn và Outbox vẫn được giữ cho luồng cần retry.
-Bước tiếp theo nên là inventory Users/Auth hoặc Delivery; không tách tiếp Orders chỉ vì số dòng.
+Nợ chính bây giờ là các đường dữ liệu/transaction cụ thể, không phải số lượng file. Delivery giữ hai module/API vì ranh giới Auth an toàn hơn việc gộp hình thức. Bước nhỏ nhất tiếp theo là chạy test PostgreSQL có điều kiện trong môi trường DB phù hợp và xử lý riêng báo cáo thu nhập cùng luồng hủy chuyến; sau đó mới quyết định đóng Delivery và commit đúng phạm vi. Không tách tiếp Orders chỉ vì số dòng.

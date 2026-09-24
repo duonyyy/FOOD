@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, UnrecoverableError } from 'bullmq';
 import type { DeliveryAssignmentJobData } from 'src/shared/types/delivery/delivery-assignment.types';
-import { DeliveryDispatchService } from '../services/dispatch/delivery-dispatch.service';
+import { DeliveryDispatchService } from '../services/delivery-dispatch.service';
 import { DELIVERY_ASSIGNMENT_QUEUE } from './delivery-queue.constants';
 
 function isDeliveryAssignmentJobData(data: unknown): data is DeliveryAssignmentJobData {

@@ -1,9 +1,9 @@
 import { DeliveryCompletedEvent } from 'src/common/events/delivery-completed.event';
 import { DeliveryEarningsEvent } from 'src/entities/deliveryEarningsEvent.entity';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
-import { DeliveryEarningsService } from 'src/features/delivery/services/shipper/delivery-earnings.service';
+import { DeliveryTripService } from 'src/features/delivery/services/delivery-trip.service';
 
-describe('DeliveryEarningsService', () => {
+describe('DeliveryTripService - earnings', () => {
   const createFixture = () => {
     const entries: DeliveryEarningsEvent[] = [];
     const profile = Object.assign(new ShipperProfile(), {
@@ -68,9 +68,12 @@ describe('DeliveryEarningsService', () => {
       (callback: (transactionManager: TransactionManagerMock) => unknown) =>
         Promise.resolve(callback(manager)),
     );
-    const service = new DeliveryEarningsService(
-      eventRepository as never,
+    const service = new DeliveryTripService(
+      undefined as never,
       profileRepository as never,
+      eventRepository as never,
+      undefined as never,
+      undefined as never,
     );
 
     return { service, entries, profile, eventRepository, profileRepository };

@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { DeliveryDispatchService } from 'src/features/delivery/services/dispatch/delivery-dispatch.service';
+import { DeliveryDispatchService } from 'src/features/delivery/services/delivery-dispatch.service';
 
 describe('Delivery dispatch commands', () => {
   const profileRepository = { findOne: jest.fn() };

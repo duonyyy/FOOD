@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import type { ShipperProfileStatus } from '../types/shipper-profile.types';
-import { AdminDeliveryService } from '../services/admin/admin-delivery.service';
+import { AdminDeliveryService } from '../services/admin-delivery.service';
 
 /**
  * Compatibility routes retained for existing clients. Their implementation is

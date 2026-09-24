@@ -1,11 +1,107 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), 'utf8');
 }
 
+function typescriptFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = resolve(directory, entry.name);
+    return entry.isDirectory() ? typescriptFiles(path) : entry.name.endsWith('.ts') ? [path] : [];
+  });
+}
+
 describe('feature ownership boundaries', () => {
+  it('keeps the two Delivery modules and their narrow public APIs', () => {
+    const deliveryRoot = resolve(process.cwd(), 'src/features/delivery');
+    const topLevel = readdirSync(deliveryRoot);
+    const profileModule = source('src/features/delivery/shipper-profile.module.ts');
+    const authModule = source('src/features/auth/auth.module.ts');
+    const deliveryModule = source('src/features/delivery/delivery.module.ts');
+    const publicApi = source('src/features/delivery/public-api.ts');
+
+    expect(topLevel.filter((name) => name.endsWith('.module.ts')).sort()).toEqual([
+      'delivery.module.ts',
+      'shipper-profile.module.ts',
+    ]);
+    expect(topLevel.filter((name) => name.endsWith('public-api.ts')).sort()).toEqual([
+      'public-api.ts',
+      'shipper-profile.public-api.ts',
+    ]);
+    expect(authModule).toContain('ShipperProfileModule');
+    expect(authModule).not.toContain('DeliveryModule');
+    expect(profileModule).not.toContain('AuthModule');
+    expect(deliveryModule).toContain('AuthModule');
+    expect(publicApi).not.toMatch(/Controller|ShipperProfileService|Repository|Entity/);
+  });
+
+  it('keeps six main Delivery services and two explicit support services', () => {
+    const root = resolve(process.cwd(), 'src/features/delivery/services');
+    const mainServices = readdirSync(root)
+      .filter((name) => name.endsWith('.service.ts'))
+      .sort();
+    expect(mainServices).toEqual(
+      [
+        'admin-delivery.service.ts',
+        'customer-delivery.service.ts',
+        'delivery-dispatch.service.ts',
+        'delivery-report.service.ts',
+        'delivery-trip.service.ts',
+        'shipper-delivery.service.ts',
+      ].sort(),
+    );
+    expect(
+      typescriptFiles(root)
+        .filter((file) => file.endsWith('.service.ts'))
+        .map((file) => relative(root, file).replaceAll('\\', '/'))
+        .sort(),
+    ).toEqual(
+      [
+        ...mainServices,
+        'dispatch/active-shipper-tracker.service.ts',
+        'shipper/shipper-profile.service.ts',
+      ].sort(),
+    );
+    const module = source('src/features/delivery/delivery.module.ts');
+    expect(module).toContain('DeliveryTripService');
+    expect(module).not.toMatch(/DeliveryAssignmentSagaService|DeliveryCompletionService|DeliveryEarningsService/);
+  });
+
+  it('keeps persisted Order and Delivery entities in their owner features', () => {
+    const featureRoot = resolve(process.cwd(), 'src/features');
+    const deliveryEntities =
+      /(?:shippingDetail|shipperProfile|pendingShipperAssignment|shipperCertificateInfo|deliveryEarningsEvent)\.entity/;
+    const orderEntity = /(?:^|\/)order\.entity$/;
+    const violations = typescriptFiles(featureRoot).flatMap((file) => {
+      const path = relative(featureRoot, file).replaceAll('\\', '/');
+      const owner = path.split('/')[0];
+      const text = readFileSync(file, 'utf8');
+      const imports = [...text.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((match) => match[1]);
+      return imports.flatMap((importPath) => {
+        if (owner !== 'delivery' && deliveryEntities.test(importPath)) return [path];
+        if (owner !== 'orders' && orderEntity.test(importPath.replaceAll('\\', '/')))
+          return [path];
+        return [];
+      });
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it('prevents Delivery from writing persisted Order state directly', () => {
+    const deliveryRoot = resolve(process.cwd(), 'src/features/delivery');
+    const violations = typescriptFiles(deliveryRoot).flatMap((file) => {
+      const text = readFileSync(file, 'utf8');
+      return /(?:InjectRepository|getRepository)\s*\(\s*Order\s*\)|\b(?:order|existingOrder)\.status\s*=|\bUPDATE\s+"?orders"?\s+SET\b/i.test(
+        text,
+      )
+        ? [relative(deliveryRoot, file).replaceAll('\\', '/')]
+        : [];
+    });
+    expect(violations).toEqual([]);
+  });
+
   it('keeps Orders on one module, one public API and the approved service list', () => {
     const ordersRoot = resolve(process.cwd(), 'src/features/orders');
     const topLevel = readdirSync(ordersRoot);
@@ -74,18 +170,16 @@ describe('feature ownership boundaries', () => {
 
   it('keeps Delivery dispatch on the Orders public API instead of the Order repository', () => {
     const deliveryModule = source('src/features/delivery/delivery.module.ts');
-    const dispatch = source('src/features/delivery/services/dispatch/delivery-dispatch.service.ts');
-    const integration = source(
-      'src/features/delivery/services/integration/delivery-integration.service.ts',
-    );
+    const dispatch = source('src/features/delivery/services/delivery-dispatch.service.ts');
+    const customerDelivery = source('src/features/delivery/services/customer-delivery.service.ts');
 
     expect(deliveryModule).not.toContain('entities/order.entity');
     expect(deliveryModule).not.toContain('      Order,');
     expect(dispatch).toContain('src/features/orders/public-api');
     expect(dispatch).toContain('OrderDeliveryService');
     expect(dispatch).not.toContain('DeliveryIntegrationService');
-    expect(integration).not.toContain('entities/order.entity');
-    expect(integration).not.toContain('findOrderForDeliveryAssignment');
+    expect(customerDelivery).not.toContain('entities/order.entity');
+    expect(customerDelivery).toContain('assertCustomerCanTrackOrder');
   });
 
   it('keeps active shipper subscription behavior inside Delivery', () => {
@@ -116,7 +210,7 @@ describe('feature ownership boundaries', () => {
     }
 
     const deliveryHandler = source(
-      'src/features/delivery/services/dispatch/order-status-delivery.handler.ts',
+      'src/features/delivery/handlers/delivery-events.handler.ts',
     );
     expect(deliveryHandler).toContain('ORDER_STATUS_CHANGED_EVENT');
     expect(deliveryHandler).toContain('addPendingAssignment');
@@ -125,7 +219,7 @@ describe('feature ownership boundaries', () => {
 
   it('keeps Delivery completion on the Orders public API', () => {
     const completion = source(
-      'src/features/delivery/services/shipper/delivery-completion.service.ts',
+      'src/features/delivery/services/delivery-trip.service.ts',
     );
 
     expect(completion).toContain('src/features/orders/public-api');
@@ -203,23 +297,21 @@ describe('feature ownership boundaries', () => {
   });
 
   it('keeps Delivery assignment state changes out of the legacy Order transaction', () => {
-    const dispatch = source('src/features/delivery/services/dispatch/delivery-dispatch.service.ts');
+    const dispatch = source('src/features/delivery/services/delivery-dispatch.service.ts');
     const shipperDelivery = source(
-      'src/features/delivery/services/shipper/shipper-delivery.service.ts',
+      'src/features/delivery/services/shipper-delivery.service.ts',
     );
-    const assignmentSaga = source(
-      'src/features/delivery/services/shipper/delivery-assignment-saga.service.ts',
-    );
-    expect(dispatch).toContain('deliveryAssignmentSagaService.assign');
+    const trip = source('src/features/delivery/services/delivery-trip.service.ts');
+    expect(dispatch).toContain('deliveryTripService.assign');
     expect(dispatch).not.toContain('orderRepository');
     expect(shipperDelivery).toContain('pendingAssignmentService.assignOrderToShipper');
-    expect(assignmentSaga).not.toContain('entities/order.entity');
-    expect(assignmentSaga).toContain('DELIVERY_ASSIGNMENT_REQUESTED_EVENT');
+    expect(trip).not.toContain('entities/order.entity');
+    expect(trip).toContain('DELIVERY_ASSIGNMENT_REQUESTED_EVENT');
   });
 
   it('routes shipper reads and lifecycle changes through the Orders public API', () => {
     const shipperDelivery = source(
-      'src/features/delivery/services/shipper/shipper-delivery.service.ts',
+      'src/features/delivery/services/shipper-delivery.service.ts',
     );
 
     expect(shipperDelivery).toContain('src/features/orders/public-api');

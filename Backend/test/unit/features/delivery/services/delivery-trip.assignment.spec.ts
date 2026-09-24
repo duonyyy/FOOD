@@ -5,11 +5,12 @@ import {
 import { InProcessEventBus } from 'src/common/events/in-process-event-bus.service';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import { DeliveryAssignmentSagaService } from 'src/features/delivery/services/shipper/delivery-assignment-saga.service';
+import { DeliveryEventsHandler } from 'src/features/delivery/handlers/delivery-events.handler';
+import { DeliveryTripService } from 'src/features/delivery/services/delivery-trip.service';
 import { SHIPPER_PROFILE_STATUS } from 'src/features/delivery/types/shipper-profile.types';
 import { DeliveryAssignmentRequestedOrderHandler } from 'src/features/orders/services/order-events.handler';
 
-describe('DeliveryAssignmentSagaService', () => {
+describe('DeliveryTripService - assignment', () => {
   let shippingDetail: ShippingDetail | null;
   let profile: ShipperProfile;
   let shippingRepository: Record<string, jest.Mock | { transaction: jest.Mock }>;
@@ -74,28 +75,30 @@ describe('DeliveryAssignmentSagaService', () => {
   });
 
   const wireSaga = (claim: { accepted: boolean; orderStatus: string }) => {
-    const saga = new DeliveryAssignmentSagaService(
+    const saga = new DeliveryTripService(
       shippingRepository as never,
       profileRepository as never,
+      undefined as never,
+      undefined as never,
       outbox as never,
-      eventBus,
     );
     const orderCommands = { claim: jest.fn().mockResolvedValue(claim) };
     const orderHandler = new DeliveryAssignmentRequestedOrderHandler(
       eventBus,
       orderCommands as never,
     );
-    saga.onModuleInit();
+    const deliveryHandler = new DeliveryEventsHandler(eventBus, {} as never, saga);
+    deliveryHandler.onModuleInit();
     orderHandler.onModuleInit();
     outbox.dispatchAfterCommit.mockImplementation(async () => {
       if (!assignmentRequest) throw new Error('Missing assignment request');
       await eventBus.publish(DELIVERY_ASSIGNMENT_REQUESTED_EVENT, assignmentRequest);
     });
-    return { saga, orderCommands, orderHandler };
+    return { saga, orderCommands, orderHandler, deliveryHandler };
   };
 
   it('activates the Delivery reservation only after Orders claims the order', async () => {
-    const { saga, orderCommands, orderHandler } = wireSaga({
+    const { saga, orderCommands, orderHandler, deliveryHandler } = wireSaga({
       accepted: true,
       orderStatus: 'shipper_received',
     });
@@ -113,26 +116,30 @@ describe('DeliveryAssignmentSagaService', () => {
       }),
     );
     orderHandler.onModuleDestroy();
-    saga.onModuleDestroy();
+    deliveryHandler.onModuleDestroy();
   });
 
   it('cancels the Delivery reservation when Orders rejects the assignment', async () => {
-    const { saga, orderHandler } = wireSaga({ accepted: false, orderStatus: 'canceled' });
+    const { saga, orderHandler, deliveryHandler } = wireSaga({
+      accepted: false,
+      orderStatus: 'canceled',
+    });
 
     const result = await saga.assign('order-1', 'shipper-1', 90);
 
     expect(result.status).toBe(ShippingStatus.CANCELLED);
     expect(profile.activeDeliveries).toBe(0);
     orderHandler.onModuleDestroy();
-    saga.onModuleDestroy();
+    deliveryHandler.onModuleDestroy();
   });
 
   it('keeps the reservation pending for Outbox retry when dispatch is temporarily unavailable', async () => {
-    const saga = new DeliveryAssignmentSagaService(
+    const saga = new DeliveryTripService(
       shippingRepository as never,
       profileRepository as never,
+      undefined as never,
+      undefined as never,
       outbox as never,
-      eventBus,
     );
     outbox.dispatchAfterCommit.mockRejectedValue(new Error('event bus unavailable'));
 

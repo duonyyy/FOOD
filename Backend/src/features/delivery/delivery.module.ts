@@ -23,17 +23,14 @@ import {
 import { ShipperResolver } from './controllers/shipper.resolver';
 import { DELIVERY_ASSIGNMENT_QUEUE } from './queue/delivery-queue.constants';
 import { FindShipperProcessor } from './queue/find-shipper.processor';
-import { AdminDeliveryService } from './services/admin/admin-delivery.service';
+import { DeliveryEventsHandler } from './handlers/delivery-events.handler';
+import { AdminDeliveryService } from './services/admin-delivery.service';
 import { ActiveShipperTrackerService } from './services/dispatch/active-shipper-tracker.service';
-import { DeliveryDispatchService } from './services/dispatch/delivery-dispatch.service';
-import { OrderStatusDeliveryHandler } from './services/dispatch/order-status-delivery.handler';
-import { DeliveryIntegrationService } from './services/integration/delivery-integration.service';
-import { DeliveryAssignmentSagaService } from './services/shipper/delivery-assignment-saga.service';
-import { DeliveryCompletionService } from './services/shipper/delivery-completion.service';
-import { DeliveryEarningsService } from './services/shipper/delivery-earnings.service';
-import { DeliveryReportService } from './services/shipper/delivery-report.service';
-import { ShipperDeliveryService } from './services/shipper/shipper-delivery.service';
-import { DeliverySubscriptionAccessService } from './services/subscription/delivery-subscription-access.service';
+import { DeliveryDispatchService } from './services/delivery-dispatch.service';
+import { CustomerDeliveryService } from './services/customer-delivery.service';
+import { DeliveryTripService } from './services/delivery-trip.service';
+import { DeliveryReportService } from './services/delivery-report.service';
+import { ShipperDeliveryService } from './services/shipper-delivery.service';
 import { ShipperProfileModule } from './shipper-profile.module';
 
 /** Delivery owns delivery persistence, dispatching, earnings and shipper runtime flows. */
@@ -79,27 +76,15 @@ const deliveryQueueModule = QueueModule.register({
     ...queueProcessorProviders,
     ActiveShipperTrackerService,
     DeliveryDispatchService,
-    OrderStatusDeliveryHandler,
-    DeliveryEarningsService,
-    DeliveryIntegrationService,
-    DeliveryAssignmentSagaService,
-    DeliveryCompletionService,
-    DeliverySubscriptionAccessService,
+    DeliveryEventsHandler,
+    CustomerDeliveryService,
+    DeliveryTripService,
     ShipperDeliveryService,
     DeliveryReportService,
     AdminDeliveryService,
     ShipperResolver,
     RedisPendingAssignmentStore,
   ],
-  exports: [
-    DeliveryDispatchService,
-    ActiveShipperTrackerService,
-    DeliveryEarningsService,
-    ShipperDeliveryService,
-    DeliveryReportService,
-    AdminDeliveryService,
-    DeliveryIntegrationService,
-    ShipperProfileModule,
-  ],
+  exports: [CustomerDeliveryService, DeliveryDispatchService],
 })
 export class DeliveryModule {}

@@ -12,7 +12,7 @@ import {
 import { pubSub } from 'src/pubsub';
 import { ShipperLocation } from '../dto/shipper-location.type';
 import { ActiveShipperTrackerService } from '../services/dispatch/active-shipper-tracker.service';
-import { DeliverySubscriptionAccessService } from '../services/subscription/delivery-subscription-access.service';
+import { CustomerDeliveryService } from '../services/customer-delivery.service';
 
 interface ShipperLocationPayload {
   shipperLocationUpdated: ShipperLocation;
@@ -23,7 +23,7 @@ export class ShipperResolver {
   private readonly logger = new Logger(ShipperResolver.name);
 
   constructor(
-    private readonly deliverySubscriptionAccessService: DeliverySubscriptionAccessService,
+    private readonly customerDeliveryService: CustomerDeliveryService,
     private readonly activeShipperTracker: ActiveShipperTrackerService,
   ) {}
 
@@ -103,7 +103,7 @@ export class ShipperResolver {
   ): Promise<AsyncIterableIterator<ShipperLocationPayload>> {
     const actorId = requireGraphqlSubscriptionActorId(context);
     if (
-      !(await this.deliverySubscriptionAccessService.canAccessShipperLocation(actorId, shipperId))
+      !(await this.customerDeliveryService.canAccessShipperLocation(actorId, shipperId))
     ) {
       throw new ForbiddenException('Delivery location access denied');
     }
@@ -121,7 +121,7 @@ export class ShipperResolver {
     shipperId: string,
   ): AsyncGenerator<ShipperLocationPayload> {
     for await (const payload of events) {
-      const isAuthorized = await this.deliverySubscriptionAccessService.canAccessShipperLocation(
+      const isAuthorized = await this.customerDeliveryService.canAccessShipperLocation(
         actorId,
         shipperId,
       );

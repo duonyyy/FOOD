@@ -10,17 +10,16 @@ import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import { OrderDeliveryService } from 'src/features/orders/public-api';
 import { Repository } from 'typeorm';
-import { SHIPPER_PROFILE_STATUS } from '../../types/shipper-profile.types';
-import { DeliveryDispatchService } from '../dispatch/delivery-dispatch.service';
-import { DeliveryCompletionService } from './delivery-completion.service';
+import { SHIPPER_PROFILE_STATUS } from '../types/shipper-profile.types';
+import { DeliveryDispatchService } from './delivery-dispatch.service';
+import { DeliveryTripService } from './delivery-trip.service';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 /**
- * ShipperDeliveryService handles delivery trips for Shippers:
- * Request assignment hold, accept, start, complete, reject, cancel and reassign deliveries.
+ * Shipper-facing trip operations and legacy route entry points.
  */
 @Injectable()
 export class ShipperDeliveryService {
@@ -32,38 +31,9 @@ export class ShipperDeliveryService {
     @InjectRepository(ShipperProfile)
     protected shipperProfileRepository: Repository<ShipperProfile>,
     protected pendingAssignmentService: DeliveryDispatchService,
-    protected readonly deliveryCompletionService: DeliveryCompletionService,
+    protected readonly deliveryTripService: DeliveryTripService,
     protected readonly orderDelivery: OrderDeliveryService,
   ) {}
-
-  /**
-   * Request order assignment (temporary hold)
-   */
-  async requestOrderAssignment(orderId: string, shipperId: string) {
-    return this.pendingAssignmentService.requestOrderAssignment(orderId, shipperId);
-  }
-
-  /**
-   * Accept the assignment and finalize order
-   */
-  async acceptAssignment(assignmentId: string, shipperId: string) {
-    return this.pendingAssignmentService.acceptAssignment(assignmentId, shipperId);
-  }
-
-  /**
-   * Reject the assignment
-   */
-  async rejectAssignment(assignmentId: string, shipperId: string) {
-    return this.pendingAssignmentService.rejectAssignment(assignmentId, shipperId);
-  }
-
-  async getPendingAssignmentForOrder(orderId: string) {
-    return this.pendingAssignmentService.getPendingAssignmentForOrder(orderId);
-  }
-
-  async reassignOrder(orderId: string) {
-    return this.pendingAssignmentService.reassignOrder(orderId);
-  }
 
   /**
    * Assign an order to a shipper
@@ -114,12 +84,8 @@ export class ShipperDeliveryService {
     return this.pendingAssignmentService.getPendingAssignmentForShipper(shipperId);
   }
 
-  async cleanupExpiredData() {
-    await this.pendingAssignmentService.cleanupExpiredAssignments();
-  }
-
   async markOrderCompleted(orderId: string, shipperId: string) {
-    return this.deliveryCompletionService.complete(orderId, shipperId);
+    return this.deliveryTripService.complete(orderId, shipperId);
   }
 
   async getCompletedOrdersByShipper(shipperId: string) {
