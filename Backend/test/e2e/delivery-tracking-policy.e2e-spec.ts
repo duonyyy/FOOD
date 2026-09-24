@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument */
 import { INestApplication, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { CustomerDeliveryController } from 'src/features/delivery/controllers/customer-delivery.controller';
 import { CustomerDeliveryService } from 'src/features/delivery/services/customer-delivery.service';
-import { AuthGuard } from 'src/features/users/public-api';
 import request = require('supertest');
 
 describe('Customer delivery tracking policy (e2e)', () => {

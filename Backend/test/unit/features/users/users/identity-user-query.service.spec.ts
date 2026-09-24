@@ -1,4 +1,4 @@
-import { IdentityUserQueryService } from 'src/features/users/users/identity-user-query.service';
+import { IdentityUserQueryService } from 'src/features/users/users/services/identity-user-query.service';
 
 describe('IdentityUserQueryService', () => {
   it('maps a current user to a safe response without credential fields', async () => {

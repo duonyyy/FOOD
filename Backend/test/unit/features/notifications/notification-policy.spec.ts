@@ -1,5 +1,5 @@
+import { AuthGuard } from 'src/features/auth/public-api';
 import { NotificationController } from 'src/features/notifications/controllers/notification.controller';
-import { AuthGuard } from 'src/features/users/public-api';
 
 describe('NotificationController — policy checks', () => {
   it('applies AuthGuard at the class level', () => {

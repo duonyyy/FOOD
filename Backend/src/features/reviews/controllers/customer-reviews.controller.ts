@@ -12,7 +12,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { AuthGuard, CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
+import { AuthGuard } from 'src/features/auth/public-api';
+import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import {
   CreateFoodReviewDto,
   CreateShipperReviewDto,

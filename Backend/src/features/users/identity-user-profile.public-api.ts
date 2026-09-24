@@ -1,6 +1,6 @@
 export { IdentityUserProfileModule } from './identity-user-profile.module';
+export { IdentityUserProfileService } from './users/services/identity-user-profile.service';
 export type {
   IdentityUserProfileView,
   UpdateIdentityUserProfileCommand,
-} from './types/identity-user-profile.types';
-export { IdentityUserProfileService } from './users/identity-user-profile.service';
+} from './users/types/identity-user-profile.types';

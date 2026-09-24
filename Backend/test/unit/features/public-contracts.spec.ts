@@ -7,8 +7,7 @@ import {
   ShipperProfileModule,
   ShipperProfileService,
 } from 'src/features/delivery/shipper-profile.public-api';
-import { AddressModule } from 'src/features/locations/addresses/address.module';
-import { AddressService } from 'src/features/locations/public-api';
+import { AddressService, LocationsModule } from 'src/features/locations/public-api';
 import { CategoryModule } from 'src/features/menu/categories/category.module';
 import {
   CategoryService,
@@ -34,7 +33,6 @@ import {
   RestaurantsModule,
 } from 'src/features/restaurants/public-api';
 import { IdentityModule, IdentityUserQueryService } from 'src/features/users/public-api';
-import { IdentityUserQueryModule } from 'src/features/users/users/identity-user-query.module';
 
 describe('feature public contracts', () => {
   it('exports CategoryService as the Menu public concrete service', () => {
@@ -58,15 +56,18 @@ describe('feature public contracts', () => {
       MODULE_METADATA.EXPORTS,
       RestaurantsModule,
     ) as unknown[];
-    const addressExports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, AddressModule) as unknown[];
+    const locationsExports = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      LocationsModule,
+    ) as unknown[];
     const identityExports = Reflect.getMetadata(
       MODULE_METADATA.EXPORTS,
-      IdentityUserQueryModule,
+      IdentityModule,
     ) as unknown[];
 
     expect(merchantCatalogExports).toContain(MerchantCatalogService);
     expect(restaurantExports).toContain(RestaurantReaderService);
-    expect(addressExports).toContain(AddressService);
+    expect(locationsExports).toContain(AddressService);
     expect(identityExports).toContain(IdentityUserQueryService);
     expect(IdentityModule).toBeDefined();
   });
@@ -205,10 +206,7 @@ describe('feature public contracts', () => {
         'src/features/restaurants/services/restaurant-profile.service.ts',
         'IdentityUserQueryService',
       ],
-      [
-        'src/features/delivery/services/admin-delivery.service.ts',
-        'IdentityUserQueryService',
-      ],
+      ['src/features/delivery/services/admin-delivery.service.ts', 'IdentityUserQueryService'],
       ['src/features/communications/messenger/messenger.service.ts', 'RestaurantReaderService'],
       ['src/features/communications/messenger/messenger.service.ts', 'IdentityUserQueryService'],
       [

@@ -1,6 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { AddressController } from 'src/features/locations/addresses/address.controller';
-import { AuthGuard } from 'src/features/users/public-api';
 
 describe('Address authorization policy', () => {
   it('protects every address route with the identity AuthGuard', () => {

@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Permission } from 'src/entities/permission.entity';
 import { Role } from 'src/entities/role.entity';
 import { User } from 'src/entities/user.entity';
-import { RolesService } from 'src/features/users/roles/role.service';
+import { RolesService } from 'src/features/users/roles/services/role.service';
 
 describe('RoleService', () => {
   let service: RolesService;

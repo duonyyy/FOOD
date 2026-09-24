@@ -1,24 +1,25 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { Permission } from 'src/shared/types/enums/permission.enum';
 import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
-import { AuthGuard, RolesGuard } from 'src/features/users/public-api';
-import { IdentityRoleQueryController } from 'src/features/users/roles/identity-role-query.controller';
-import { IdentityUserQueryController } from 'src/features/users/users/identity-user-query.controller';
+import { AuthGuard, RolesGuard } from 'src/features/auth/public-api';
+import { IdentityRoleQueryController } from 'src/features/users/roles/controllers/identity-role-query.controller';
+import { AdminUserQueryController } from 'src/features/users/users/controllers/admin-user-query.controller';
+import { CurrentUserQueryController } from 'src/features/users/users/controllers/current-user-query.controller';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 
 interface ControllerClass {
   prototype: object;
 }
 
 const permissionProtectedRoutes: ReadonlyArray<[ControllerClass, string, string]> = [
-  [IdentityUserQueryController, 'listUsers', Permission.USER.READ],
-  [IdentityUserQueryController, 'findOne', Permission.USER.READ],
+  [AdminUserQueryController, 'listUsers', Permission.USER.READ],
+  [AdminUserQueryController, 'findOne', Permission.USER.READ],
   [IdentityRoleQueryController, 'listRoles', Permission.ROLE.READ],
   [IdentityRoleQueryController, 'findRole', Permission.ROLE.READ],
 ];
 
 describe('Identity query authorization policy', () => {
   it('uses AuthGuard and CurrentActor only for the current-profile query', () => {
-    const method = Object.getOwnPropertyDescriptor(IdentityUserQueryController.prototype, 'findMe')
+    const method = Object.getOwnPropertyDescriptor(CurrentUserQueryController.prototype, 'findMe')
       ?.value as unknown;
     const guards = Reflect.getMetadata(GUARDS_METADATA, method as object) as unknown[];
 

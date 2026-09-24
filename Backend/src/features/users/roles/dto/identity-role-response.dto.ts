@@ -48,8 +48,3 @@ export class IdentityRoleDetailResponseDto extends IdentityRoleResponseDto {
   @ApiProperty({ type: () => [IdentityUserListItemDto] })
   users: IdentityUserListItemDto[];
 }
-
-export class IdentityRoleStatusResponseDto {
-  @ApiProperty({ type: () => ({ name: String }) })
-  role: { name: string };
-}

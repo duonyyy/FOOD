@@ -1,6 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { ReviewsController } from 'src/features/reviews/controllers/customer-reviews.controller';
-import { AuthGuard } from 'src/features/users/public-api';
 
 describe('Review authorization policy', () => {
   it.each([

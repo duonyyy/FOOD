@@ -7,11 +7,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import {
-  AuthGuard,
-  CurrentActor,
-  type CurrentActor as CurrentActorData,
-} from 'src/features/users/public-api';
+import { AuthGuard } from 'src/features/auth/public-api';
+import { CurrentActor, type CurrentActor as CurrentActorData } from 'src/features/users/public-api';
 import { CustomerDeliveryService } from '../services/customer-delivery.service';
 import type { DeliveryQuoteRequest } from '../types/delivery-integration.types';
 

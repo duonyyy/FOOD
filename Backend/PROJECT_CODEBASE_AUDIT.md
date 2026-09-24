@@ -173,7 +173,7 @@ Số liệu dưới đây tính file TypeScript trong checkout hiện tại, k�
 | auth | 21 | 1 | 2 | 1 | 4 | Cần gộp public API |
 | communications | 20 | 3 | 1 | 2 | 8 | Cần gộp module |
 | delivery | 27 | 2 | 2 | 4 | 9 | Sáu service chính + profile/tracker + adapter Redis |
-| locations | 13 | 3 | 2 | 1 | 1 | Cần gộp module/public API |
+| locations | 8 | 1 | 1 | 1 | 1 | `LocationsModule` đăng ký và export `AddressService`; Identity import module này qua một `public-api.ts` |
 | menu | 30 | 3 | 1 | 4 | 8 | Cần gộp module |
 | notifications | 10 | 1 | 1 | 1 | 2 | Gần đạt |
 | orders | 31 | 1 | 1 | 4 | 9 | Đạt về cấu trúc và boundary; thêm 1 resolver/1 handler ngoài hai cột này |
@@ -182,7 +182,7 @@ Số liệu dưới đây tính file TypeScript trong checkout hiện tại, k�
 | restaurants | 21 | 2 | 2 | 3 | 5 | Cần gộp module/public API |
 | reviews | 9 | 1 | 1 | 2 | 1 | Gần đạt theo cấu trúc hiện tại |
 | system-constraints | 3 | 1 | 1 | 0 | 1 | Đạt về cấu trúc |
-| users | 35 | 6 | 4 | 4 | 5 | Chưa đạt, ưu tiên cao |
+| users | 34 | 3 | 3 | 6 | 7 | Nghiệp vụ nhóm theo `users/` và `roles/`; module/API hẹp giữ theo dependency |
 
 `src/features/features.module.ts` là module composition cấp ứng dụng, không tính là module riêng của một feature.
 
@@ -281,11 +281,20 @@ Các bước đã hoàn thành:
 - bỏ dependency ngược Orders đến Delivery/Reviews/Analytics/Communications;
 - sau đó mới gộp về một module/public API mà không dùng `forwardRef()`.
 
-### 9.3. Users/Auth còn ranh giới khó hiểu
+### 9.3. Users/Auth sau nhịp refactor Identity
 
-Users có sáu module và bốn public API; Auth có hai public API. `users/public-api.ts` còn re-export `AuthGuard` và `RolesGuard` của Auth. Việc re-export API của feature khác làm mờ owner và khiến người đọc không biết nên import từ Auth hay Users.
+Users có ba module và ba public API; Auth có một module và hai public API. Hai module query
+User/Role đã nhập vào `IdentityModule` với một provider cho mỗi service. Guard chỉ xuất từ
+`auth/public-api.ts`; `IdentityModule` không export `AuthModule` nữa. Analytics, Category và
+Reviews lấy module guard trực tiếp từ Auth; Restaurants cần cả Auth và Identity query.
 
-Trạng thái: **Chưa đạt**. Ưu tiên P1 về kiến trúc.
+Vẫn giữ `UsersModule` cho Auth và `IdentityUserProfileModule` cho Delivery profile.
+Chiều phụ thuộc là `Identity -> Auth -> ShipperProfile -> UsersModule/IdentityUserProfileModule`
+và `Identity -> UsersModule`; gộp toàn bộ Users vào Identity sẽ tạo vòng. Ba API Users còn
+consumer thực và tránh vòng nạp module. Controller User đã chia current-user và admin cho
+cả đọc/ghi. `UserProfileService` xử lý cập nhật hồ sơ cho hai actor bằng một logic địa chỉ/mật
+khẩu; `AdminUsersService` xử lý tạo/xóa, `UsersService` phục vụ Auth và đăng ký shipper.
+Route, DTO và response giữ nguyên.
 
 ### 9.4. Tên file chưa thống nhất
 
@@ -509,12 +518,16 @@ Nhịp 2:
 - [x] cron địa chỉ tạm chuyển về Locations và payment route cũ delegate sang Payments;
 - [x] còn đúng một module, một public API và 10 service trong Orders.
 
-### Bước 4 — Users/Auth
+### Bước 4 — Users/Auth — đã triển khai phần an toàn
 
-- bỏ re-export Auth guard từ Users;
-- caller import guard trực tiếp từ `auth/public-api.ts`;
-- hợp nhất các identity module/API sau khi xác nhận không tạo cycle;
-- giữ role/permission ownership rõ tại Users, authentication tại Auth.
+- [x] bỏ re-export Auth guard từ Users; consumer lấy guard từ `auth/public-api.ts`;
+- [x] nhập hai query module vào `IdentityModule`, chỉ đăng ký mỗi provider một lần;
+- [x] chia controller User theo current-user/admin, chuyển cập nhật hồ sơ và tạo/xóa user quản trị sang service đúng nghiệp vụ;
+- [x] giữ User/Role/Permission tại Users, đăng nhập/JWT/guard tại Auth;
+- [x] nhập `RoleModule` vào `UsersModule` vì Auth dùng cả hai; giữ `IdentityUserProfileModule` và ba public API Users theo chiều phụ thuộc ở mục 9.3.
+
+PostgreSQL integration có điều kiện chưa chạy trong môi trường hiện tại; phần transaction đăng ký
+shipper vì vậy chỉ có unit/boundary và kiểm tra build, chưa được xác nhận với DB thật.
 
 ### Bước 5 — Delivery — Đã triển khai nhịp 0–4 và gom service, đạt có điều kiện
 

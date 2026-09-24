@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument */
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { ReviewService, ReviewsController } from 'src/features/reviews/public-api';
-import { AuthGuard } from 'src/features/users/public-api';
 import request = require('supertest');
 
 describe('Reviews policy (e2e)', () => {

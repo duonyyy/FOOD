@@ -1,10 +1,11 @@
 import { MODULE_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { AuthController } from 'src/features/auth/auth.controller';
 import { AuthModule } from 'src/features/auth/auth.module';
-import { AuthGuard, IdentityModule } from 'src/features/users/public-api';
+import { AuthGuard } from 'src/features/auth/public-api';
+import { IdentityModule } from 'src/features/users/public-api';
 
 describe('Identity auth compatibility', () => {
-  it('keeps the existing auth capability in the Identity public API', () => {
+  it('keeps Auth routes separate from the Identity module', () => {
     const authControllers = Reflect.getMetadata(
       MODULE_METADATA.CONTROLLERS,
       AuthModule,

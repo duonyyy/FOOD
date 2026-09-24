@@ -1,11 +1,11 @@
 import { Permission } from 'src/entities/permission.entity';
 import { Role } from 'src/entities/role.entity';
-import { toIdentityUserListItem } from '../users/identity-user.mapper';
+import { toIdentityUserListItem } from '../../users/mappers/identity-user.mapper';
 import {
   IdentityPermissionResponseDto,
   IdentityRoleDetailResponseDto,
   IdentityRoleResponseDto,
-} from './dto/identity-role-response.dto';
+} from '../dto/identity-role-response.dto';
 
 export function toIdentityPermissionResponse(
   permission: Permission,

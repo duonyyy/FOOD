@@ -1,8 +1,7 @@
-export { AuthGuard, RolesGuard } from 'src/features/auth/public-api';
+export { IdentityModule } from './identity.module';
 export {
   CurrentActor,
   type CurrentActor as CurrentActorData,
-} from './contracts/current-actor.decorator';
-export { IdentityModule } from './identity.module';
-export type { UserIdentity } from './types/identity.types';
-export { IdentityUserQueryService } from './users/identity-user-query.service';
+} from './users/contracts/current-actor.decorator';
+export { IdentityUserQueryService } from './users/services/identity-user-query.service';
+export type { UserIdentity } from './users/types/identity.types';

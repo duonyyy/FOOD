@@ -2,7 +2,7 @@ import { ArgumentMetadata, BadRequestException, ValidationPipe } from '@nestjs/c
 import { CreateOrderRequestDto } from 'src/features/orders/dto/create-order-request.dto';
 import { PaymentWebhookDto } from 'src/features/payments/dto/payment-request.dto';
 import { RequestRestaurantDto } from 'src/features/restaurants/dto/restaurant-request.dto';
-import { UpdateMeDto } from 'src/features/users/dto/update-me.dto';
+import { UpdateMeDto } from 'src/features/users/users/dto/update-me.dto';
 
 describe('Strict validation compatibility', () => {
   const pipe = new ValidationPipe({

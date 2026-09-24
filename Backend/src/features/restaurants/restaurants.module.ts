@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from 'src/features/auth/auth-module.public-api';
 import { EventsModule } from '../../common/events/events.module';
 import { Restaurant } from '../../entities/restaurant.entity';
 import { RestaurantApprovalAudit } from '../../entities/restaurantApprovalAudit.entity';
@@ -22,6 +23,7 @@ import { RestaurantReaderService } from './services/restaurant-reader.service';
     EventsModule,
     LocationsModule,
     IdentityModule,
+    AuthModule,
     MenuModule,
     MerchantCatalogModule,
   ],

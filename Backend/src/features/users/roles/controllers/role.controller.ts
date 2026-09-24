@@ -1,11 +1,11 @@
 import { Body, Controller, Delete, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Role } from 'src/entities/role.entity';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
-import { CreateRoleDto } from './dto/create-role.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
-import { RolesService } from './role.service';
+import { Permission } from 'src/shared/types/enums/permission.enum';
+import { CreateRoleDto } from '../dto/create-role.dto';
+import { UpdateRoleDto } from '../dto/update-role.dto';
+import { RolesService } from '../services/role.service';
 
 /** Legacy role commands. Identity owns all role and permission read APIs. */
 @Controller('role')

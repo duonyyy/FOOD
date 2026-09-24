@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { NotificationController } from 'src/features/notifications/controllers/notification.controller';
 import { NotificationService } from 'src/features/notifications/services/notification.service';
-import { AuthGuard } from 'src/features/users/public-api';
 import request = require('supertest');
 
 describe('Notifications policy (e2e)', () => {

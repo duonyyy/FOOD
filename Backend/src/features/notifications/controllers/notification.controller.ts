@@ -1,6 +1,7 @@
 import { Controller, Get, Param, ParseUUIDPipe, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { AuthGuard, CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
+import { AuthGuard } from 'src/features/auth/public-api';
+import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { NotificationListResponseDto } from '../dto/notification-list-response.dto';
 import { NotificationQueryDto } from '../dto/notification-query.dto';
 import { NotificationResponseDto } from '../dto/notification-response.dto';

@@ -2,8 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Role } from 'src/entities/role.entity';
 import { User } from 'src/entities/user.entity';
-import { AddressService } from 'src/features/locations/address-write.public-api';
-import { UsersService } from 'src/features/users/services/users.service';
+import { UsersService } from 'src/features/users/users/services/users.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -17,7 +16,6 @@ describe('UsersService', () => {
         UsersService,
         { provide: getRepositoryToken(Role), useValue: {} },
         { provide: getRepositoryToken(User), useValue: userRepository },
-        { provide: AddressService, useValue: { replaceOwnedAddresses: jest.fn() } },
       ],
     }).compile();
 
@@ -42,7 +40,7 @@ describe('UsersService', () => {
     const usersInTransaction = {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((value: unknown) => value),
-      save: jest.fn(async (value: unknown) => value),
+      save: jest.fn((value: unknown) => Promise.resolve(value)),
     };
     const rolesInTransaction = { findOne: jest.fn().mockResolvedValue(role) };
     const manager = {

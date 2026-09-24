@@ -1,8 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { Permission } from 'src/shared/types/enums/permission.enum';
-import { Permissions } from 'src/features/auth/public-api';
-import { RolesGuard } from '../../users/public-api';
 import { CategoryService } from './category.service';
 import { CategoryListResponseDto, CategoryResponseDto } from './dto/category-response.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';

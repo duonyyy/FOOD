@@ -1,12 +1,12 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Permission } from 'src/shared/types/enums/permission.enum';
 import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
+import { AuthGuard, RolesGuard } from 'src/features/auth/public-api';
 import { CategoryController } from 'src/features/menu/categories/category.controller';
 import { AdminFoodController } from 'src/features/menu/foods/controllers/admin-food.controller';
 import { MerchantFoodController } from 'src/features/menu/foods/controllers/merchant-food.controller';
-import { AuthGuard, RolesGuard } from 'src/features/users/public-api';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 
 describe('Catalog resource policies', () => {
   it('requires merchant authentication for Food writes and admin capability for admin delete', () => {

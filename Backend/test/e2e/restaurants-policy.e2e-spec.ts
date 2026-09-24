@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { RestaurantMerchantController } from 'src/features/restaurants/controllers/merchant-profile.controller';
 import { RestaurantProfileService } from 'src/features/restaurants/services/restaurant-profile.service';
-import { AuthGuard } from 'src/features/users/public-api';
 import request = require('supertest');
 
 describe('Restaurant onboarding policy (e2e)', () => {

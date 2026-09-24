@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { AddressController } from 'src/features/locations/addresses/address.controller';
 import { AddressService } from 'src/features/locations/addresses/address.service';
-import { AuthGuard } from 'src/features/users/public-api';
 import request = require('supertest');
 
 describe('Locations address policy (e2e)', () => {

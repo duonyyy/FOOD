@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
-import { JwtModule, JwtService } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Permission } from 'src/entities/permission.entity';
 import { Role } from 'src/entities/role.entity';
 import { User } from 'src/entities/user.entity';
-import { AddressWriteModule } from 'src/features/locations/address-write.public-api';
-import { UsersService } from './services/users.service';
+import { RolesService } from './roles/services/role.service';
+import { UsersService } from './users/services/users.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Role]), AddressWriteModule, JwtModule],
-  providers: [UsersService, JwtService],
-  exports: [UsersService],
+  imports: [TypeOrmModule.forFeature([User, Role, Permission])],
+  providers: [UsersService, RolesService],
+  exports: [UsersService, RolesService],
 })
 export class UsersModule {}

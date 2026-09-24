@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGuard } from 'src/features/auth/guards/auth.guard';
 import { RolesGuard } from 'src/features/auth/guards/roles.guard';
-import { RoleController } from 'src/features/users/roles/role.controller';
-import { RolesService } from 'src/features/users/roles/role.service';
+import { RoleController } from 'src/features/users/roles/controllers/role.controller';
+import { RolesService } from 'src/features/users/roles/services/role.service';
 
 describe('RoleController', () => {
   let controller: RoleController;

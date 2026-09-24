@@ -1,21 +1,21 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from 'src/entities/role.entity';
-import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import { User } from 'src/entities/user.entity';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import { Repository } from 'typeorm';
-import { IdentityUserListItemDto } from '../users/dto/identity-user-response.dto';
-import { toIdentityUserListItem } from '../users/identity-user.mapper';
+import { IdentityUserListItemDto } from '../../users/dto/identity-user-response.dto';
+import { toIdentityUserListItem } from '../../users/mappers/identity-user.mapper';
 import {
   IdentityPermissionResponseDto,
   IdentityRoleDetailResponseDto,
   IdentityRoleResponseDto,
-} from './dto/identity-role-response.dto';
+} from '../dto/identity-role-response.dto';
 import {
   toIdentityPermissionResponse,
   toIdentityRoleDetailResponse,
   toIdentityRoleResponse,
-} from './identity-role.mapper';
+} from '../mappers/identity-role.mapper';
 
 @Injectable()
 export class IdentityRoleQueryService {

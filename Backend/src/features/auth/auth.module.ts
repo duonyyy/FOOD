@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { ShipperProfileModule } from 'src/features/delivery/shipper-profile.public-api';
-import { RoleModule, UsersModule } from 'src/features/users/identity-auth-modules.public-api';
+import { UsersModule } from 'src/features/users/identity-auth.public-api';
 import { MailModule } from 'src/infra/mail/public-api';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -27,7 +27,6 @@ import { SocialAuthService } from './services/social-auth.service';
     }),
     UsersModule,
     ShipperProfileModule,
-    RoleModule,
     MailModule,
   ],
   controllers: [AuthController],

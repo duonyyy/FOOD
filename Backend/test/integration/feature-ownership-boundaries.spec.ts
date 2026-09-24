@@ -65,7 +65,9 @@ describe('feature ownership boundaries', () => {
     );
     const module = source('src/features/delivery/delivery.module.ts');
     expect(module).toContain('DeliveryTripService');
-    expect(module).not.toMatch(/DeliveryAssignmentSagaService|DeliveryCompletionService|DeliveryEarningsService/);
+    expect(module).not.toMatch(
+      /DeliveryAssignmentSagaService|DeliveryCompletionService|DeliveryEarningsService/,
+    );
   });
 
   it('keeps persisted Order and Delivery entities in their owner features', () => {
@@ -80,8 +82,7 @@ describe('feature ownership boundaries', () => {
       const imports = [...text.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((match) => match[1]);
       return imports.flatMap((importPath) => {
         if (owner !== 'delivery' && deliveryEntities.test(importPath)) return [path];
-        if (owner !== 'orders' && orderEntity.test(importPath.replaceAll('\\', '/')))
-          return [path];
+        if (owner !== 'orders' && orderEntity.test(importPath.replaceAll('\\', '/'))) return [path];
         return [];
       });
     });
@@ -141,8 +142,10 @@ describe('feature ownership boundaries', () => {
 
   it('keeps shipper administration in Delivery while retaining the legacy route', () => {
     const usersModule = source('src/features/users/users.module.ts');
-    const usersService = source('src/features/users/services/users.service.ts');
-    const usersController = source('src/features/users/controllers/users.controller.ts');
+    const usersService = source('src/features/users/users/services/users.service.ts');
+    const usersController = source(
+      'src/features/users/users/controllers/admin-users.controller.ts',
+    );
     const deliveryController = source(
       'src/features/delivery/controllers/legacy-shipper-admin.controller.ts',
     );
@@ -209,18 +212,14 @@ describe('feature ownership boundaries', () => {
       expect(source(ordersFile)).not.toContain('DeliveryDispatchService');
     }
 
-    const deliveryHandler = source(
-      'src/features/delivery/handlers/delivery-events.handler.ts',
-    );
+    const deliveryHandler = source('src/features/delivery/handlers/delivery-events.handler.ts');
     expect(deliveryHandler).toContain('ORDER_STATUS_CHANGED_EVENT');
     expect(deliveryHandler).toContain('addPendingAssignment');
     expect(deliveryHandler).toContain('removePendingAssignment');
   });
 
   it('keeps Delivery completion on the Orders public API', () => {
-    const completion = source(
-      'src/features/delivery/services/delivery-trip.service.ts',
-    );
+    const completion = source('src/features/delivery/services/delivery-trip.service.ts');
 
     expect(completion).toContain('src/features/orders/public-api');
     expect(completion).toContain('OrderDeliveryService');
@@ -298,9 +297,7 @@ describe('feature ownership boundaries', () => {
 
   it('keeps Delivery assignment state changes out of the legacy Order transaction', () => {
     const dispatch = source('src/features/delivery/services/delivery-dispatch.service.ts');
-    const shipperDelivery = source(
-      'src/features/delivery/services/shipper-delivery.service.ts',
-    );
+    const shipperDelivery = source('src/features/delivery/services/shipper-delivery.service.ts');
     const trip = source('src/features/delivery/services/delivery-trip.service.ts');
     expect(dispatch).toContain('deliveryTripService.assign');
     expect(dispatch).not.toContain('orderRepository');
@@ -310,9 +307,7 @@ describe('feature ownership boundaries', () => {
   });
 
   it('routes shipper reads and lifecycle changes through the Orders public API', () => {
-    const shipperDelivery = source(
-      'src/features/delivery/services/shipper-delivery.service.ts',
-    );
+    const shipperDelivery = source('src/features/delivery/services/shipper-delivery.service.ts');
 
     expect(shipperDelivery).toContain('src/features/orders/public-api');
     expect(shipperDelivery).toContain('orderDelivery.startDelivery');

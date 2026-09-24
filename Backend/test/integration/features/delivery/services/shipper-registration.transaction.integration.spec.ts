@@ -25,7 +25,6 @@ postgresIntegration('Shipper registration PostgreSQL transaction', () => {
     const users = new UsersService(
       AppDataSource.getRepository(Role),
       AppDataSource.getRepository(User),
-      {} as never,
     );
     const profiles = new ShipperProfileService(
       AppDataSource.getRepository(ShipperProfile),

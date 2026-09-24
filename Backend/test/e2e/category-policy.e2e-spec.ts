@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { RolesGuard } from 'src/features/auth/public-api';
 import { CategoryController } from 'src/features/menu/categories/category.controller';
 import { CategoryService } from 'src/features/menu/categories/category.service';
-import { RolesGuard } from 'src/features/users/public-api';
 import request = require('supertest');
 
 describe('Category policy (e2e)', () => {

@@ -1,8 +1,9 @@
 export { AddressService } from './addresses/address.service';
-export { CreateAddressDto, UpdateAddressDto } from './contracts/address-dto.contract';
+export { CreateAddressDto } from './addresses/dto/create-address.dto';
+export { UpdateAddressDto } from './addresses/dto/update-address.dto';
 export { LocationsModule } from './locations.module';
 export type {
-  DeliveryAddress,
   CreateAddressPayload,
+  DeliveryAddress,
   TemporaryDeliveryAddress,
 } from './types/location.types';

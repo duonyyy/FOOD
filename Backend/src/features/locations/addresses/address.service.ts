@@ -14,7 +14,6 @@ import {
   type DeliveryAddress,
   type TemporaryDeliveryAddress,
 } from '../types/location.types';
-import { toAddressResponse } from './address.mapper';
 import { AddressResponseDto } from './dto/address-response.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
@@ -43,7 +42,7 @@ export class AddressService {
 
   async createAddress(data: CreateAddressDto): Promise<AddressResponseDto> {
     const address = this.addressRepository.create(this.toPersistence(data));
-    return toAddressResponse(await this.addressRepository.save(address));
+    return this.toAddressResponse(await this.addressRepository.save(address));
   }
 
   // --- Cross-feature write methods ---
@@ -151,23 +150,23 @@ export class AddressService {
       ...this.toPersistence(data),
       user: { id: userId },
     });
-    return toAddressResponse(await this.addressRepository.save(address));
+    return this.toAddressResponse(await this.addressRepository.save(address));
   }
 
   async getAllAddresses(): Promise<AddressResponseDto[]> {
     const addresses = await this.addressRepository.find({ relations: ['user'] });
-    return addresses.map(toAddressResponse);
+    return addresses.map((address) => this.toAddressResponse(address));
   }
 
   async getAddressById(id: string): Promise<AddressResponseDto> {
     const address = await this.loadAddress(id);
-    return toAddressResponse(address);
+    return this.toAddressResponse(address);
   }
 
   async getOwnedAddressById(id: string, userId: string): Promise<AddressResponseDto> {
     const address = await this.loadAddress(id);
     this.assertOwnership(address, userId);
-    return toAddressResponse(address);
+    return this.toAddressResponse(address);
   }
 
   async getAddressesByUser(userId: string): Promise<AddressResponseDto[]> {
@@ -175,7 +174,7 @@ export class AddressService {
       where: { user: { id: userId } },
       relations: ['user'],
     });
-    return addresses.map(toAddressResponse);
+    return addresses.map((address) => this.toAddressResponse(address));
   }
 
   async getAddresseByUser(userId: string): Promise<AddressResponseDto[]> {
@@ -290,6 +289,22 @@ export class AddressService {
       latitude: address.latitude ?? null,
       longitude: address.longitude ?? null,
       isTemporary: Boolean(address.isTemporary),
+    };
+  }
+
+  private toAddressResponse(address: Address): AddressResponseDto {
+    return {
+      id: address.id,
+      street: address.street,
+      ward: address.ward ?? null,
+      district: address.district ?? null,
+      city: address.city,
+      latitude: address.latitude ?? null,
+      longitude: address.longitude ?? null,
+      isDefault: Boolean(address.isDefault),
+      label: address.label ?? null,
+      isTemporary: Boolean(address.isTemporary),
+      createdAt: address.createdAt ?? null,
     };
   }
 }

@@ -1,19 +1,19 @@
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from 'src/features/auth/auth.module';
 import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { ShipperProfile } from 'src/entities/shipperProfile.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { AuthModule } from 'src/features/auth/auth.module';
 import { DeliveryModule } from 'src/features/delivery/delivery.module';
+import { FindShipperProcessor } from 'src/features/delivery/queue/find-shipper.processor';
+import { DeliveryDispatchService } from 'src/features/delivery/services/delivery-dispatch.service';
 import {
   ShipperProfileModule,
   ShipperProfileService,
 } from 'src/features/delivery/shipper-profile.public-api';
 import { OrdersModule } from 'src/features/orders/public-api';
-import { UsersModule } from 'src/features/users/identity-auth-modules.public-api';
+import { UsersModule } from 'src/features/users/identity-auth.public-api';
 import { WorkerModule } from 'src/worker.module';
-import { DeliveryDispatchService } from 'src/features/delivery/services/delivery-dispatch.service';
-import { FindShipperProcessor } from 'src/features/delivery/queue/find-shipper.processor';
 
 describe('Delivery ownership boundary', () => {
   it('registers delivery persistence under DeliveryModule', () => {
@@ -52,9 +52,7 @@ describe('Delivery ownership boundary', () => {
     expect(profileImports).toContain(UsersModule);
     expect(profileImports).not.toContain(AuthModule);
     expect(profileImports).not.toContain(DeliveryModule);
-    expect(Reflect.getMetadata('exports', ShipperProfileModule)).toEqual([
-      ShipperProfileService,
-    ]);
+    expect(Reflect.getMetadata('exports', ShipperProfileModule)).toEqual([ShipperProfileService]);
   });
 
   it('imports Orders through its single public module', () => {

@@ -4,7 +4,7 @@ import { Restaurant } from 'src/entities/restaurant.entity';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
-import { toSafeUserResponse } from 'src/features/users/mappers/safe-user-response.mapper';
+import { toSafeUserResponse } from 'src/features/users/users/mappers/safe-user-response.mapper';
 
 describe('User response serialization', () => {
   const createSensitiveUser = (): User =>

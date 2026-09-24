@@ -1,4 +1,4 @@
-import { toIdentityRoleDetailResponse } from 'src/features/users/roles/identity-role.mapper';
+import { toIdentityRoleDetailResponse } from 'src/features/users/roles/mappers/identity-role.mapper';
 
 describe('Identity role response mapper', () => {
   it('returns safe user summaries rather than User entities with credentials', () => {

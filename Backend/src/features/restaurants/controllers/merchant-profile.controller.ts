@@ -27,9 +27,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { AuthGuard, CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
-import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';
+import { AuthGuard } from 'src/features/auth/public-api';
+import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { PrivateFileResponseDto } from '../dto/private-file-response.dto';
+import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';
 import { RequestRestaurantDto, UpdateOwnedRestaurantDto } from '../dto/restaurant-request.dto';
 import { RestaurantResponseDto } from '../dto/restaurant-response.dto';
 import { toRestaurantResponse } from '../restaurant.mapper';

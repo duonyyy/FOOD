@@ -3,9 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as moment from 'moment';
 import { User } from 'src/entities/user.entity';
 import { In, Repository } from 'typeorm';
+import {
+  IdentityUserListItemDto,
+  IdentityUserResponseDto,
+} from '../dto/identity-user-response.dto';
+import { toIdentityUserListItem, toIdentityUserResponse } from '../mappers/identity-user.mapper';
 import { type UserIdentity } from '../types/identity.types';
-import { IdentityUserListItemDto, IdentityUserResponseDto } from './dto/identity-user-response.dto';
-import { toIdentityUserListItem, toIdentityUserResponse } from './identity-user.mapper';
 
 @Injectable()
 export class IdentityUserQueryService {

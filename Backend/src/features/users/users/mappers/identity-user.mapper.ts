@@ -4,7 +4,7 @@ import {
   IdentityRoleSummaryDto,
   IdentityUserListItemDto,
   IdentityUserResponseDto,
-} from './dto/identity-user-response.dto';
+} from '../dto/identity-user-response.dto';
 
 export function toIdentityUserResponse(user: User): IdentityUserResponseDto {
   return {

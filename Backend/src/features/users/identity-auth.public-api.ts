@@ -1,3 +1,4 @@
-export { CreateUserDto } from './dto/create-users.dto';
-export { RolesService } from './roles/role.service';
-export { UsersService } from './services/users.service';
+export { RolesService } from './roles/services/role.service';
+export { UsersModule } from './users.module';
+export { CreateUserDto } from './users/dto/create-users.dto';
+export { UsersService } from './users/services/users.service';

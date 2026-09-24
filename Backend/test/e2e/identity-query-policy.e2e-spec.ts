@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument */
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuthGuard, RolesGuard } from 'src/features/users/public-api';
-import { IdentityUserQueryController } from 'src/features/users/users/identity-user-query.controller';
-import { IdentityUserQueryService } from 'src/features/users/users/identity-user-query.service';
+import { AuthGuard, RolesGuard } from 'src/features/auth/public-api';
+import { AdminUserQueryController } from 'src/features/users/users/controllers/admin-user-query.controller';
+import { CurrentUserQueryController } from 'src/features/users/users/controllers/current-user-query.controller';
+import { IdentityUserQueryService } from 'src/features/users/users/services/identity-user-query.service';
 import request = require('supertest');
 
 describe('Identity query policy (e2e)', () => {
@@ -17,7 +18,7 @@ describe('Identity query policy (e2e)', () => {
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
-      controllers: [IdentityUserQueryController],
+      controllers: [CurrentUserQueryController, AdminUserQueryController],
       providers: [{ provide: IdentityUserQueryService, useValue: queryService }],
     })
       .overrideGuard(AuthGuard)

@@ -1,20 +1,19 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { AuthGuard, Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { Permission } from 'src/shared/types/enums/permission.enum';
-import { Permissions } from 'src/features/auth/public-api';
 import {
   CurrentActor,
   type CurrentActor as CurrentActorData,
-} from '../contracts/current-actor.decorator';
-import { AuthGuard, RolesGuard } from '../public-api';
-import { IdentityUserListItemDto } from '../users/dto/identity-user-response.dto';
-import { AvailableRoleUsersQueryDto } from './dto/available-role-users-query.dto';
+} from '../../users/contracts/current-actor.decorator';
+import { IdentityUserListItemDto } from '../../users/dto/identity-user-response.dto';
+import { AvailableRoleUsersQueryDto } from '../dto/available-role-users-query.dto';
 import {
   IdentityPermissionResponseDto,
   IdentityRoleDetailResponseDto,
   IdentityRoleResponseDto,
-} from './dto/identity-role-response.dto';
-import { IdentityRoleQueryService } from './identity-role-query.service';
+} from '../dto/identity-role-response.dto';
+import { IdentityRoleQueryService } from '../services/identity-role-query.service';
 
 @ApiTags('roles')
 @Controller('role')

@@ -1,5 +1,5 @@
 import { User } from 'src/entities/user.entity';
-import { IdentityUserProfileService } from 'src/features/users/users/identity-user-profile.service';
+import { IdentityUserProfileService } from 'src/features/users/users/services/identity-user-profile.service';
 
 describe('IdentityUserProfileService', () => {
   const repository = {

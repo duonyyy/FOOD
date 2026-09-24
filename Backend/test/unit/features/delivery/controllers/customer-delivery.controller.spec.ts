@@ -1,11 +1,8 @@
 import { NotFoundException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from 'src/features/auth/public-api';
 import { CustomerDeliveryController } from 'src/features/delivery/controllers/customer-delivery.controller';
-import {
-  AuthGuard,
-  CurrentActor,
-  type CurrentActor as CurrentActorData,
-} from 'src/features/users/public-api';
+import { CurrentActor, type CurrentActor as CurrentActorData } from 'src/features/users/public-api';
 
 describe('CustomerDeliveryController', () => {
   const customerDeliveryService = {

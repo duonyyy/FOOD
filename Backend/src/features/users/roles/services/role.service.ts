@@ -1,17 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Permission } from 'src/entities/permission.entity';
+import { Role } from 'src/entities/role.entity';
+import { User } from 'src/entities/user.entity';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import {
   Permission as PermissionEnum,
   PermissionType,
 } from 'src/shared/types/enums/permission.enum';
-import { Permission } from 'src/entities/permission.entity';
-import { Role } from 'src/entities/role.entity';
-import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
-import { User } from 'src/entities/user.entity';
 import { In, Repository } from 'typeorm';
-import { CreateRoleDto } from './dto/create-role.dto';
-import { RoleDetailsDto } from './dto/role-details.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
+import { CreateRoleDto } from '../dto/create-role.dto';
+import { RoleDetailsDto } from '../dto/role-details.dto';
+import { UpdateRoleDto } from '../dto/update-role.dto';
 
 /**
  * Service for managing roles and their permissions
