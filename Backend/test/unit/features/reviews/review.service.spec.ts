@@ -100,7 +100,18 @@ describe('ReviewService', () => {
         shipper: undefined,
       }),
     );
-    expect(response).toMatchObject({ type: 'food', foodId: completedOrder.foodId });
+    expect(response).toEqual({
+      id: 'review-1',
+      orderId: completedOrder.orderId,
+      type: 'food',
+      rating: 5,
+      comment: 'Ngon',
+      image: null,
+      foodId: completedOrder.foodId,
+      shipperId: null,
+      author: { id: 'customer-1', name: null, avatar: null },
+      createdAt: new Date('2026-08-12T00:00:00.000Z'),
+    });
   });
 
   it('creates a shipper review only for the shipper assigned to the completed order', async () => {

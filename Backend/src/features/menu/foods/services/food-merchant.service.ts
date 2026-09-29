@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Category } from 'src/entities/category.entity';
 import { Food } from 'src/entities/food.entity';
-import { MerchantCatalogService } from 'src/features/restaurants/merchant-catalog.public-api';
+import { MerchantRestaurantsService } from 'src/features/restaurants/public-api';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { StorageService } from 'src/infra/minio/public-api';
 import { Repository } from 'typeorm';
@@ -18,14 +18,14 @@ export class FoodMerchantService {
   constructor(
     @InjectRepository(Food) protected readonly foodRepository: Repository<Food>,
     @InjectRepository(Category) protected readonly categoryRepository: Repository<Category>,
-    protected readonly merchantCatalog: MerchantCatalogService,
+    protected readonly merchantRestaurants: MerchantRestaurantsService,
     protected readonly storage: StorageService,
     protected readonly cache: AppCacheService,
     protected readonly foodTopping: FoodToppingService,
   ) {}
 
   async create(dto: CreateFoodDto, actorId: string): Promise<Food> {
-    await this.merchantCatalog.assertCanManageRestaurant(dto.restaurantId, actorId);
+    await this.merchantRestaurants.assertCanManageRestaurant(dto.restaurantId, actorId);
     const restaurant = { id: dto.restaurantId } as Food['restaurant'];
 
     const category = dto.categoryId
@@ -71,14 +71,14 @@ export class FoodMerchantService {
       relations: ['restaurant', 'category'],
     });
     if (!food) throw new NotFoundException('Food not found');
-    await this.merchantCatalog.assertCanManageRestaurant(food.restaurant.id, actorId);
+    await this.merchantRestaurants.assertCanManageRestaurant(food.restaurant.id, actorId);
     const oldImage = food.image;
     const oldImageUrls = [...(food.imageUrls || [])];
     const oldRestaurantId = food.restaurant.id;
     const oldCategoryId = food.category?.id;
 
     if (dto.restaurantId && dto.restaurantId !== oldRestaurantId) {
-      await this.merchantCatalog.assertCanManageRestaurant(dto.restaurantId, actorId);
+      await this.merchantRestaurants.assertCanManageRestaurant(dto.restaurantId, actorId);
       food.restaurant = { id: dto.restaurantId } as Food['restaurant'];
     }
     if (dto.categoryId !== undefined) {
@@ -115,7 +115,7 @@ export class FoodMerchantService {
       relations: ['restaurant', 'category'],
     });
     if (!food) throw new NotFoundException(`Food with ID ${id} not found`);
-    await this.merchantCatalog.assertCanManageRestaurant(food.restaurant.id, actorId);
+    await this.merchantRestaurants.assertCanManageRestaurant(food.restaurant.id, actorId);
     await this.foodRepository.remove(food);
     await this.invalidateMenuCache(id, food.restaurant.id, food.category?.id);
   }
@@ -126,7 +126,7 @@ export class FoodMerchantService {
       relations: ['restaurant', 'category'],
     });
     if (!food) throw new NotFoundException('Food not found');
-    await this.merchantCatalog.assertCanManageRestaurant(food.restaurant.id, actorId);
+    await this.merchantRestaurants.assertCanManageRestaurant(food.restaurant.id, actorId);
     food.status = status;
     const saved = await this.foodRepository.save(food);
     await this.invalidateMenuCache(id, food.restaurant.id, food.category?.id);

@@ -225,7 +225,7 @@ curl "http://localhost:5000/download/video?job_id=f8e7d6c5b4a3..." --output resu
 | `FOOD_CACHE_SIZE` | `1024` | Số lượng ROI crop lưu trong LRU Cache |
 | `FOOD_CACHE_TTL` | `60` | Thời gian sống (giây) của kết quả trong cache |
 | `FOOD_LETTERBOX_ENABLED` | `false` | Bật/tắt bảo toàn tỷ lệ khung hình Letterbox |
-| `FOOD_ALLOWED_ORIGINS` | `*` | Cấu hình CORS Allowed Origins |
+| `FOOD_ALLOWED_ORIGINS` | `http://localhost:3001` | Cấu hình CORS Allowed Origins |
 | `GUNICORN_WORKERS` | `2` | Số lượng tiến trình Gunicorn worker |
 | `GUNICORN_THREADS` | `2` | Số luồng gthread cho mỗi worker |
 | `GUNICORN_TIMEOUT` | `120` | Thời gian chờ tối đa cho request video |

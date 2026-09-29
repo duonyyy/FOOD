@@ -2,14 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { estimateDeliveryTime, haversineDistance } from 'src/common/utils/geo.util';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
-import {
-  FoodIntegrationService,
-  type FoodPreview,
-} from 'src/features/menu/public-api';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
+import { RestaurantPageResponseDto, RestaurantResponseDto } from '../dto/restaurant-response.dto';
 
-export type DiscoveredRestaurant = Restaurant & {
+type DiscoveredRestaurant = Restaurant & {
   distance: number | null;
   deliveryTime: number | null;
 };
@@ -17,11 +14,10 @@ export type DiscoveredRestaurant = Restaurant & {
 const RESTAURANT_CACHE_TTL_SECONDS = 60;
 
 @Injectable()
-export class RestaurantDiscoveryService {
+export class PublicRestaurantsService {
   constructor(
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,
-    private readonly foodDiscoveryReader: FoodIntegrationService,
     private readonly cache: AppCacheService,
   ) {}
 
@@ -30,9 +26,9 @@ export class RestaurantDiscoveryService {
     pageSize = 10,
     lat?: number,
     lng?: number,
-  ): Promise<ReturnType<RestaurantDiscoveryService['toPage']>> {
+  ): Promise<RestaurantPageResponseDto> {
     const cacheKey = this.cacheKey('restaurant:approved', { page, pageSize, lat, lng });
-    return this.cache.remember(cacheKey, RESTAURANT_CACHE_TTL_SECONDS, async () => {
+    const result = await this.cache.remember(cacheKey, RESTAURANT_CACHE_TTL_SECONDS, async () => {
       const [items, totalItems] = await this.restaurantRepository.findAndCount({
         where: { status: RestaurantStatus.APPROVED },
         relations: ['owner'],
@@ -46,6 +42,10 @@ export class RestaurantDiscoveryService {
         pageSize,
       );
     });
+    return {
+      ...result,
+      items: result.items.map((item) => RestaurantResponseDto.fromRestaurant(item)),
+    };
   }
 
   async findAll(page = 1, pageSize = 10, lat?: number, lng?: number) {
@@ -56,7 +56,7 @@ export class RestaurantDiscoveryService {
     return this.findAllApproved(page, pageSize, lat, lng);
   }
 
-  async findOne(id: string, lat?: number, lng?: number): Promise<DiscoveredRestaurant> {
+  async findOne(id: string, lat?: number, lng?: number): Promise<RestaurantResponseDto> {
     const restaurant = await this.restaurantRepository.findOne({
       where: { id, status: RestaurantStatus.APPROVED },
       relations: ['owner'],
@@ -64,23 +64,11 @@ export class RestaurantDiscoveryService {
     if (!restaurant) {
       throw new NotFoundException('Approved restaurant not found');
     }
-    return this.withDistance(restaurant, lat, lng);
+    return RestaurantResponseDto.fromRestaurant(this.withDistance(restaurant, lat, lng));
   }
 
   async getTopRestaurants(page = 1, pageSize = 10, lat?: number, lng?: number) {
     return this.findAllApproved(page, pageSize, lat, lng);
-  }
-
-  async getFoodsByRestaurantId(
-    restaurantId: string,
-    page = 1,
-    pageSize = 3,
-  ): Promise<FoodPreview[]> {
-    await this.findOne(restaurantId);
-    const cacheKey = this.cacheKey('restaurant:foods', { restaurantId, page, pageSize });
-    return this.cache.remember(cacheKey, RESTAURANT_CACHE_TTL_SECONDS, () =>
-      this.foodDiscoveryReader.listRestaurantFoods(restaurantId, page, pageSize),
-    );
   }
 
   async getNameById(id: string): Promise<string> {

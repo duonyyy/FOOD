@@ -1,7 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Food } from 'src/entities/food.entity';
 import { FoodMerchantService } from 'src/features/menu/foods/services/food-merchant.service';
-import { MerchantCatalogService } from 'src/features/restaurants/merchant-catalog.public-api';
+import { MerchantRestaurantsService } from 'src/features/restaurants/public-api';
 
 describe('FoodMerchantService', () => {
   it('uses the merchant ownership policy before updating a food', async () => {
@@ -15,7 +15,7 @@ describe('FoodMerchantService', () => {
     const service = new FoodMerchantService(
       foodRepository as never,
       {} as never,
-      ownershipPolicy as unknown as MerchantCatalogService,
+      ownershipPolicy as unknown as MerchantRestaurantsService,
       {} as never,
       {} as never,
       {} as never,
@@ -50,7 +50,7 @@ describe('FoodMerchantService', () => {
       {
         assertCanManageRestaurant: jest.fn().mockResolvedValue(undefined),
         findRestaurant: jest.fn(),
-      } as unknown as MerchantCatalogService,
+      } as unknown as MerchantRestaurantsService,
       storage as never,
       cache as never,
       {} as never,

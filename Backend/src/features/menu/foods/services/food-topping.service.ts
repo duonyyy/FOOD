@@ -4,7 +4,7 @@ import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
-import { MerchantCatalogService } from '../../../restaurants/merchant-catalog.public-api';
+import { MerchantRestaurantsService } from 'src/features/restaurants/public-api';
 import { CreateToppingDto } from '../dto/toppings/create-topping.dto';
 import { UpdateToppingDto } from '../dto/toppings/update-topping.dto';
 
@@ -14,13 +14,13 @@ export class FoodToppingService {
   constructor(
     @InjectRepository(Food) private readonly foodRepository: Repository<Food>,
     @InjectRepository(Topping) private readonly toppingRepository: Repository<Topping>,
-    private readonly merchantCatalog: MerchantCatalogService,
+    private readonly merchantRestaurants: MerchantRestaurantsService,
     private readonly cache: AppCacheService,
   ) {}
 
   async create(foodId: string, dto: CreateToppingDto, actorId: string): Promise<Topping> {
     const food = await this.findFood(foodId);
-    await this.merchantCatalog.assertCanManageRestaurant(food.restaurant.id, actorId);
+    await this.merchantRestaurants.assertCanManageRestaurant(food.restaurant.id, actorId);
     const name = normalizeToppingName(dto.name);
     validatePrice(dto.price);
     await this.assertUniqueName(foodId, name);
@@ -45,7 +45,7 @@ export class FoodToppingService {
 
   async update(id: string, dto: UpdateToppingDto, actorId: string): Promise<Topping> {
     const topping = await this.findTopping(id);
-    await this.merchantCatalog.assertCanManageRestaurant(topping.food.restaurant.id, actorId);
+    await this.merchantRestaurants.assertCanManageRestaurant(topping.food.restaurant.id, actorId);
 
     if (dto.name !== undefined) {
       const name = normalizeToppingName(dto.name);
@@ -72,7 +72,7 @@ export class FoodToppingService {
 
   async remove(id: string, actorId: string): Promise<void> {
     const topping = await this.findTopping(id);
-    await this.merchantCatalog.assertCanManageRestaurant(topping.food.restaurant.id, actorId);
+    await this.merchantRestaurants.assertCanManageRestaurant(topping.food.restaurant.id, actorId);
     await this.toppingRepository.remove(topping);
     await this.invalidate(topping.food.id, topping.food.restaurant.id);
   }

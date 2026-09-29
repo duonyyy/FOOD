@@ -13,7 +13,7 @@ describe('FoodIntegrationService orderable menu snapshot', () => {
         toppings: [{ id: 'topping-1', name: 'Trứng', price: '10000', isAvailable: true }],
       }),
     };
-    const service = new FoodIntegrationService(foodRepository as never);
+    const service = new FoodIntegrationService(foodRepository as never, {} as never);
 
     const result = await service.getOrderableItems({
       items: [{ foodId: 'food-1', toppingIds: ['topping-1'] }],
@@ -45,7 +45,7 @@ describe('FoodIntegrationService orderable menu snapshot', () => {
       toppings: [{ id: 'topping-1', name: 'Old topping', price: 2, isAvailable: true }],
     };
     const repository = { findOne: jest.fn().mockResolvedValue(food) };
-    const service = new FoodIntegrationService(repository as never);
+    const service = new FoodIntegrationService(repository as never, {} as never);
 
     const snapshot = (
       await service.getOrderableItems({
@@ -69,7 +69,7 @@ describe('FoodIntegrationService orderable menu snapshot', () => {
         toppings: [{ id: 'topping-1', name: 'Trứng', price: 10, isAvailable: true }],
       }),
     };
-    const service = new FoodIntegrationService(repository as never);
+    const service = new FoodIntegrationService(repository as never, {} as never);
 
     await expect(
       service.getOrderableItems({
@@ -91,7 +91,7 @@ describe('FoodIntegrationService orderable menu snapshot', () => {
           toppings: [],
         }),
       };
-      const service = new FoodIntegrationService(repository as never);
+      const service = new FoodIntegrationService(repository as never, {} as never);
 
       const [snapshot] = await service.getOrderableItems({
         items: [{ foodId: 'food-1', toppingIds: [] }],

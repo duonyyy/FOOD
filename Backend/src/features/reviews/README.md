@@ -2,10 +2,10 @@
 
 Owner: food/shipper review, rating aggregation, moderation và anti-duplicate rule.
 
-Reviews sở hữu repository `Review` và các HTTP APIs liên quan. Module xác thực rules đánh giá thông qua `OrderReviewRulesService` (đơn hàng đã hoàn tất, đúng khách hàng) và `Catalog` food target reader; module không inject trực tiếp các repository `Order`, `Food`, `Shipper` hay `User`.
+Reviews sở hữu repository `Review` và các HTTP APIs liên quan. Module xác thực điều kiện đánh giá thông qua `OrderRulesService` (đơn hàng đã hoàn tất, đúng khách hàng) và `FoodIntegrationService`; module không inject trực tiếp các repository `Order`, `Food`, `Shipper` hay `User`.
 
 `GET /reviews/orders/:orderId/summary` trả trạng thái đánh giá cho actor hiện tại. Reviews lấy context
-Order tối thiểu qua `OrderReviewRulesService` trong public API chính của Orders, sau đó tự đọc Review
+Order tối thiểu qua `OrderRulesService` trong public API chính của Orders, sau đó tự đọc Review
 theo `orderId`; Orders không còn import ngược Reviews.
 
 Cấu trúc phân hệ Reviews được chuẩn hóa theo mô hình Actor-Driven (Role-based) đồng bộ:
@@ -17,11 +17,7 @@ src/features/reviews/
 │   └── food-reviews.controller.ts      # 🍽️ Catalog Public API (/foods/:foodId/reviews)
 │
 ├── services/                           # 📦 SERVICES
-│   ├── customer-reviews.service.ts     # Core Review Service (Validation, chống trùng, tính rating stats)
-│   └── index.ts                        # Barrel export
-│
-├── mappers/                            # 🗺️ MAPPERS
-│   └── review.mapper.ts                # Chuyển đổi Review Entity sang ReviewResponseDto
+│   └── customer-reviews.service.ts     # Review Service, gồm chuyển Review sang ReviewResponseDto
 │
 ├── dto/                                # 📋 DATA TRANSFER OBJECTS
 │   ├── create-review.dto.ts

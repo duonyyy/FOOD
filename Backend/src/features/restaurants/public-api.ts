@@ -1,9 +1,9 @@
-export { MerchantCatalogModule } from './merchant-catalog.module';
+export { RestaurantDiscoveryQueryDto } from './dto/restaurant-discovery-query.dto';
+export { RestaurantPageResponseDto, RestaurantResponseDto } from './dto/restaurant-response.dto';
 export { RestaurantsModule } from './restaurants.module';
-export { MerchantCatalogService } from './services/merchant-catalog.service';
-export { RestaurantProfileService } from './services/restaurant-profile.service';
-export { RestaurantReaderService } from './services/restaurant-reader.service';
-export type { MerchantRestaurantLocation } from './types/merchant-catalog.types';
+export { CustomerRestaurantsService } from './services/customer-restaurants.service';
+export { MerchantRestaurantsService } from './services/merchant-restaurants.service';
+export { PublicRestaurantsService } from './services/public-restaurants.service';
 export type {
   MessagingRestaurant,
   RestaurantDeliveryLocation,

@@ -1,11 +1,11 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { AddressService } from 'src/features/locations/public-api';
-import { RestaurantProfileService } from 'src/features/restaurants/services/restaurant-profile.service';
+import { MerchantRestaurantsService } from 'src/features/restaurants/services/merchant-restaurants.service';
 import { IdentityUserQueryService } from 'src/features/users/public-api';
 import { DeepPartial } from 'typeorm';
 
-describe('RestaurantProfileService', () => {
+describe('MerchantRestaurantsService', () => {
   const repository = {
     create: jest.fn((value: DeepPartial<Restaurant>): Restaurant => value as Restaurant),
     save: jest.fn(
@@ -34,7 +34,7 @@ describe('RestaurantProfileService', () => {
       loader(),
     deleteByPattern: (): Promise<number> => Promise.resolve(0),
   };
-  const service = new RestaurantProfileService(
+  const service = new MerchantRestaurantsService(
     repository as never,
     identityReader as unknown as IdentityUserQueryService,
     locationWriter as unknown as AddressService,
@@ -135,5 +135,17 @@ describe('RestaurantProfileService', () => {
     expect(storagePort.deleteFile).toHaveBeenCalledWith(
       'https://files.example.test/default-bucket/restaurant-avatars/server-generated.png',
     );
+  });
+
+  it('rejects menu management by a different restaurant owner', async () => {
+    repository.findOne.mockResolvedValue({ id: 'restaurant-1', owner: { id: 'owner-1' } });
+
+    await expect(
+      service.assertCanManageRestaurant('restaurant-1', 'owner-2'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: 'restaurant-1' },
+      relations: ['owner'],
+    });
   });
 });

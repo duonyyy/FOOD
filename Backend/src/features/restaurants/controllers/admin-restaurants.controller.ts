@@ -17,26 +17,21 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Permission } from 'src/shared/types/enums/permission.enum';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
+import { Permission } from 'src/shared/types/enums/permission.enum';
+import { PrivateFileResponseDto } from '../dto/private-file-response.dto';
 import { ApproveRestaurantDto, RejectRestaurantDto } from '../dto/restaurant-approval.dto';
 import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';
-import { PrivateFileResponseDto } from '../dto/private-file-response.dto';
 import { RestaurantPageResponseDto, RestaurantResponseDto } from '../dto/restaurant-response.dto';
-import { toRestaurantResponse } from '../restaurant.mapper';
-import { RestaurantApprovalService } from '../services/restaurant-approval.service';
-import { RestaurantProfileService } from '../services/restaurant-profile.service';
+import { AdminRestaurantsService } from '../services/admin-restaurants.service';
 
 @ApiTags('Admin restaurants')
 @ApiBearerAuth('bearer')
 @Controller('admin/restaurants')
 @UseGuards(RolesGuard)
-export class RestaurantAdminController {
-  constructor(
-    private readonly restaurantProfileService: RestaurantProfileService,
-    private readonly restaurantApprovalService: RestaurantApprovalService,
-  ) {}
+export class AdminRestaurantsController {
+  constructor(private readonly adminRestaurantsService: AdminRestaurantsService) {}
 
   @Get('requests')
   @Permissions(Permission.STORE.READ)
@@ -46,13 +41,16 @@ export class RestaurantAdminController {
   async getRestaurantRequests(
     @Query() query: RestaurantDiscoveryQueryDto,
   ): Promise<RestaurantPageResponseDto> {
-    const page = await this.restaurantProfileService.getRestaurantRequests(
+    const page = await this.adminRestaurantsService.getRestaurantRequests(
       query.page,
       query.pageSize,
       query.lat,
       query.lng,
     );
-    return { ...page, items: page.items.map(toRestaurantResponse) };
+    return {
+      ...page,
+      items: page.items.map((item) => RestaurantResponseDto.fromRestaurant(item)),
+    };
   }
 
   @Get(':id/certificate')
@@ -60,7 +58,7 @@ export class RestaurantAdminController {
   @ApiOperation({ summary: 'Lấy URL tạm thời cho giấy chứng nhận để kiểm duyệt' })
   @ApiResponse({ status: 200, type: PrivateFileResponseDto })
   async getCertificateDownloadUrl(@Param('id') id: string): Promise<PrivateFileResponseDto> {
-    return { url: await this.restaurantProfileService.getCertificateDownloadUrl(id) };
+    return { url: await this.adminRestaurantsService.getCertificateDownloadUrl(id) };
   }
 
   @Put(':id/approve')
@@ -73,8 +71,8 @@ export class RestaurantAdminController {
     @CurrentActor() actor: CurrentActorData,
     @Body() input: ApproveRestaurantDto,
   ): Promise<RestaurantResponseDto> {
-    return toRestaurantResponse(
-      await this.restaurantApprovalService.approveRestaurant(id, actor.userId, input),
+    return RestaurantResponseDto.fromRestaurant(
+      await this.adminRestaurantsService.approveRestaurant(id, actor.userId, input),
     );
   }
 
@@ -89,8 +87,8 @@ export class RestaurantAdminController {
     @CurrentActor() actor: CurrentActorData,
     @Body() input: RejectRestaurantDto,
   ): Promise<RestaurantResponseDto> {
-    return toRestaurantResponse(
-      await this.restaurantApprovalService.rejectRestaurant(id, actor.userId, input),
+    return RestaurantResponseDto.fromRestaurant(
+      await this.adminRestaurantsService.rejectRestaurant(id, actor.userId, input),
     );
   }
 
@@ -100,6 +98,6 @@ export class RestaurantAdminController {
   @ApiOperation({ summary: 'Xóa yêu cầu mở nhà hàng đang chờ duyệt' })
   @ApiResponse({ status: 204, description: 'Đã xóa' })
   async deleteRestaurantRequest(@Param('id') id: string): Promise<void> {
-    await this.restaurantProfileService.deleteRestaurantRequest(id);
+    await this.adminRestaurantsService.deleteRestaurantRequest(id);
   }
 }

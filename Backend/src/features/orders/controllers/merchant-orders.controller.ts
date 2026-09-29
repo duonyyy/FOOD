@@ -19,7 +19,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthGuard } from 'src/features/auth/public-api';
-import { RestaurantProfileService } from 'src/features/restaurants/public-api';
+import { MerchantRestaurantsService } from 'src/features/restaurants/public-api';
 import { CurrentActor, type CurrentActorData } from 'src/features/users/public-api';
 import { OrderStatus } from 'src/shared/types/enums/order-status.enum';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
@@ -36,7 +36,7 @@ export class MerchantOrdersController {
   constructor(
     private readonly merchantOrders: MerchantOrdersService,
     private readonly publicOrders: PublicOrdersService,
-    private readonly restaurantService: RestaurantProfileService,
+    private readonly restaurantService: MerchantRestaurantsService,
   ) {}
 
   @Get('restaurant/my')

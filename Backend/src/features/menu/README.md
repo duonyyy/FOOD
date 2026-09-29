@@ -7,6 +7,8 @@ src/features/menu/
 ├── menu.module.ts
 ├── public-api.ts
 ├── README.md
+├── controllers/
+│   └── public-restaurants.controller.ts
 ├── categories/
 │   ├── category.controller.ts
 │   ├── category.service.ts
@@ -41,8 +43,10 @@ src/features/menu/
     └── menu.types.ts
 ```
 
-`MenuModule` đăng ký CategoryService, FoodCustomerService, FoodMerchantService, FoodAdminService, FoodToppingService và FoodIntegrationService mỗi provider một lần. Nó import `AuthModule`, TypeORM repositories của Food/Category/Topping và `MerchantCatalogModule` qua `restaurants/merchant-catalog.public-api.ts` để kiểm tra quyền quản lý quán mà không tạo vòng với RestaurantsModule.
+`MenuModule` đăng ký CategoryService, FoodCustomerService, FoodMerchantService, FoodAdminService, FoodToppingService và FoodIntegrationService mỗi provider một lần. Nó import `AuthModule`, TypeORM repositories của Food/Category/Topping và `RestaurantsModule` qua `restaurants/public-api.ts`. `RestaurantsModule` không import Menu, nên dependency chỉ có chiều Menu → Restaurants.
 
-`CategoryService` tự tạo response DTO, gồm `foodCount`, danh sách món và giá trị null. `FoodToppingService` kiểm tra quyền sở hữu, tên/giá topping và xóa cache sau thao tác ghi. `FoodIntegrationService` cung cấp snapshot cho Orders, Restaurants, Reviews và Chat qua `menu/public-api.ts`; availability của đơn hàng vẫn xét trạng thái món, nhà hàng và topping.
+`PublicRestaurantsController` giữ bốn route khám phá nhà hàng `/restaurants/*` và ghép nhà hàng approved từ `PublicRestaurantsService` với món từ `FoodIntegrationService`. Quyết định trạng thái và dữ liệu Restaurant vẫn thuộc Restaurants. `FoodIntegrationService` giữ cache `restaurant:foods` TTL 60 giây cho phần món của `/restaurants/popular`.
+
+`CategoryService` tự tạo response DTO, gồm `foodCount`, danh sách món và giá trị null. `FoodToppingService` kiểm tra quyền sở hữu, tên/giá topping và xóa cache sau thao tác ghi. `FoodIntegrationService` cung cấp snapshot cho Orders, Reviews, Chat qua `menu/public-api.ts` và dữ liệu món cho controller public trong Menu; availability của đơn hàng vẫn xét trạng thái món, nhà hàng và topping.
 
 `FoodQueryService` và `FoodCommandService` cũ không có consumer runtime. `getMenuForUser` nằm ở FoodCustomerService; snapshot `listRestaurantFoods`, `listAvailableFoods`, `findAvailableFood`, `getOrderableItems` nằm ở FoodIntegrationService; tra cứu admin và xóa món của admin nằm ở FoodAdminService. Test tương ứng gọi trực tiếp service sở hữu hành vi.

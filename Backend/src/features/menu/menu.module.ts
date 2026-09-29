@@ -4,9 +4,10 @@ import { Category } from 'src/entities/category.entity';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { AuthModule } from 'src/features/auth/auth-module.public-api';
-import { MerchantCatalogModule } from 'src/features/restaurants/merchant-catalog.public-api';
+import { RestaurantsModule } from 'src/features/restaurants/public-api';
 import { CategoryController } from './categories/category.controller';
 import { CategoryService } from './categories/category.service';
+import { PublicRestaurantsController } from './controllers/public-restaurants.controller';
 import { AdminFoodController } from './foods/controllers/admin-food.controller';
 import { CustomerFoodController } from './foods/controllers/customer-food.controller';
 import { MerchantFoodController } from './foods/controllers/merchant-food.controller';
@@ -18,12 +19,13 @@ import { FoodToppingService } from './foods/services/food-topping.service';
 
 /** Catalog feature: Food/MenuItem, Category and Topping ownership. */
 @Module({
-  imports: [TypeOrmModule.forFeature([Food, Category, Topping]), AuthModule, MerchantCatalogModule],
+  imports: [TypeOrmModule.forFeature([Food, Category, Topping]), AuthModule, RestaurantsModule],
   controllers: [
     CategoryController,
     CustomerFoodController,
     MerchantFoodController,
     AdminFoodController,
+    PublicRestaurantsController,
   ],
   providers: [
     CategoryService,

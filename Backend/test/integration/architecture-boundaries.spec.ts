@@ -66,16 +66,16 @@ describe('architecture boundary lint rules', () => {
     );
   });
 
-  it('allows the narrow Merchant Catalog public entrypoint without loading RestaurantsModule', async () => {
+  it('allows the Restaurants public entrypoint for Menu consumers', async () => {
     await expect(
       architectureRuleIds(
-        "import { MerchantCatalogModule } from 'src/features/restaurants/merchant-catalog.public-api';",
+        "import { RestaurantsModule } from 'src/features/restaurants/public-api';",
         'src/features/menu/menu.module.ts',
       ),
     ).resolves.toEqual([]);
   });
 
-  it('keeps Catalog consumers off the broad Restaurants public barrel', () => {
+  it('keeps Menu consumers on the single Restaurants public entrypoint', () => {
     const catalogConsumers = [
       'src/features/menu/menu.module.ts',
       'src/features/menu/foods/services/food-customer.service.ts',
@@ -85,8 +85,8 @@ describe('architecture boundary lint rules', () => {
 
     for (const file of catalogConsumers) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
-      expect(source).not.toContain('restaurants/public-api');
-      expect(source).toContain('restaurants/merchant-catalog.public-api');
+      expect(source).toContain('restaurants/public-api');
+      expect(source).not.toContain('restaurants/merchant-catalog.public-api');
     }
   });
 

@@ -14,7 +14,7 @@ import {
 import { Conversation, ConversationType } from 'src/entities/conversation.entity';
 import { Message } from 'src/entities/message.entity';
 import { OrderMessagingService } from 'src/features/orders/public-api';
-import { RestaurantReaderService } from 'src/features/restaurants/public-api';
+import { CustomerRestaurantsService } from 'src/features/restaurants/public-api';
 import { IdentityUserQueryService, type UserIdentity } from 'src/features/users/public-api';
 import { pubSub } from 'src/pubsub';
 import { Repository } from 'typeorm';
@@ -30,7 +30,7 @@ export class MessengerService {
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
     private readonly identityReader: IdentityUserQueryService,
-    private readonly restaurantReader: RestaurantReaderService,
+    private readonly customerRestaurants: CustomerRestaurantsService,
     private readonly orderMessaging: OrderMessagingService,
     private readonly eventBus: InProcessEventBus,
   ) {}
@@ -48,7 +48,7 @@ export class MessengerService {
     if (!restaurantId) {
       throw new BadRequestException('Restaurant ID is required');
     }
-    const restaurant = await this.restaurantReader.findRestaurantForMessaging(restaurantId);
+    const restaurant = await this.customerRestaurants.findRestaurantForMessaging(restaurantId);
 
     if (!restaurant) {
       throw new BadRequestException('Restaurant not found');
@@ -174,7 +174,7 @@ export class MessengerService {
     }
 
     // Check if restaurant exists and belongs to the shop owner
-    const restaurant = await this.restaurantReader.findRestaurantForMessaging(restaurantId);
+    const restaurant = await this.customerRestaurants.findRestaurantForMessaging(restaurantId);
 
     if (!restaurant || restaurant.ownerId !== shopOwnerId) {
       throw new NotFoundException('Restaurant not found or does not belong to the shop owner');
@@ -199,7 +199,7 @@ export class MessengerService {
 
     // Get shop owners from restaurants (any restaurant the user might want to contact)
     const [restaurants, orders] = await Promise.all([
-      this.restaurantReader.listActiveRestaurantsForMessaging(),
+      this.customerRestaurants.listActiveRestaurantsForMessaging(),
       this.orderMessaging.listCustomerShipperChatPartners(userId),
     ]);
 

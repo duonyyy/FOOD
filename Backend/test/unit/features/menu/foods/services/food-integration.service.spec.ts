@@ -3,7 +3,7 @@ import { FoodIntegrationService } from 'src/features/menu/foods/services/food-in
 
 describe('FoodIntegrationService', () => {
   const foodRepository = { find: jest.fn(), findOne: jest.fn() };
-  const service = new FoodIntegrationService(foodRepository as never);
+  const service = new FoodIntegrationService(foodRepository as never, {} as never);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -46,6 +46,21 @@ describe('FoodIntegrationService', () => {
       skip: 5,
       take: 5,
     });
+  });
+
+  it('keeps the restaurant food cache key and TTL for discovery', async () => {
+    const cache = {
+      remember: jest.fn((_key: string, _ttl: number, loader: () => Promise<unknown>) => loader()),
+    };
+    const discovery = new FoodIntegrationService(foodRepository as never, cache as never);
+    foodRepository.find.mockResolvedValue([]);
+
+    await expect(discovery.listRestaurantFoodsCached('restaurant-1', 1, 3)).resolves.toEqual([]);
+    expect(cache.remember).toHaveBeenCalledWith(
+      'restaurant:foods:[["page",1],["pageSize",3],["restaurantId","restaurant-1"]]',
+      60,
+      expect.any(Function),
+    );
   });
 
   it('excludes unapproved restaurants from chat catalog snapshots', async () => {

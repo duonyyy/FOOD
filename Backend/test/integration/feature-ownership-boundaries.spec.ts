@@ -136,7 +136,7 @@ describe('feature ownership boundaries', () => {
     expect(module).not.toMatch(/\b(User|Order|Restaurant|ShippingDetail)\b.*forFeature/);
     expect(service).not.toMatch(/@InjectRepository\((User|Order|Restaurant|ShippingDetail)\)/);
     expect(service).toContain('OrderMessagingService');
-    expect(service).toContain('RestaurantReaderService');
+    expect(service).toContain('CustomerRestaurantsService');
     expect(service).toContain('IdentityUserQueryService');
   });
 

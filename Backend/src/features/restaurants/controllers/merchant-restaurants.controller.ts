@@ -33,8 +33,7 @@ import { PrivateFileResponseDto } from '../dto/private-file-response.dto';
 import { RestaurantDiscoveryQueryDto } from '../dto/restaurant-discovery-query.dto';
 import { RequestRestaurantDto, UpdateOwnedRestaurantDto } from '../dto/restaurant-request.dto';
 import { RestaurantResponseDto } from '../dto/restaurant-response.dto';
-import { toRestaurantResponse } from '../restaurant.mapper';
-import { RestaurantProfileService } from '../services/restaurant-profile.service';
+import { MerchantRestaurantsService } from '../services/merchant-restaurants.service';
 
 type RestaurantFiles = {
   avatar?: Express.Multer.File[];
@@ -55,8 +54,8 @@ const restaurantFilesInterceptor = FileFieldsInterceptor(
 @ApiBearerAuth('bearer')
 @Controller('merchant/restaurants')
 @UseGuards(AuthGuard)
-export class RestaurantMerchantController {
-  constructor(private readonly restaurantProfileService: RestaurantProfileService) {}
+export class MerchantRestaurantsController {
+  constructor(private readonly merchantRestaurantsService: MerchantRestaurantsService) {}
 
   @Post()
   @UseInterceptors(restaurantFilesInterceptor)
@@ -71,14 +70,14 @@ export class RestaurantMerchantController {
     @Body() request: RequestRestaurantDto,
     @UploadedFiles() files: RestaurantFiles,
   ): Promise<RestaurantResponseDto> {
-    const restaurant = await this.restaurantProfileService.requestRestaurantWithFiles(
+    const restaurant = await this.merchantRestaurantsService.requestRestaurantWithFiles(
       actor.userId,
       request,
       files?.avatar?.[0],
       files?.backgroundImage?.[0],
       files?.certificateImage?.[0],
     );
-    return toRestaurantResponse(restaurant);
+    return RestaurantResponseDto.fromRestaurant(restaurant);
   }
 
   @Get('my')
@@ -89,7 +88,7 @@ export class RestaurantMerchantController {
     @CurrentActor() actor: CurrentActorData,
     @Query() query: RestaurantDiscoveryQueryDto,
   ): Promise<RestaurantResponseDto> {
-    const restaurant = await this.restaurantProfileService.findByOwnerId(
+    const restaurant = await this.merchantRestaurantsService.findByOwnerId(
       actor.userId,
       query.lat,
       query.lng,
@@ -97,7 +96,7 @@ export class RestaurantMerchantController {
     if (!restaurant) {
       throw new ForbiddenException('You do not own a restaurant');
     }
-    return toRestaurantResponse(restaurant);
+    return RestaurantResponseDto.fromRestaurant(restaurant);
   }
 
   @Get(':id/certificate')
@@ -108,7 +107,7 @@ export class RestaurantMerchantController {
     @CurrentActor() actor: CurrentActorData,
   ): Promise<PrivateFileResponseDto> {
     await this.assertRestaurantOwner(id, actor.userId);
-    return { url: await this.restaurantProfileService.getCertificateDownloadUrl(id) };
+    return { url: await this.merchantRestaurantsService.getCertificateDownloadUrl(id) };
   }
 
   @Put(':id/files')
@@ -125,14 +124,14 @@ export class RestaurantMerchantController {
     @UploadedFiles() files: RestaurantFiles,
   ): Promise<RestaurantResponseDto> {
     await this.assertRestaurantOwner(id, actor.userId);
-    const restaurant = await this.restaurantProfileService.updateWithFiles(
+    const restaurant = await this.merchantRestaurantsService.updateWithFiles(
       id,
       update,
       files?.avatar?.[0],
       files?.backgroundImage?.[0],
       files?.certificateImage?.[0],
     );
-    return toRestaurantResponse(restaurant);
+    return RestaurantResponseDto.fromRestaurant(restaurant);
   }
 
   @Put(':id')
@@ -145,7 +144,9 @@ export class RestaurantMerchantController {
     @Body() update: UpdateOwnedRestaurantDto,
   ): Promise<RestaurantResponseDto> {
     await this.assertRestaurantOwner(id, actor.userId);
-    return toRestaurantResponse(await this.restaurantProfileService.update(id, update));
+    return RestaurantResponseDto.fromRestaurant(
+      await this.merchantRestaurantsService.update(id, update),
+    );
   }
 
   @Delete(':id')
@@ -155,11 +156,11 @@ export class RestaurantMerchantController {
   @ApiForbiddenResponse({ description: 'Không sở hữu nhà hàng này' })
   async remove(@Param('id') id: string, @CurrentActor() actor: CurrentActorData): Promise<void> {
     await this.assertRestaurantOwner(id, actor.userId);
-    await this.restaurantProfileService.remove(id);
+    await this.merchantRestaurantsService.remove(id);
   }
 
   private async assertRestaurantOwner(restaurantId: string, actorId: string): Promise<void> {
-    const restaurant = await this.restaurantProfileService.findByOwnerId(actorId);
+    const restaurant = await this.merchantRestaurantsService.findByOwnerId(actorId);
     if (!restaurant || restaurant.id !== restaurantId) {
       throw new ForbiddenException('You can only modify your own restaurant');
     }

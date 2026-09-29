@@ -12,7 +12,7 @@ import { MerchantOrdersService } from 'src/features/orders/services/merchant-ord
 import { OrderCreationService } from 'src/features/orders/services/order-creation.service';
 import { PublicOrdersService } from 'src/features/orders/services/public-orders.service';
 import { PaymentService } from 'src/features/payments/public-api';
-import { RestaurantProfileService } from 'src/features/restaurants/public-api';
+import { MerchantRestaurantsService } from 'src/features/restaurants/public-api';
 import request = require('supertest');
 
 describe('Order actor policy (e2e)', () => {
@@ -71,7 +71,7 @@ describe('Order actor policy (e2e)', () => {
         { provide: AdminOrdersService, useValue: adminOrders },
         { provide: OrderCreationService, useValue: orderCreation },
         { provide: PaymentService, useValue: { createCheckout: jest.fn() } },
-        { provide: RestaurantProfileService, useValue: { findByOwnerId: jest.fn() } },
+        { provide: MerchantRestaurantsService, useValue: { findByOwnerId: jest.fn() } },
       ],
     })
       .overrideGuard(AuthGuard)

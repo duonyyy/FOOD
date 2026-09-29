@@ -5,7 +5,7 @@ import { haversineDistance } from 'src/common/utils/geo.util';
 import { Category } from 'src/entities/category.entity';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
-import { MerchantCatalogService } from 'src/features/restaurants/merchant-catalog.public-api';
+import { CustomerRestaurantsService } from 'src/features/restaurants/public-api';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { MapboxService } from 'src/infra/mapbox/public-api';
 import { Repository, type SelectQueryBuilder } from 'typeorm';
@@ -80,7 +80,7 @@ export class FoodCustomerService {
     protected readonly categoryRepository: Repository<Category>,
     @InjectRepository(Topping)
     protected readonly toppingRepository: Repository<Topping>,
-    protected readonly merchantCatalog: MerchantCatalogService,
+    protected readonly customerRestaurants: CustomerRestaurantsService,
     protected readonly cacheService: AppCacheService,
     protected readonly routeService: MapboxService,
   ) {}
@@ -125,7 +125,7 @@ export class FoodCustomerService {
   }
 
   private async requireRestaurant(restaurantId: string) {
-    const restaurant = await this.merchantCatalog.findRestaurant(restaurantId);
+    const restaurant = await this.customerRestaurants.findRestaurant(restaurantId);
     if (!restaurant) {
       throw new NotFoundException(`Restaurant with ID ${restaurantId} not found`);
     }

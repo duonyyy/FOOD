@@ -1,8 +1,14 @@
+name: foodee
+
+x-backend: &backend
+  image: foodee/backend:${BACKEND_IMAGE_TAG:-dev}
+  build:
+    context: ..
+    dockerfile: Dockerfile
+
 services:
   migrate:
-    build:
-      context: ..
-      dockerfile: Dockerfile
+    <<: *backend
     command: npm run migration:run:compiled
     env_file:
       - ../.env
@@ -14,9 +20,7 @@ services:
     restart: 'no'
 
   api:
-    build:
-      context: ..
-      dockerfile: Dockerfile
+    <<: *backend
     restart: unless-stopped
     ports:
       - '3000:3000'
@@ -61,9 +65,7 @@ services:
       start_period: 30s
 
   worker:
-    build:
-      context: ..
-      dockerfile: Dockerfile
+    <<: *backend
     command: npm run start:worker
     restart: unless-stopped
     environment:
@@ -141,6 +143,7 @@ services:
       retries: 5
 
   ai-server:
+    image: foodee/ai-server:${AI_SERVER_IMAGE_TAG:-dev}
     build:
       context: ../../foodee-ai
       dockerfile: Dockerfile
@@ -166,6 +169,7 @@ services:
     restart: unless-stopped
 
   food-ai:
+    image: foodee/food-ai:${FOOD_AI_IMAGE_TAG:-dev}
     build:
       context: ../../foodee-ai-main
       dockerfile: Dockerfile
@@ -185,6 +189,7 @@ services:
       start_period: 90s
 
   frontend:
+    image: foodee/frontend:${FRONTEND_IMAGE_TAG:-dev}
     build:
       context: ../../foodee-fe-main
       dockerfile: Dockerfile

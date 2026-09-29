@@ -5,17 +5,14 @@ import { EventsModule } from '../../common/events/events.module';
 import { Restaurant } from '../../entities/restaurant.entity';
 import { RestaurantApprovalAudit } from '../../entities/restaurantApprovalAudit.entity';
 import { LocationsModule } from '../locations/public-api';
-import { MenuModule } from '../menu/public-api';
 import { IdentityModule } from '../users/public-api';
-import { MerchantCatalogModule } from './merchant-catalog.module';
 
-import { RestaurantAdminController } from './controllers/admin-restaurants.controller';
-import { RestaurantMerchantController } from './controllers/merchant-profile.controller';
-import { RestaurantDiscoveryController } from './controllers/public-discovery.controller';
-import { RestaurantApprovalService } from './services/restaurant-approval.service';
-import { RestaurantDiscoveryService } from './services/restaurant-discovery.service';
-import { RestaurantProfileService } from './services/restaurant-profile.service';
-import { RestaurantReaderService } from './services/restaurant-reader.service';
+import { AdminRestaurantsController } from './controllers/admin-restaurants.controller';
+import { MerchantRestaurantsController } from './controllers/merchant-restaurants.controller';
+import { AdminRestaurantsService } from './services/admin-restaurants.service';
+import { CustomerRestaurantsService } from './services/customer-restaurants.service';
+import { MerchantRestaurantsService } from './services/merchant-restaurants.service';
+import { PublicRestaurantsService } from './services/public-restaurants.service';
 
 @Module({
   imports: [
@@ -24,26 +21,14 @@ import { RestaurantReaderService } from './services/restaurant-reader.service';
     LocationsModule,
     IdentityModule,
     AuthModule,
-    MenuModule,
-    MerchantCatalogModule,
   ],
-  controllers: [
-    RestaurantAdminController,
-    RestaurantMerchantController,
-    RestaurantDiscoveryController,
-  ],
+  controllers: [AdminRestaurantsController, MerchantRestaurantsController],
   providers: [
-    RestaurantDiscoveryService,
-    RestaurantProfileService,
-    RestaurantApprovalService,
-    RestaurantReaderService,
+    PublicRestaurantsService,
+    CustomerRestaurantsService,
+    MerchantRestaurantsService,
+    AdminRestaurantsService,
   ],
-  exports: [
-    RestaurantDiscoveryService,
-    RestaurantProfileService,
-    RestaurantApprovalService,
-    RestaurantReaderService,
-    MerchantCatalogModule,
-  ],
+  exports: [PublicRestaurantsService, CustomerRestaurantsService, MerchantRestaurantsService],
 })
 export class RestaurantsModule {}

@@ -8,7 +8,7 @@ import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { AddressService } from 'src/features/locations/public-api';
 import { FoodIntegrationService, type OrderableMenuItem } from 'src/features/menu/public-api';
 import { PromotionUsageService, PublicPromotionsService } from 'src/features/promotions/public-api';
-import { RestaurantReaderService } from 'src/features/restaurants/public-api';
+import { CustomerRestaurantsService } from 'src/features/restaurants/public-api';
 import { SystemConstraintsService } from 'src/features/system-constraints/public-api';
 import { IdentityUserQueryService } from 'src/features/users/public-api';
 import { MapboxService } from 'src/infra/mapbox/public-api';
@@ -44,7 +44,7 @@ export class OrderCreationService {
     private readonly publicOrders: PublicOrdersService,
     private readonly menuReader: FoodIntegrationService,
     private readonly locationReader: AddressService,
-    private readonly restaurantReader: RestaurantReaderService,
+    private readonly customerRestaurants: CustomerRestaurantsService,
     private readonly identityReader: IdentityUserQueryService,
   ) {}
 
@@ -64,7 +64,7 @@ export class OrderCreationService {
   }) {
     const [address, restaurant] = await Promise.all([
       this.locationReader.findAddress(data.addressId),
-      this.restaurantReader.findActiveRestaurant(data.restaurantId),
+      this.customerRestaurants.findActiveRestaurant(data.restaurantId),
     ]);
 
     if (!address) {
@@ -118,7 +118,7 @@ export class OrderCreationService {
     }[],
     promotionCode?: string,
   ) {
-    const restaurant = await this.restaurantReader.findActiveRestaurant(restaurantId);
+    const restaurant = await this.customerRestaurants.findActiveRestaurant(restaurantId);
 
     if (!restaurant?.location) {
       throw new BadRequestException('Restaurant is not active or has no delivery location');
@@ -326,7 +326,7 @@ export class OrderCreationService {
     const constraints = await this.systemConstraintsService.getConstraints();
     const [user, restaurant, address] = await Promise.all([
       this.identityReader.findIdentityUser(data.userId),
-      this.restaurantReader.findActiveRestaurant(data.restaurantId),
+      this.customerRestaurants.findActiveRestaurant(data.restaurantId),
       this.locationReader.findOwnedAddress(data.addressId, data.userId),
     ]);
 

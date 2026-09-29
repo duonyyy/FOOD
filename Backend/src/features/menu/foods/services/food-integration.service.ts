@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Food } from 'src/entities/food.entity';
+import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
 import { type CatalogChatFood } from '../../types/catalog-chat.types';
 import { type FoodPreview } from '../../types/food-discovery.types';
@@ -23,7 +24,23 @@ export class FoodIntegrationService {
   constructor(
     @InjectRepository(Food)
     private readonly foodRepository: Repository<Food>,
+    private readonly cache: AppCacheService,
   ) {}
+
+  listRestaurantFoodsCached(
+    restaurantId: string,
+    page: number,
+    pageSize: number,
+  ): Promise<FoodPreview[]> {
+    const cacheKey = `restaurant:foods:${JSON.stringify([
+      ['page', page],
+      ['pageSize', pageSize],
+      ['restaurantId', restaurantId],
+    ])}`;
+    return this.cache.remember(cacheKey, 60, () =>
+      this.listRestaurantFoods(restaurantId, page, pageSize),
+    );
+  }
 
   // --- 1. Restaurant discovery (Khám phá món ăn cho Restaurant/Search) ---
 
@@ -61,10 +78,7 @@ export class FoodIntegrationService {
     return foods.flatMap((food) => this.toCatalogChatFoods(food));
   }
 
-  async findAvailableFood(
-    foodId: string,
-    restaurantId?: string,
-  ): Promise<CatalogChatFood | null> {
+  async findAvailableFood(foodId: string, restaurantId?: string): Promise<CatalogChatFood | null> {
     const food = await this.foodRepository.findOne({
       where: {
         id: foodId,
@@ -149,7 +163,9 @@ export class FoodIntegrationService {
       discountPercent: Number(food.discountPercent) || 0,
       status,
       isAvailable:
-        status === 'available' && restaurantIsApproved && toppings.every((topping) => topping.isAvailable),
+        status === 'available' &&
+        restaurantIsApproved &&
+        toppings.every((topping) => topping.isAvailable),
       toppings: Object.freeze(toppings),
     });
   }

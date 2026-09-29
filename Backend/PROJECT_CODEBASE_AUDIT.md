@@ -174,12 +174,12 @@ Số liệu dưới đây tính file TypeScript trong checkout hiện tại, k�
 | communications | 20 | 3 | 1 | 2 | 8 | Cần gộp module |
 | delivery | 27 | 2 | 2 | 4 | 9 | Sáu service chính + profile/tracker + adapter Redis |
 | locations | 8 | 1 | 1 | 1 | 1 | `LocationsModule` đăng ký và export `AddressService`; Identity import module này qua một `public-api.ts` |
-| menu | 30 | 3 | 1 | 4 | 8 | Cần gộp module |
+| menu | 26 | 1 | 1 | 5 | 6 | Có thêm public Restaurants controller để ghép dữ liệu món; dependency Menu → Restaurants |
 | notifications | 10 | 1 | 1 | 1 | 2 | Gần đạt |
 | orders | 31 | 1 | 1 | 4 | 9 | Đạt về cấu trúc và boundary; thêm 1 resolver/1 handler ngoài hai cột này |
 | payments | 11 | 1 | 1 | 2 | 2 | Gần đạt |
 | promotions | 11 | 1 | 1 | 2 | 3 | Đạt, feature mẫu đã hoàn thành |
-| restaurants | 21 | 2 | 2 | 3 | 5 | Cần gộp module/public API |
+| restaurants | 16 | 1 | 1 | 2 | 4 | Public controller đặt trong Menu để giữ một chiều Menu → Restaurants; bốn service theo role |
 | reviews | 9 | 1 | 1 | 2 | 1 | Gần đạt theo cấu trúc hiện tại |
 | system-constraints | 3 | 1 | 1 | 0 | 1 | Đạt về cấu trúc |
 | users | 34 | 3 | 3 | 6 | 7 | Nghiệp vụ nhóm theo `users/` và `roles/`; module/API hẹp giữ theo dependency |
@@ -298,15 +298,44 @@ Route, DTO và response giữ nguyên.
 
 ### 9.4. Menu sau refactor Food/Category/Topping (2026-09-24)
 
-`MenuModule` là module duy nhất của Menu: đăng ký `CategoryController`, ba Food controller, `CategoryService`, `FoodCustomerService`, `FoodMerchantService`, `FoodAdminService`, `FoodToppingService` và `FoodIntegrationService` mỗi loại một lần. Module có TypeORM repository Food/Category/Topping, `AuthModule` và `MerchantCatalogModule` qua `restaurants/merchant-catalog.public-api.ts`. Entity vẫn ở `src/entities`; không đổi schema.
+`MenuModule` là module duy nhất của Menu: đăng ký `CategoryController`, ba Food controller, public Restaurants controller, `CategoryService`, `FoodCustomerService`, `FoodMerchantService`, `FoodAdminService`, `FoodToppingService` và `FoodIntegrationService` mỗi loại một lần. Module có TypeORM repository Food/Category/Topping, `AuthModule` và `RestaurantsModule` qua `restaurants/public-api.ts`. Entity vẫn ở `src/entities`; không đổi schema.
 
-`CategoryModule`, `ToppingModule` và mapper Category đã bị xóa; mapping response gồm `foodCount`, danh sách Food DTO và null nằm trong `CategoryService`. Topping thuộc `foods/`, với service `FoodToppingService` và DTO dưới `foods/dto/toppings/`. Food controller giữ nguyên route, guard, DTO và Swagger. `FoodIntegrationService` tiếp tục phục vụ Orders, Restaurants, Reviews và Chat qua `menu/public-api.ts`.
+`CategoryModule`, `ToppingModule` và mapper Category đã bị xóa; mapping response gồm `foodCount`, danh sách Food DTO và null nằm trong `CategoryService`. Topping thuộc `foods/`, với service `FoodToppingService` và DTO dưới `foods/dto/toppings/`. Food controller giữ nguyên route, guard, DTO và Swagger. `FoodIntegrationService` tiếp tục phục vụ Orders, Reviews và Chat qua `menu/public-api.ts`, đồng thời cung cấp món cho public Restaurants controller trong Menu.
 
 `FoodQueryService`/`FoodCommandService` tương thích cũ không có consumer runtime và đã bị bỏ. Các phương thức snapshot cũ của query trùng triển khai với `FoodIntegrationService`; `getMenuForUser` là phương thức kế thừa từ `FoodCustomerService`; `searchFoodsForStore` có biến thể sort nhưng không có consumer runtime, trong khi admin dùng `FoodAdminService.searchFoodsForStore`. Lệnh `delete` cũ cùng đường truy vấn, dọn ảnh và cache như `FoodAdminService.deleteByAdmin`; controller admin đã dùng phương thức sau. Test đã chuyển sang service sở hữu hành vi. Xem `src/features/menu/README.md` để xem cây thư mục hiện tại.
 
 Kiểm chứng trong phiên: `npm run build` đạt; scoped ESLint khi tắt rule Prettier có 0 lỗi và 7 cảnh báo `any` trong FoodCustomerService đã có từ trước. E2E Category đạt 2/2 với service giả lập. Unit/boundary/provider/consumer liên quan và các test bổ sung snapshot đạt sau khi chạy lại test theo tên file mới. Chưa kiểm chứng với PostgreSQL thật; repo không có E2E riêng cho Food merchant/admin.
 
-### 9.5. Tên file chưa thống nhất
+### 9.5. Restaurants theo role và một public API (2026-09-27)
+
+`RestaurantsModule` đăng ký bốn service `PublicRestaurantsService`, `CustomerRestaurantsService`,
+`MerchantRestaurantsService`, `AdminRestaurantsService`; chỉ export ba service có consumer ngoài
+feature. Restaurants có một module và một `public-api.ts`. Menu import RestaurantsModule và nhận
+quyền/vị trí quán từ service theo role; Restaurants không còn import Menu. Các file
+`merchant-catalog.module.ts`, `merchant-catalog.public-api.ts`, `merchant-catalog.service.ts`,
+`restaurant.mapper.ts` đã bỏ. `RestaurantResponseDto.fromRestaurant` giữ một chỗ chuyển response.
+
+Public controller cho bốn route `/restaurants/*` nằm trong Menu để ghép dữ liệu nhà hàng approved
+với món từ `FoodIntegrationService`. Merchant và admin controller vẫn ở Restaurants. Route,
+guard, JWT actor, permission, DTO, response, upload 5 MB, signed URL, cleanup file, cache và
+approval transaction/audit event sau commit cần được giữ khi triển khai. Snapshot Orders/Messenger
+và vị trí Menu vẫn trả qua service Restaurants, không inject Restaurant repository ở consumer.
+Chi tiết provider/consumer và rủi ro còn lại ở `src/features/restaurants/README.md`.
+
+Đã giữ thay đổi chưa commit của lượt trước: export được thu hẹp và Approval không còn inject audit
+repository dư (nay thuộc AdminRestaurantsService). Các điểm chưa đổi nghiệp vụ: Address/Restaurant
+chưa chung transaction; `/restaurants/popular` chưa có tiêu chí xếp hạng riêng; lookup chat có thể
+trả pending/rejected với `isActive=false`.
+
+Kiểm chứng hiện tại: `npm run build` đạt; unit theo ba lượt đạt 9 suite/36 test,
+6 suite/21 test và 8 suite/24 test (các lượt có suite trùng nhau); integration đạt
+5 suite/35 test; E2E đạt 4 suite/13 test. E2E dùng service/guard mock; migration approval dùng
+QueryRunner mock, chưa kiểm chứng với PostgreSQL thật. ESLint trên file ảnh hưởng đạt 0 lỗi khi
+tắt rule Prettier do baseline CRLF; còn 7 cảnh báo `any` đã có sẵn trong FoodCustomerService.
+Lượt Jest đầu lỗi quyền ghi cache Windows (`EPERM`); lượt chạy tuần tự với cache trong workspace
+đạt.
+
+### 9.6. Tên file chưa thống nhất
 
 Các tên `reader`, `command`, `adapter`, `integration`, `core`, `facade` không sai tự thân, nhưng hiện được dùng nhiều hơn mức cần thiết.
 

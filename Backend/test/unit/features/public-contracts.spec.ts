@@ -29,12 +29,13 @@ import {
   OrdersModule,
 } from 'src/features/orders/public-api';
 import { PaymentModule, PaymentService } from 'src/features/payments/public-api';
-import { MerchantCatalogModule } from 'src/features/restaurants/merchant-catalog.module';
 import {
-  MerchantCatalogService,
-  RestaurantReaderService,
+  CustomerRestaurantsService,
+  MerchantRestaurantsService,
+  PublicRestaurantsService,
   RestaurantsModule,
 } from 'src/features/restaurants/public-api';
+import { AdminRestaurantsService } from 'src/features/restaurants/services/admin-restaurants.service';
 import { IdentityModule, IdentityUserQueryService } from 'src/features/users/public-api';
 
 describe('feature public contracts', () => {
@@ -66,10 +67,6 @@ describe('feature public contracts', () => {
   });
 
   it('exports the Phase 2 concrete services from their owning modules', () => {
-    const merchantCatalogExports = Reflect.getMetadata(
-      MODULE_METADATA.EXPORTS,
-      MerchantCatalogModule,
-    ) as unknown[];
     const restaurantExports = Reflect.getMetadata(
       MODULE_METADATA.EXPORTS,
       RestaurantsModule,
@@ -83,11 +80,39 @@ describe('feature public contracts', () => {
       IdentityModule,
     ) as unknown[];
 
-    expect(merchantCatalogExports).toContain(MerchantCatalogService);
-    expect(restaurantExports).toContain(RestaurantReaderService);
+    expect(restaurantExports).toEqual([
+      PublicRestaurantsService,
+      CustomerRestaurantsService,
+      MerchantRestaurantsService,
+    ]);
     expect(locationsExports).toContain(AddressService);
     expect(identityExports).toContain(IdentityUserQueryService);
     expect(IdentityModule).toBeDefined();
+  });
+
+  it('registers role services once and keeps the Menu dependency one-way', () => {
+    const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, RestaurantsModule) as unknown[];
+    const providers = Reflect.getMetadata(
+      MODULE_METADATA.PROVIDERS,
+      RestaurantsModule,
+    ) as unknown[];
+    const exports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, RestaurantsModule) as unknown[];
+
+    const menuImports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, MenuModule) as unknown[];
+    expect(imports).not.toContain(MenuModule);
+    expect(menuImports).toContain(RestaurantsModule);
+    expect(providers).toEqual([
+      PublicRestaurantsService,
+      CustomerRestaurantsService,
+      MerchantRestaurantsService,
+      AdminRestaurantsService,
+    ]);
+    expect(exports).toEqual([
+      PublicRestaurantsService,
+      CustomerRestaurantsService,
+      MerchantRestaurantsService,
+    ]);
+    expect(new Set(providers).size).toBe(providers.length);
   });
 
   it('keeps Delivery on the main Orders public API', () => {
@@ -189,7 +214,6 @@ describe('feature public contracts', () => {
   it('keeps Menu consumers on FoodIntegrationService through the public API', () => {
     const consumers = [
       'src/features/orders/services/order-creation.service.ts',
-      'src/features/restaurants/services/restaurant-discovery.service.ts',
       'src/features/reviews/services/customer-reviews.service.ts',
       'src/features/communications/chat/services/chat-context.service.ts',
       'src/features/communications/chat/flows/quick-reorder-flow.service.ts',
@@ -212,20 +236,20 @@ describe('feature public contracts', () => {
 
   it('keeps Phase 2 consumers on owner public APIs and concrete services', () => {
     const consumers = [
-      ['src/features/menu/foods/services/food-customer.service.ts', 'MerchantCatalogService'],
-      ['src/features/menu/foods/services/food-merchant.service.ts', 'MerchantCatalogService'],
-      ['src/features/menu/foods/services/food-topping.service.ts', 'MerchantCatalogService'],
+      ['src/features/menu/foods/services/food-customer.service.ts', 'CustomerRestaurantsService'],
+      ['src/features/menu/foods/services/food-merchant.service.ts', 'MerchantRestaurantsService'],
+      ['src/features/menu/foods/services/food-topping.service.ts', 'MerchantRestaurantsService'],
       ['src/features/orders/services/order-creation.service.ts', 'AddressService'],
-      ['src/features/orders/services/order-creation.service.ts', 'RestaurantReaderService'],
+      ['src/features/orders/services/order-creation.service.ts', 'CustomerRestaurantsService'],
       ['src/features/orders/services/order-creation.service.ts', 'IdentityUserQueryService'],
-      ['src/features/orders/controllers/order.resolver.ts', 'RestaurantReaderService'],
-      ['src/features/restaurants/services/restaurant-profile.service.ts', 'AddressService'],
+      ['src/features/orders/controllers/order.resolver.ts', 'CustomerRestaurantsService'],
+      ['src/features/restaurants/services/merchant-restaurants.service.ts', 'AddressService'],
       [
-        'src/features/restaurants/services/restaurant-profile.service.ts',
+        'src/features/restaurants/services/merchant-restaurants.service.ts',
         'IdentityUserQueryService',
       ],
       ['src/features/delivery/services/admin-delivery.service.ts', 'IdentityUserQueryService'],
-      ['src/features/communications/messenger/messenger.service.ts', 'RestaurantReaderService'],
+      ['src/features/communications/messenger/messenger.service.ts', 'CustomerRestaurantsService'],
       ['src/features/communications/messenger/messenger.service.ts', 'IdentityUserQueryService'],
       [
         'src/features/communications/chat/services/chat-order-validation.service.ts',

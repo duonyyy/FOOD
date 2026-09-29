@@ -14,7 +14,7 @@ describe('FoodIntegrationService orderability', () => {
           toppings: [],
         }),
       };
-      const service = new FoodIntegrationService(foodRepository as never);
+      const service = new FoodIntegrationService(foodRepository as never, {} as never);
 
       const [snapshot] = await service.getOrderableItems({
         items: [{ foodId: 'food-1', toppingIds: [] }],

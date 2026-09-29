@@ -2,17 +2,28 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { Repository } from 'typeorm';
+import { type MerchantRestaurantLocation } from '../types/merchant-catalog.types';
 import {
   type MessagingRestaurant,
   type RestaurantForOrder,
 } from '../types/restaurant-reader.types';
 
 @Injectable()
-export class RestaurantReaderService {
+export class CustomerRestaurantsService {
   constructor(
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,
   ) {}
+
+  async findRestaurant(restaurantId: string): Promise<MerchantRestaurantLocation | null> {
+    const restaurant = await this.restaurantRepository.findOne({ where: { id: restaurantId } });
+    if (!restaurant) return null;
+    return {
+      restaurantId: restaurant.id,
+      latitude: restaurant.latitude == null ? null : Number(restaurant.latitude),
+      longitude: restaurant.longitude == null ? null : Number(restaurant.longitude),
+    };
+  }
 
   async findActiveRestaurant(restaurantId: string): Promise<RestaurantForOrder | null> {
     const restaurant = await this.restaurantRepository.findOne({
@@ -30,9 +41,7 @@ export class RestaurantReaderService {
     };
   }
 
-  async findRestaurantForMessaging(
-    restaurantId: string,
-  ): Promise<MessagingRestaurant | null> {
+  async findRestaurantForMessaging(restaurantId: string): Promise<MessagingRestaurant | null> {
     const restaurant = await this.restaurantRepository.findOne({
       where: { id: restaurantId },
       relations: ['owner'],

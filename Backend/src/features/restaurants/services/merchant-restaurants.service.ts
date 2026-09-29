@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { estimateDeliveryTime, haversineDistance } from 'src/common/utils/geo.util';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
@@ -17,8 +23,8 @@ type RestaurantWithDistance = Restaurant & {
 const RESTAURANT_CACHE_TTL_SECONDS = 60;
 
 @Injectable()
-export class RestaurantProfileService {
-  private readonly logger = new Logger(RestaurantProfileService.name);
+export class MerchantRestaurantsService {
+  private readonly logger = new Logger(MerchantRestaurantsService.name);
 
   constructor(
     @InjectRepository(Restaurant)
@@ -28,6 +34,17 @@ export class RestaurantProfileService {
     private readonly storage: StorageService,
     private readonly cache: AppCacheService,
   ) {}
+
+  async assertCanManageRestaurant(restaurantId: string, actorId: string): Promise<void> {
+    const restaurant = await this.restaurantRepository.findOne({
+      where: { id: restaurantId },
+      relations: ['owner'],
+    });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (restaurant.owner?.id !== actorId) {
+      throw new ForbiddenException('You can only manage menu items for your own restaurant');
+    }
+  }
 
   async findOne(id: string): Promise<Restaurant> {
     const restaurant = await this.restaurantRepository.findOne({
@@ -171,41 +188,6 @@ export class RestaurantProfileService {
     });
   }
 
-  async getRestaurantRequests(
-    page = 1,
-    pageSize = 10,
-    lat?: number,
-    lng?: number,
-  ): Promise<{
-    items: RestaurantWithDistance[];
-    totalItems: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-  }> {
-    const [items, totalItems] = await this.restaurantRepository.findAndCount({
-      where: { status: RestaurantStatus.PENDING },
-      relations: ['owner'],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
-    return this.toPage(
-      items.map((item) => this.withDistance(item, lat, lng)),
-      totalItems,
-      page,
-      pageSize,
-    );
-  }
-
-  async deleteRestaurantRequest(id: string): Promise<void> {
-    const restaurant = await this.findOne(id);
-    if (restaurant.status !== RestaurantStatus.PENDING) {
-      throw new BadRequestException('Only a pending restaurant request can be deleted');
-    }
-    await this.restaurantRepository.remove(restaurant);
-    await this.clearRestaurantCache(id, restaurant.owner?.id);
-  }
-
   async remove(id: string): Promise<void> {
     const restaurant = await this.findOne(id);
     await this.restaurantRepository.remove(restaurant);
@@ -328,9 +310,11 @@ export class RestaurantProfileService {
   }
 
   private validateUploadedImages(...files: Array<Express.Multer.File | undefined>): void {
-    files.filter((file): file is Express.Multer.File => Boolean(file)).forEach((file) => {
-      this.storage.assertValidImageUpload(file);
-    });
+    files
+      .filter((file): file is Express.Multer.File => Boolean(file))
+      .forEach((file) => {
+        this.storage.assertValidImageUpload(file);
+      });
   }
 
   private async deleteIfReplaced(previousUrl: string | null, nextUrl: string): Promise<void> {
@@ -374,14 +358,5 @@ export class RestaurantProfileService {
       .filter(([, value]) => value !== undefined)
       .sort(([left], [right]) => left.localeCompare(right));
     return `${namespace}:${JSON.stringify(parts)}`;
-  }
-
-  private toPage(
-    items: RestaurantWithDistance[],
-    totalItems: number,
-    page: number,
-    pageSize: number,
-  ) {
-    return { items, totalItems, page, pageSize, totalPages: Math.ceil(totalItems / pageSize) };
   }
 }

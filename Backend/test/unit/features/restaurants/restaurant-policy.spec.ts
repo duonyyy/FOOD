@@ -4,13 +4,13 @@ import { resolve } from 'node:path';
 import { PERMISSIONS_KEY } from 'src/features/auth/decorators/permissions.decorator';
 import { RolesGuard } from 'src/features/auth/guards/roles.guard';
 import { AuthGuard } from 'src/features/auth/public-api';
-import { RestaurantAdminController } from 'src/features/restaurants/controllers/admin-restaurants.controller';
-import { RestaurantMerchantController } from 'src/features/restaurants/controllers/merchant-profile.controller';
+import { AdminRestaurantsController } from 'src/features/restaurants/controllers/admin-restaurants.controller';
+import { MerchantRestaurantsController } from 'src/features/restaurants/controllers/merchant-restaurants.controller';
 import { Permission } from 'src/shared/types/enums/permission.enum';
 
 describe('Restaurant merchant authorization policy', () => {
   it('requires authentication for the complete merchant profile controller', () => {
-    const guards = Reflect.getMetadata(GUARDS_METADATA, RestaurantMerchantController) as unknown[];
+    const guards = Reflect.getMetadata(GUARDS_METADATA, MerchantRestaurantsController) as unknown[];
     expect(guards).toContain(AuthGuard);
   });
 
@@ -30,10 +30,10 @@ describe('Restaurant approval authorization policy', () => {
     'requires the restaurant write capability for %s',
     (methodName) => {
       const method = Object.getOwnPropertyDescriptor(
-        RestaurantAdminController.prototype,
+        AdminRestaurantsController.prototype,
         methodName,
       )?.value as object;
-      const guards = Reflect.getMetadata(GUARDS_METADATA, RestaurantAdminController) as unknown[];
+      const guards = Reflect.getMetadata(GUARDS_METADATA, AdminRestaurantsController) as unknown[];
       const permissions = Reflect.getMetadata(PERMISSIONS_KEY, method) as string[];
 
       expect(guards).toContain(RolesGuard);

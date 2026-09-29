@@ -2,16 +2,16 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { RolesGuard } from 'src/features/auth/guards/roles.guard';
-import { RestaurantAdminController } from 'src/features/restaurants/controllers/admin-restaurants.controller';
-import { RestaurantApprovalService } from 'src/features/restaurants/services/restaurant-approval.service';
-import { RestaurantProfileService } from 'src/features/restaurants/services/restaurant-profile.service';
+import { AdminRestaurantsController } from 'src/features/restaurants/controllers/admin-restaurants.controller';
+import { AdminRestaurantsService } from 'src/features/restaurants/services/admin-restaurants.service';
 import request = require('supertest');
 
 describe('Restaurant approval policy (e2e)', () => {
   let app: INestApplication;
   let hasRestaurantWriteCapability = true;
-  const profileService = { getRestaurantRequests: jest.fn(), deleteRestaurantRequest: jest.fn() };
-  const approvalService = {
+  const adminService = {
+    getRestaurantRequests: jest.fn(),
+    deleteRestaurantRequest: jest.fn(),
     approveRestaurant: jest.fn().mockResolvedValue({
       id: 'restaurant-1',
       name: 'Quán thử nghiệm',
@@ -28,11 +28,8 @@ describe('Restaurant approval policy (e2e)', () => {
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
-      controllers: [RestaurantAdminController],
-      providers: [
-        { provide: RestaurantProfileService, useValue: profileService },
-        { provide: RestaurantApprovalService, useValue: approvalService },
-      ],
+      controllers: [AdminRestaurantsController],
+      providers: [{ provide: AdminRestaurantsService, useValue: adminService }],
     })
       .overrideGuard(RolesGuard)
       .useValue({
@@ -67,7 +64,7 @@ describe('Restaurant approval policy (e2e)', () => {
       .send({})
       .expect(403);
 
-    expect(approvalService.approveRestaurant).not.toHaveBeenCalled();
+    expect(adminService.approveRestaurant).not.toHaveBeenCalled();
   });
 
   it('passes the JWT admin and audit note to approve use case', async () => {
@@ -76,7 +73,7 @@ describe('Restaurant approval policy (e2e)', () => {
       .send({ note: 'Hồ sơ hợp lệ' })
       .expect(200);
 
-    expect(approvalService.approveRestaurant).toHaveBeenCalledWith(
+    expect(adminService.approveRestaurant).toHaveBeenCalledWith(
       'restaurant-1',
       'admin-from-jwt',
       {
@@ -91,7 +88,7 @@ describe('Restaurant approval policy (e2e)', () => {
       .send({})
       .expect(400);
 
-    expect(approvalService.rejectRestaurant).not.toHaveBeenCalled();
+    expect(adminService.rejectRestaurant).not.toHaveBeenCalled();
   });
 
   it('passes the JWT admin and rejection reason to the use case', async () => {
@@ -100,7 +97,7 @@ describe('Restaurant approval policy (e2e)', () => {
       .send({ reason: 'Giấy phép chưa hợp lệ' })
       .expect(200);
 
-    expect(approvalService.rejectRestaurant).toHaveBeenCalledWith(
+    expect(adminService.rejectRestaurant).toHaveBeenCalledWith(
       'restaurant-1',
       'admin-from-jwt',
       {

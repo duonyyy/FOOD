@@ -6,7 +6,7 @@ import {
   WebSocketAuthGuard,
   type GraphqlSubscriptionContext,
 } from 'src/features/auth/public-api';
-import { RestaurantReaderService } from 'src/features/restaurants/public-api';
+import { CustomerRestaurantsService } from 'src/features/restaurants/public-api';
 import { pubSub } from 'src/pubsub';
 
 interface OrderCreatedPayload {
@@ -18,7 +18,7 @@ interface OrderStatusUpdatedPayload {
 /** GraphQL transport for customer and merchant Order events. */
 @Resolver(() => Order)
 export class OrderResolver {
-  constructor(private readonly restaurantReader: RestaurantReaderService) {}
+  constructor(private readonly customerRestaurants: CustomerRestaurantsService) {}
 
   @Subscription(() => Order, {
     filter: (
@@ -42,7 +42,7 @@ export class OrderResolver {
     if (!restaurantId) throw new Error('restaurantId is required for orderCreated subscription');
 
     const actorId = requireGraphqlSubscriptionActorId(context);
-    const restaurant = await this.restaurantReader.findActiveRestaurant(restaurantId);
+    const restaurant = await this.customerRestaurants.findActiveRestaurant(restaurantId);
     if (!restaurant || restaurant.ownerId !== actorId) {
       throw new ForbiddenException('Restaurant order subscription access denied');
     }

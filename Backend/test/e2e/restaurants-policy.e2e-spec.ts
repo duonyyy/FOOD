@@ -2,8 +2,8 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthGuard } from 'src/features/auth/public-api';
-import { RestaurantMerchantController } from 'src/features/restaurants/controllers/merchant-profile.controller';
-import { RestaurantProfileService } from 'src/features/restaurants/services/restaurant-profile.service';
+import { MerchantRestaurantsController } from 'src/features/restaurants/controllers/merchant-restaurants.controller';
+import { MerchantRestaurantsService } from 'src/features/restaurants/services/merchant-restaurants.service';
 import request = require('supertest');
 
 describe('Restaurant onboarding policy (e2e)', () => {
@@ -23,8 +23,8 @@ describe('Restaurant onboarding policy (e2e)', () => {
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
-      controllers: [RestaurantMerchantController],
-      providers: [{ provide: RestaurantProfileService, useValue: service }],
+      controllers: [MerchantRestaurantsController],
+      providers: [{ provide: MerchantRestaurantsService, useValue: service }],
     })
       .overrideGuard(AuthGuard)
       .useValue({
