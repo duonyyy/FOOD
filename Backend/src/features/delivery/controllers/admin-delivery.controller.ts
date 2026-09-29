@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Permission } from 'src/shared/types/enums/permission.enum';
 import { AuthGuard, Permissions, RolesGuard } from 'src/features/auth/public-api';
-import type { ShipperProfileStatus } from '../types/shipper-profile.types';
+import { Permission } from 'src/shared/types/enums/permission.enum';
 import { AdminDeliveryService } from '../services/admin-delivery.service';
+import type { ShipperProfileStatus } from '../types/shipper-profile.types';
 
 @Controller('admin/deliveries')
 @ApiTags('admin-delivery')

@@ -21,15 +21,15 @@ import {
   ShipperDeliveryController,
 } from './controllers/shipper-delivery.controller';
 import { ShipperResolver } from './controllers/shipper.resolver';
+import { DeliveryEventsHandler } from './handlers/delivery-events.handler';
 import { DELIVERY_ASSIGNMENT_QUEUE } from './queue/delivery-queue.constants';
 import { FindShipperProcessor } from './queue/find-shipper.processor';
-import { DeliveryEventsHandler } from './handlers/delivery-events.handler';
 import { AdminDeliveryService } from './services/admin-delivery.service';
-import { ActiveShipperTrackerService } from './services/dispatch/active-shipper-tracker.service';
-import { DeliveryDispatchService } from './services/delivery-dispatch.service';
 import { CustomerDeliveryService } from './services/customer-delivery.service';
-import { DeliveryTripService } from './services/delivery-trip.service';
+import { DeliveryDispatchService } from './services/delivery-dispatch.service';
 import { DeliveryReportService } from './services/delivery-report.service';
+import { DeliveryTripService } from './services/delivery-trip.service';
+import { ActiveShipperTrackerService } from './services/dispatch/active-shipper-tracker.service';
 import { ShipperDeliveryService } from './services/shipper-delivery.service';
 import { ShipperProfileModule } from './shipper-profile.module';
 

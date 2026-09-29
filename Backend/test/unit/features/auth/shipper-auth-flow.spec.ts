@@ -60,7 +60,9 @@ describe('Shipper auth and Delivery profile boundary', () => {
 
   it('keeps the existing public validation errors from account creation', async () => {
     profiles.registerPending.mockRejectedValue(new Error('USERNAME_ALREADY_EXISTS'));
-    await expect(auth.registerDriver(registration)).rejects.toThrow('Số điện thoại đã được sử dụng');
+    await expect(auth.registerDriver(registration)).rejects.toThrow(
+      'Số điện thoại đã được sử dụng',
+    );
   });
 
   it('does not issue a driver token without an approved Delivery profile', async () => {

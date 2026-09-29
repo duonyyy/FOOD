@@ -1,5 +1,5 @@
-import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { ShipperDeliveryController } from 'src/features/delivery/controllers/shipper-delivery.controller';
+import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 
 describe('ShipperDeliveryController unit tests', () => {
   let shipperDeliveryService: {

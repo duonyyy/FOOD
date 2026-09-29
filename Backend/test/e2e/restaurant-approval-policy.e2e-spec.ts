@@ -73,13 +73,9 @@ describe('Restaurant approval policy (e2e)', () => {
       .send({ note: 'Hồ sơ hợp lệ' })
       .expect(200);
 
-    expect(adminService.approveRestaurant).toHaveBeenCalledWith(
-      'restaurant-1',
-      'admin-from-jwt',
-      {
-        note: 'Hồ sơ hợp lệ',
-      },
-    );
+    expect(adminService.approveRestaurant).toHaveBeenCalledWith('restaurant-1', 'admin-from-jwt', {
+      note: 'Hồ sơ hợp lệ',
+    });
   });
 
   it('requires a reason before it reaches the reject use case', async () => {
@@ -97,12 +93,8 @@ describe('Restaurant approval policy (e2e)', () => {
       .send({ reason: 'Giấy phép chưa hợp lệ' })
       .expect(200);
 
-    expect(adminService.rejectRestaurant).toHaveBeenCalledWith(
-      'restaurant-1',
-      'admin-from-jwt',
-      {
-        reason: 'Giấy phép chưa hợp lệ',
-      },
-    );
+    expect(adminService.rejectRestaurant).toHaveBeenCalledWith('restaurant-1', 'admin-from-jwt', {
+      reason: 'Giấy phép chưa hợp lệ',
+    });
   });
 });

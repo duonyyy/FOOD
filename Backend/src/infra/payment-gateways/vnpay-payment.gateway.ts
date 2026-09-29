@@ -2,18 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as qs from 'qs'; // Replace querystring with qs to match VNPAY exactly
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import {
-  mapPaymentGatewayError,
-  missingPaymentGatewayConfiguration,
-} from './payment-gateway.error';
-import {
-  type PaymentGatewayConfig,
   type PaymentGateway,
+  type PaymentGatewayConfig,
   type PaymentIntent,
   type PaymentResult,
   PaymentStatus,
 } from './payment-gateway.contract';
-import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
+import {
+  mapPaymentGatewayError,
+  missingPaymentGatewayConfiguration,
+} from './payment-gateway.error';
 
 interface VnpayMetadata {
   orderInfo?: string;

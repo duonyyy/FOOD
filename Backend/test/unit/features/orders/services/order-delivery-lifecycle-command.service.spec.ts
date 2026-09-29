@@ -41,7 +41,7 @@ describe('OrderDeliveryService lifecycle', () => {
       status: 'delivering',
     });
     expect(repository.save).toHaveBeenCalledWith(order);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(pubSub.publish as jest.Mock).toHaveBeenCalledWith('orderStatusUpdated', {
       orderStatusUpdated: order,
     });

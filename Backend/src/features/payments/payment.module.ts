@@ -26,11 +26,7 @@ import { PaymentService } from './payment.service';
     }),
   ],
   controllers: [PaymentController, DemoPaymentController],
-  providers: [
-    PaymentService,
-    PaymentReconciliationService,
-    DemoPaymentGuard,
-  ],
+  providers: [PaymentService, PaymentReconciliationService, DemoPaymentGuard],
   exports: [PaymentService],
 })
 export class PaymentModule {}

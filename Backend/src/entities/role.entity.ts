@@ -1,5 +1,6 @@
 // src/roles/entities/role.entity.ts
 import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import {
   Column,
   CreateDateColumn,
@@ -12,7 +13,6 @@ import {
 } from 'typeorm';
 import { Permission } from './permission.entity';
 import { User } from './user.entity';
-import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 
 export { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 

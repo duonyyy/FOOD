@@ -36,7 +36,7 @@ describe('OrderDeliveryService assignment', () => {
       orderStatus: OrderStatus.SHIPPER_RECEIVED,
     });
     expect(order.status).toBe(OrderStatus.SHIPPER_RECEIVED);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(pubSub.publish).toHaveBeenCalledWith('orderStatusUpdated', {
       orderStatusUpdated: order,
     });
@@ -49,7 +49,7 @@ describe('OrderDeliveryService assignment', () => {
       accepted: true,
       orderStatus: OrderStatus.SHIPPER_RECEIVED,
     });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(pubSub.publish).not.toHaveBeenCalled();
   });
 

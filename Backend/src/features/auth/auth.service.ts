@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare } from 'bcryptjs';
 import { ShipperProfileService } from 'src/features/delivery/shipper-profile.public-api';
@@ -12,12 +7,12 @@ import {
   RolesService,
   UsersService,
 } from 'src/features/users/identity-auth.public-api';
+import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
 import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import { CreateShipperDto } from './dto/create-shipper.dto';
 import { GoogleRegisterDto } from './dto/google-register.dto';
 import { RegisterDto } from './dto/register-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
 import { OtpService } from './services/otp.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { SocialAuthService } from './services/social-auth.service';

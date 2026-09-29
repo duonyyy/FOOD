@@ -8,22 +8,22 @@ describe('FoodCustomerService', () => {
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([
-        {
-          id: 'food-a',
-          name: 'Burger',
-          price: 10,
-          description: 'Classic',
-          image: 'burger.jpg',
-          restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
-        },
-        {
-          id: 'food-b',
-          name: 'Fries',
-          price: 4,
-          description: 'Crispy',
-          image: 'fries.jpg',
-          restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
-        },
+          {
+            id: 'food-a',
+            name: 'Burger',
+            price: 10,
+            description: 'Classic',
+            image: 'burger.jpg',
+            restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
+          },
+          {
+            id: 'food-b',
+            name: 'Fries',
+            price: 4,
+            description: 'Crispy',
+            image: 'fries.jpg',
+            restaurant: { id: 'restaurant-a', name: 'Store A', address: { city: 'HCMC' } },
+          },
         ]),
       })),
     };

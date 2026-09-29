@@ -1,6 +1,5 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, Context, Int, Mutation, Query, Resolver, Subscription } from '@nestjs/graphql';
-import { GraphqlAuthContext } from 'src/shared/types/auth/authenticated-user.types';
 import { Conversation } from 'src/entities/conversation.entity';
 import { Message } from 'src/entities/message.entity';
 import {
@@ -10,6 +9,7 @@ import {
   type GraphqlSubscriptionContext,
 } from 'src/features/auth/public-api';
 import { pubSub } from 'src/pubsub';
+import { GraphqlAuthContext } from 'src/shared/types/auth/authenticated-user.types';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessengerService } from './messenger.service';

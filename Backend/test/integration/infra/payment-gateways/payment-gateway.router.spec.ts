@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import type { PaymentGatewayProvider } from 'src/infra/payment-gateways/public-api';
 import { PaymentGatewayRouter } from 'src/infra/payment-gateways/payment-gateway.router';
+import type { PaymentGatewayProvider } from 'src/infra/payment-gateways/public-api';
 
 describe('PaymentGatewayRouter', () => {
   it('selects the configured concrete gateway without collapsing the multi-provider boundary', () => {

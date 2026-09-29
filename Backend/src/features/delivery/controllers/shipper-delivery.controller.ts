@@ -10,8 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { AuthGuard } from 'src/features/auth/public-api';
+import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { DeliveryDispatchService } from '../services/delivery-dispatch.service';
 import { DeliveryReportService } from '../services/delivery-report.service';
 import { ShipperDeliveryService } from '../services/shipper-delivery.service';

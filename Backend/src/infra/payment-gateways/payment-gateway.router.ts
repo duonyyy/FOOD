@@ -1,9 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type {
-  PaymentGateway,
-  PaymentGatewayProvider,
-} from './payment-gateway.contract';
 import { MomoPaymentGateway } from './momo-payment.gateway';
+import type { PaymentGateway, PaymentGatewayProvider } from './payment-gateway.contract';
 import { VnpayPaymentGateway } from './vnpay-payment.gateway';
 
 /** Resolves a provider adapter without leaking adapter classes into Payments. */

@@ -13,9 +13,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { Conversation } from 'src/entities/conversation.entity';
 import { AuthGuard } from 'src/features/auth/public-api';
+import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessengerService } from './messenger.service';

@@ -1,11 +1,8 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { haversineDistance } from 'src/common/utils/geo.util';
 import { SystemConstraintsService } from 'src/features/system-constraints/public-api';
+import { SHIPPER_PROFILE_STATUS, type ShipperProfileView } from '../../types/shipper-profile.types';
 import { ShipperProfileService } from '../shipper/shipper-profile.service';
-import {
-  SHIPPER_PROFILE_STATUS,
-  type ShipperProfileView,
-} from '../../types/shipper-profile.types';
 
 export interface ActiveShipperState {
   shipperId: string;

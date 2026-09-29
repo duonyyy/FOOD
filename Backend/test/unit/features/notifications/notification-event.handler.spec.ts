@@ -133,7 +133,7 @@ describe('NotificationEventHandler', () => {
     await eventBus.publish(NOTIFICATION_REQUESTED_EVENT, event);
 
     expect(notificationService.createFromEvent).toHaveBeenCalledTimes(2);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(pubSub.publish).toHaveBeenCalledTimes(1);
   });
 

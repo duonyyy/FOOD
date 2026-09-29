@@ -6,16 +6,10 @@ import {
   ShipperCertificateInfo,
 } from 'src/entities/shipperCertificateInfo.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
-import {
-  IdentityUserQueryService,
-  type UserIdentity,
-} from 'src/features/users/public-api';
+import { IdentityUserQueryService, type UserIdentity } from 'src/features/users/public-api';
 import { Repository } from 'typeorm';
+import { SHIPPER_PROFILE_STATUS, type ShipperProfileStatus } from '../types/shipper-profile.types';
 import { ShipperProfileService } from './shipper/shipper-profile.service';
-import {
-  SHIPPER_PROFILE_STATUS,
-  type ShipperProfileStatus,
-} from '../types/shipper-profile.types';
 
 /**
  * AdminDeliveryService handles administrative operations for delivery management:

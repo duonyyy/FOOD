@@ -90,7 +90,9 @@ describe('FoodCustomerService public menu visibility', () => {
     }),
   };
   const cache = {
-    remember: jest.fn(<Value>(_key: string, _ttl: number, loader: () => Promise<Value>) => loader()),
+    remember: jest.fn(<Value>(_key: string, _ttl: number, loader: () => Promise<Value>) =>
+      loader(),
+    ),
     deleteByPattern: jest.fn(),
   };
   const service = new FoodCustomerService(
@@ -122,7 +124,9 @@ describe('FoodCustomerService public menu visibility', () => {
     await service.searchFoods('burger');
     await service.findByName('burger');
     await expect(service.findOne('food-hidden')).rejects.toBeInstanceOf(NotFoundException);
-    await expect(service.getToppingsByFood('food-hidden')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getToppingsByFood('food-hidden')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     await service.findExactFoodByName('burger');
     await service.getMenuForUser('customer-a');
 

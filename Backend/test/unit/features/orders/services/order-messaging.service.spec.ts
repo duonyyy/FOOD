@@ -6,10 +6,7 @@ describe('OrderMessagingService', () => {
       getMinimalOrderHistoryForQuickReorder: jest.fn(),
       createOrder: jest.fn(),
     };
-    const service = new OrderMessagingService(
-      customerOrdersService as never,
-      {} as never,
-    );
+    const service = new OrderMessagingService(customerOrdersService as never, {} as never);
 
     return { service, customerOrdersService };
   };

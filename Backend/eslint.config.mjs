@@ -45,6 +45,7 @@ export default tseslint.config(
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/require-await': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
   {
@@ -67,4 +68,11 @@ export default tseslint.config(
       'foodee-boundaries/no-foreign-legacy-entity-import': 'error',
     },
   },
+  {
+    files: ['test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
 );
+

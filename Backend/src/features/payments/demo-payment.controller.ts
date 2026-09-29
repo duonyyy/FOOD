@@ -14,10 +14,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { type PaymentIntent } from 'src/infra/payment-gateways/public-api';
 import {
   MomoPaymentGateway,
   VnpayPaymentGateway,
+  type PaymentIntent,
 } from 'src/infra/payment-gateways/public-api';
 import { CreateDemoCheckoutDto, CreateDemoOrderDto, DemoWebhookDto } from './dto/demo-payment.dto';
 

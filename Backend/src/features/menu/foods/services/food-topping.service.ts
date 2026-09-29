@@ -2,9 +2,9 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
+import { MerchantRestaurantsService } from 'src/features/restaurants/public-api';
 import { AppCacheService } from 'src/infra/cache/public-api';
 import { Repository } from 'typeorm';
-import { MerchantRestaurantsService } from 'src/features/restaurants/public-api';
 import { CreateToppingDto } from '../dto/toppings/create-topping.dto';
 import { UpdateToppingDto } from '../dto/toppings/update-topping.dto';
 

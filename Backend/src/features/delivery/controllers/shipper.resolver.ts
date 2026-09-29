@@ -11,8 +11,8 @@ import {
 } from 'src/features/orders/public-api';
 import { pubSub } from 'src/pubsub';
 import { ShipperLocation } from '../dto/shipper-location.type';
-import { ActiveShipperTrackerService } from '../services/dispatch/active-shipper-tracker.service';
 import { CustomerDeliveryService } from '../services/customer-delivery.service';
+import { ActiveShipperTrackerService } from '../services/dispatch/active-shipper-tracker.service';
 
 interface ShipperLocationPayload {
   shipperLocationUpdated: ShipperLocation;
@@ -102,9 +102,7 @@ export class ShipperResolver {
     @Context() context: GraphqlSubscriptionContext,
   ): Promise<AsyncIterableIterator<ShipperLocationPayload>> {
     const actorId = requireGraphqlSubscriptionActorId(context);
-    if (
-      !(await this.customerDeliveryService.canAccessShipperLocation(actorId, shipperId))
-    ) {
+    if (!(await this.customerDeliveryService.canAccessShipperLocation(actorId, shipperId))) {
       throw new ForbiddenException('Delivery location access denied');
     }
 

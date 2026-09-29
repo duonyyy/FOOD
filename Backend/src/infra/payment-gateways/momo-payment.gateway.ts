@@ -2,18 +2,18 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as crypto from 'crypto';
+import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
 import {
-  mapPaymentGatewayError,
-  missingPaymentGatewayConfiguration,
-} from './payment-gateway.error';
-import {
-  type PaymentGatewayConfig,
   type PaymentGateway,
+  type PaymentGatewayConfig,
   type PaymentIntent,
   type PaymentResult,
   PaymentStatus,
 } from './payment-gateway.contract';
-import { getProviderErrorCode, getProviderErrorType } from 'src/infra/logging/provider-error';
+import {
+  mapPaymentGatewayError,
+  missingPaymentGatewayConfiguration,
+} from './payment-gateway.error';
 
 /**
  * Momo Payment Gateway Implementation

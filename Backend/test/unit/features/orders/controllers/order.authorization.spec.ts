@@ -42,7 +42,7 @@ describe('Order authorization characterization', () => {
     const guards = Reflect.getMetadata(
       GUARDS_METADATA,
       // Decorator metadata must be read from the method reference; it is not invoked here.
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+
       CustomerOrdersController.prototype.getOrderById,
     ) as unknown[];
     expect(guards).toContain(AuthGuard);

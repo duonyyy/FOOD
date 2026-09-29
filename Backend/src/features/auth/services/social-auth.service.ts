@@ -4,14 +4,14 @@ import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { initializeFirebaseAdmin } from 'src/config/firebase-admin.config';
-import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
 import {
   CreateUserDto,
   RolesService,
   UsersService,
 } from 'src/features/users/identity-auth.public-api';
-import { GoogleRegisterDto } from '../dto/google-register.dto';
 import { AuthProvider } from 'src/shared/types/enums/auth-provider.enum';
+import { DefaultRole } from 'src/shared/types/enums/default-role.enum';
+import { GoogleRegisterDto } from '../dto/google-register.dto';
 
 @Injectable()
 export class SocialAuthService {
