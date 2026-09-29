@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
+import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { Permissions, RolesGuard } from 'src/features/auth/public-api';
 import { Permission } from 'src/shared/types/enums/permission.enum';
 import { FoodAdminService } from '../services/food-admin.service';

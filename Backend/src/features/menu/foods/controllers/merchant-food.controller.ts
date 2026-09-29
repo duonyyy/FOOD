@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
-import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
+import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { Food } from 'src/entities/food.entity';
 import { Topping } from 'src/entities/topping.entity';
 import { AuthGuard } from 'src/features/auth/public-api';

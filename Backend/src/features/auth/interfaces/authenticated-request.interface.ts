@@ -1,12 +1,2 @@
-export interface AuthenticatedRequest {
-  headers: {
-    authorization?: string;
-  };
-  user: {
-    id: string;
-    uid?: string;
-    sub?: string;
-    userId?: string;
-    [key: string]: unknown;
-  };
-}
+export type { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
+

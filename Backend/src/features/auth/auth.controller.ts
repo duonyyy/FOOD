@@ -10,7 +10,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody } from '@nestjs/swagger';
-import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
+import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { AuthService } from './auth.service';
 import { CreateShipperDto } from './dto/create-shipper.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';

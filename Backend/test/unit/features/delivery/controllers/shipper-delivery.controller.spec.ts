@@ -1,4 +1,4 @@
-import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
+import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { ShipperDeliveryController } from 'src/features/delivery/controllers/shipper-delivery.controller';
 
 describe('ShipperDeliveryController unit tests', () => {

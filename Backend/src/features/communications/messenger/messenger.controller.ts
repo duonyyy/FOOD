@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { AuthenticatedRequest } from 'src/common/auth/authenticated-request';
+import { AuthenticatedRequest } from 'src/shared/types/auth/authenticated-user.types';
 import { Conversation } from 'src/entities/conversation.entity';
 import { AuthGuard } from 'src/features/auth/public-api';
 import { CreateConversationDto } from './dto/create-conversation.dto';
